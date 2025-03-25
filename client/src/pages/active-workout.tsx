@@ -310,8 +310,8 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
       const setData = {
         completedWorkoutId: workoutId,
         exerciseId,
-        weight: typeof set.weight === 'string' ? parseFloat(set.weight) : set.weight,
-        reps: typeof set.reps === 'string' ? parseInt(set.reps) : set.reps,
+        weight: parseFloat(String(set.weight)),
+        reps: parseInt(String(set.reps)),
         rpe: 7, // Default RPE
         setNumber: set.setNumber,
         setType: set.type || 'working',
@@ -319,28 +319,48 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         timestamp: new Date().toISOString()
       };
       
-      console.log("Sending set data:", setData);
-      createSetMutation.mutate(setData);
+      console.log("Sending workout set data:", setData);
       
-      // Mark as completed locally
-      updateSetValue(exerciseId, setIndex, 'isCompleted', true);
-      
-      toast({
-        title: "Set Saved",
-        description: `${set.weight}kg x ${set.reps} reps`,
+      // Use apiRequest directly for more control
+      apiRequest(
+        'POST', 
+        `/api/workout-sets`, 
+        setData
+      )
+      .then(response => {
+        console.log("Set saved successfully:", response);
+        
+        // Mark as completed locally
+        updateSetValue(exerciseId, setIndex, 'isCompleted', true);
+        
+        toast({
+          title: "Set Saved",
+          description: `${set.weight}kg x ${set.reps} reps`,
+        });
+        
+        // Start a rest timer if not the last set
+        if (setIndex < currentSets.length - 1) {
+          // Get rest time from the template exercise
+          const restSeconds = currentTemplateExercise.restSeconds || 90;
+          startRestTimer(restSeconds);
+        }
+        
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({queryKey: [`/api/completed-workouts/${workoutId}/sets`]});
+      })
+      .catch(error => {
+        console.error("Error creating set:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save set data. Please try again.",
+          variant: "destructive"
+        });
       });
-      
-      // Start a rest timer if not the last set
-      if (setIndex < currentSets.length - 1) {
-        // Get rest time from the template exercise
-        const restSeconds = currentTemplateExercise.restSeconds || 90;
-        startRestTimer(restSeconds);
-      }
     } catch (error) {
-      console.error("Error saving set:", error);
+      console.error("Error preparing set data:", error);
       toast({
         title: "Error",
-        description: "Failed to save set data. Please try again.",
+        description: "Failed to prepare set data. Please try again.",
         variant: "destructive"
       });
     }

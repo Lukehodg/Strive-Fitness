@@ -230,11 +230,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/workout-sets", async (req: Request, res: Response) => {
     try {
-      const setData = insertWorkoutSetSchema.parse(req.body);
-      const set = await storage.createWorkoutSet(setData);
-      res.status(201).json(set);
+      console.log("Received workout set data:", req.body);
+      
+      // Manually validate and transform the data
+      const data = {
+        completedWorkoutId: Number(req.body.completedWorkoutId),
+        exerciseId: Number(req.body.exerciseId),
+        weight: Number(req.body.weight),
+        reps: Number(req.body.reps),
+        rpe: req.body.rpe ? Number(req.body.rpe) : null,
+        setNumber: Number(req.body.setNumber),
+        setType: req.body.setType || 'working',
+        isCompleted: Boolean(req.body.isCompleted),
+        timestamp: new Date(req.body.timestamp)
+      };
+      
+      console.log("Transformed workout set data:", data);
+      
+      // Now try to validate with the schema
+      try {
+        const setData = insertWorkoutSetSchema.parse(data);
+        console.log("Validated workout set data:", setData);
+        const set = await storage.createWorkoutSet(setData);
+        res.status(201).json(set);
+      } catch (validationError: any) {
+        console.error("Validation error:", validationError);
+        res.status(400).json({ 
+          message: "Invalid workout set data - validation failed", 
+          error: validationError.errors || validationError 
+        });
+      }
     } catch (error) {
-      res.status(400).json({ message: "Invalid workout set data", error });
+      console.error("General error in workout set creation:", error);
+      res.status(500).json({ message: "Server error creating workout set", error });
     }
   });
 
