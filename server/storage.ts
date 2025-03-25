@@ -118,6 +118,9 @@ export class MemStorage implements IStorage {
       bodyFat: 15,
       dailyCalorieTarget: 2500,
       dailyStepTarget: 10000,
+      dailyProteinTarget: 180,
+      dailyCarbsTarget: 250,
+      dailyFatTarget: 65,
       profileType: "premium"
     };
     this.createUser(sampleUser);
@@ -234,6 +237,9 @@ export class MemStorage implements IStorage {
       date: today,
       caloriesConsumed: 1625,
       caloriesBurned: 500,
+      proteinConsumed: 125,
+      carbsConsumed: 195,
+      fatConsumed: 48,
       stepsCount: 4286,
       waterIntake: 2.4,
       weightMeasurement: 82
