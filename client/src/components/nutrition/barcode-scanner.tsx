@@ -86,13 +86,19 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose }) => {
             {/* Scanning overlay */}
             {scanning && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10">
-                <div className="w-48 h-48 border-2 border-white rounded-lg relative">
+                <div className="w-64 h-48 border-2 border-white rounded-lg relative">
                   <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white"></div>
                   <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white"></div>
                   <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white"></div>
                   <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white"></div>
+                  
+                  {/* Scanning line animation */}
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary animate-scan"></div>
                 </div>
-                <p className="mt-4 text-sm">Position barcode within the box</p>
+                <div className="mt-4 text-sm bg-black bg-opacity-70 p-2 rounded-lg">
+                  <p className="font-semibold mb-1">Position barcode within the box</p>
+                  <p className="text-xs">For best results, ensure good lighting and hold steady</p>
+                </div>
               </div>
             )}
             

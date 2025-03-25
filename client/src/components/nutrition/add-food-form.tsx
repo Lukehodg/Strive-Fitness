@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -47,13 +47,20 @@ type FoodResult = {
   image?: string;
 };
 
-const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = "Breakfast" }) => {
+const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = "Breakfast", initialTab = 'manual' }) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<FoodResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<string>('manual');
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<string>(initialTab);
+  const [isScannerOpen, setIsScannerOpen] = useState(initialTab === 'scan');
+  
+  // Auto-open scanner when scan tab is selected
+  useEffect(() => {
+    if (selectedTab === 'scan') {
+      setIsScannerOpen(true);
+    }
+  }, [selectedTab]);
 
   // Initialize the form
   const form = useForm<z.infer<typeof foodSchema>>({
