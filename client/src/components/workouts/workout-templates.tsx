@@ -25,10 +25,11 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
   // Mutation for starting a new workout
   const startWorkoutMutation = useMutation({
     mutationFn: async (templateId: number) => {
+      console.log("Starting workout with template ID:", templateId);
       return await apiRequest('POST', '/api/completed-workouts', {
         userId: 1, // In a real app, we would get this from auth
         workoutTemplateId: templateId,
-        startTime: new Date().toISOString()
+        startTime: new Date()
       });
     },
     onSuccess: (data) => {

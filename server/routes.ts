@@ -165,11 +165,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/completed-workouts", async (req: Request, res: Response) => {
     try {
-      const workoutData = insertCompletedWorkoutSchema.parse(req.body);
-      const workout = await storage.createCompletedWorkout(workoutData);
-      res.status(201).json(workout);
+      console.log("Received completed workout data:", req.body);
+      
+      try {
+        // First try to validate the schema
+        const workoutData = insertCompletedWorkoutSchema.parse(req.body);
+        console.log("Validated workout data:", workoutData);
+        
+        // Then create the workout
+        const workout = await storage.createCompletedWorkout(workoutData);
+        console.log("Created completed workout:", workout);
+        
+        res.status(201).json(workout);
+      } catch (validationError) {
+        console.error("Validation error:", validationError);
+        res.status(400).json({ 
+          message: "Invalid completed workout data - validation failed", 
+          error: validationError,
+          receivedData: req.body
+        });
+      }
     } catch (error) {
-      res.status(400).json({ message: "Invalid completed workout data", error });
+      console.error("Server error creating completed workout:", error);
+      res.status(500).json({ message: "Server error creating completed workout", error });
     }
   });
 
