@@ -1,6 +1,9 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { ChevronRightIcon } from '@/lib/icons';
+import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface WorkoutTemplate {
   id: number;
@@ -17,9 +20,37 @@ interface WorkoutTemplatesProps {
 
 const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }) => {
   const [_, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  // Mutation for starting a new workout
+  const startWorkoutMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      return await apiRequest('POST', '/api/completed-workouts', {
+        userId: 1, // In a real app, we would get this from auth
+        workoutTemplateId: templateId,
+        startTime: new Date().toISOString()
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Workout Started",
+        description: "Your workout has been started",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
+      setLocation(`/workouts/active/${data.id}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to start workout",
+        variant: "destructive"
+      });
+      console.error(error);
+    }
+  });
 
   const handleTemplateClick = (templateId: number) => {
-    setLocation(`/workouts/${templateId}`);
+    startWorkoutMutation.mutate(templateId);
   };
 
   return (

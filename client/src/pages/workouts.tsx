@@ -137,10 +137,16 @@ const Workouts = () => {
     });
   };
   
-  if (!workoutTemplates || !completedWorkouts) {
+  const isDataLoaded = 
+    workoutTemplates && 
+    Array.isArray(workoutTemplates) && 
+    completedWorkouts && 
+    Array.isArray(completedWorkouts);
+    
+  if (!isDataLoaded) {
     return (
       <div className="p-4 flex items-center justify-center h-[90vh]">
-        <p>Loading...</p>
+        <p>Loading workouts...</p>
       </div>
     );
   }
