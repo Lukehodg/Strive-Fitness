@@ -24,6 +24,8 @@ const CreateWorkout = () => {
   // Mutation for creating a workout template
   const createWorkoutMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("Creating workout with data:", data);
+      
       // First create the workout template
       const template = await apiRequest('POST', '/api/workout-templates', {
         userId: 1, // In a real app, we would get this from auth
@@ -35,25 +37,45 @@ const CreateWorkout = () => {
       
       console.log("Created template:", template);
       
+      if (!template || !template.id) {
+        throw new Error("Failed to create workout template - no template ID returned");
+      }
+      
       // Create template exercises for each selected exercise
+      const addedExercises = [];
+      
       for (let i = 0; i < data.exercises.length; i++) {
         const exercise = data.exercises[i];
+        console.log(`Adding exercise ${i+1}/${data.exercises.length}:`, exercise);
+        
         try {
-          const templateExercise = await apiRequest('POST', '/api/workout-template-exercises', {
+          // Ensure default values are set if missing
+          const sets = exercise.sets || 3;
+          const repsMin = exercise.repsMin || 8;
+          const repsMax = exercise.repsMax || 12;
+          
+          const templateExerciseData = {
             workoutTemplateId: template.id,
             exerciseId: exercise.id,
-            sets: exercise.sets || 3,
-            repsMin: exercise.repsMin || 8,
-            repsMax: exercise.repsMax || 12,
+            sets: sets,
+            repsMin: repsMin,
+            repsMax: repsMax,
             restSeconds: 90, // Default rest time
             order: i + 1
-          });
+          };
+          
+          console.log("Sending template exercise data:", templateExerciseData);
+          
+          const templateExercise = await apiRequest('POST', '/api/workout-template-exercises', templateExerciseData);
           console.log("Created template exercise:", templateExercise);
+          addedExercises.push(templateExercise);
         } catch (error) {
-          console.error("Failed to create template exercise:", error);
+          console.error(`Failed to create template exercise for ${exercise.name}:`, error);
+          // Continue with other exercises even if one fails
         }
       }
       
+      console.log(`Successfully added ${addedExercises.length} of ${data.exercises.length} exercises`);
       return template;
     },
     onSuccess: () => {
@@ -165,9 +187,10 @@ const CreateWorkout = () => {
     );
   }
   
-  const muscleGroups = Array.from(
-    new Set(exercises?.map((e: any) => e.muscleGroup))
-  ).sort();
+  // Safely extract muscle groups from exercises data
+  const muscleGroups = exercises && Array.isArray(exercises)
+    ? Array.from(new Set(exercises.map((e: any) => e.muscleGroup || 'Other'))).sort()
+    : [];
   
   return (
     <div className="p-4 space-y-6">
@@ -278,7 +301,7 @@ const CreateWorkout = () => {
           <div key={group} className="mb-4">
             <h4 className="font-medium text-gray-500 mb-2">{group}</h4>
             <div className="space-y-2">
-              {exercises
+              {exercises && Array.isArray(exercises) ? exercises
                 .filter((e: any) => e.muscleGroup === group)
                 .map((exercise: any) => (
                   <div 
@@ -294,7 +317,9 @@ const CreateWorkout = () => {
                       <AddIcon className="text-primary w-4 h-4" />
                     </button>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-gray-500 text-sm py-2">No exercises found in this category</div>
+                )}
             </div>
           </div>
         ))}
