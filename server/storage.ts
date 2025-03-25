@@ -124,12 +124,50 @@ export class MemStorage implements IStorage {
 
     // Create sample exercises
     const exercises = [
+      // Chest
       { name: "Bench Press", category: "Strength", muscleGroup: "Chest", description: "Flat barbell bench press" },
-      { name: "Squat", category: "Strength", muscleGroup: "Legs", description: "Barbell back squat" },
+      { name: "Incline DB Press", category: "Strength", muscleGroup: "Chest", description: "Incline dumbbell press" },
+      { name: "Chest Fly", category: "Strength", muscleGroup: "Chest", description: "Dumbbell chest fly" },
+      { name: "Cable Crossover", category: "Strength", muscleGroup: "Chest", description: "Cable crossover fly" },
+      { name: "Push-Up", category: "Bodyweight", muscleGroup: "Chest", description: "Standard push-up" },
+      { name: "Decline Press", category: "Strength", muscleGroup: "Chest", description: "Decline barbell press" },
+      
+      // Back
       { name: "Deadlift", category: "Strength", muscleGroup: "Back", description: "Conventional deadlift" },
       { name: "Pull-up", category: "Bodyweight", muscleGroup: "Back", description: "Standard pull-up" },
-      { name: "Incline DB Press", category: "Strength", muscleGroup: "Chest", description: "Incline dumbbell press" },
-      { name: "Lat Pulldown", category: "Strength", muscleGroup: "Back", description: "Wide-grip lat pulldown" }
+      { name: "Lat Pulldown", category: "Strength", muscleGroup: "Back", description: "Wide-grip lat pulldown" },
+      { name: "Barbell Row", category: "Strength", muscleGroup: "Back", description: "Bent over barbell row" },
+      { name: "T-Bar Row", category: "Strength", muscleGroup: "Back", description: "T-bar row machine" },
+      { name: "Seated Cable Row", category: "Strength", muscleGroup: "Back", description: "Seated cable row" },
+      
+      // Legs
+      { name: "Squat", category: "Strength", muscleGroup: "Legs", description: "Barbell back squat" },
+      { name: "Leg Press", category: "Strength", muscleGroup: "Legs", description: "Machine leg press" },
+      { name: "Romanian Deadlift", category: "Strength", muscleGroup: "Legs", description: "Romanian deadlift" },
+      { name: "Leg Extension", category: "Strength", muscleGroup: "Legs", description: "Machine leg extension" },
+      { name: "Leg Curl", category: "Strength", muscleGroup: "Legs", description: "Lying leg curl" },
+      { name: "Calf Raise", category: "Strength", muscleGroup: "Legs", description: "Standing calf raise" },
+      
+      // Shoulders
+      { name: "Overhead Press", category: "Strength", muscleGroup: "Shoulders", description: "Barbell overhead press" },
+      { name: "Lateral Raise", category: "Strength", muscleGroup: "Shoulders", description: "Dumbbell lateral raise" },
+      { name: "Front Raise", category: "Strength", muscleGroup: "Shoulders", description: "Dumbbell front raise" },
+      { name: "Face Pull", category: "Strength", muscleGroup: "Shoulders", description: "Cable face pull" },
+      { name: "Reverse Fly", category: "Strength", muscleGroup: "Shoulders", description: "Bent over dumbbell reverse fly" },
+      
+      // Arms
+      { name: "Bicep Curl", category: "Strength", muscleGroup: "Arms", description: "Dumbbell bicep curl" },
+      { name: "Hammer Curl", category: "Strength", muscleGroup: "Arms", description: "Dumbbell hammer curl" },
+      { name: "Tricep Extension", category: "Strength", muscleGroup: "Arms", description: "Overhead tricep extension" },
+      { name: "Tricep Pushdown", category: "Strength", muscleGroup: "Arms", description: "Cable tricep pushdown" },
+      { name: "Skull Crusher", category: "Strength", muscleGroup: "Arms", description: "Lying tricep extension" },
+      
+      // Core
+      { name: "Plank", category: "Bodyweight", muscleGroup: "Core", description: "Standard plank position" },
+      { name: "Crunch", category: "Bodyweight", muscleGroup: "Core", description: "Standard crunch" },
+      { name: "Russian Twist", category: "Bodyweight", muscleGroup: "Core", description: "Seated russian twist" },
+      { name: "Leg Raise", category: "Bodyweight", muscleGroup: "Core", description: "Lying leg raise" },
+      { name: "Ab Wheel", category: "Strength", muscleGroup: "Core", description: "Ab wheel rollout" }
     ];
 
     exercises.forEach(exercise => this.createExercise(exercise));

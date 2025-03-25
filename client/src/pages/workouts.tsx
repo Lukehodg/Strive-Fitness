@@ -32,16 +32,24 @@ const Workouts = () => {
   
   // Fetch template exercises for current workout
   const { data: templateExercises } = useQuery({
-    queryKey: ['/api/workout-templates/1/exercises'],
+    queryKey: ['/api/workout-templates', currentWorkout?.workoutTemplateId, 'exercises'],
+    queryFn: async () => {
+      if (!currentWorkout?.workoutTemplateId) return [];
+      return await apiRequest('GET', `/api/workout-templates/${currentWorkout.workoutTemplateId}/exercises`);
+    },
     staleTime: 60000, // 1 minute
-    enabled: !!currentWorkout,
+    enabled: !!currentWorkout?.workoutTemplateId,
   });
   
   // Fetch workout sets for current workout
   const { data: workoutSets } = useQuery({
-    queryKey: ['/api/completed-workouts/1/sets'],
+    queryKey: ['/api/completed-workouts', currentWorkout?.id, 'sets'],
+    queryFn: async () => {
+      if (!currentWorkout?.id) return [];
+      return await apiRequest('GET', `/api/completed-workouts/${currentWorkout.id}/sets`);
+    },
     staleTime: 60000, // 1 minute
-    enabled: !!currentWorkout,
+    enabled: !!currentWorkout?.id,
   });
   
   // Fetch exercises data
@@ -103,9 +111,17 @@ const Workouts = () => {
   const prepareCurrentWorkoutData = () => {
     if (!exercises || !templateExercises || !workoutSets) return [];
     
-    return templateExercises.map(te => {
-      const exercise = exercises.find(ex => ex.id === te.exerciseId);
-      const sets = workoutSets.filter(set => set.exerciseId === te.exerciseId);
+    // Ensure templateExercises is an array before calling map
+    const exercisesArray = Array.isArray(templateExercises) ? templateExercises : [];
+    
+    return exercisesArray.map(te => {
+      // Check if exercises is an array
+      const exercisesArray = Array.isArray(exercises) ? exercises : [];
+      const exercise = exercisesArray.find(ex => ex.id === te.exerciseId);
+      
+      // Check if workoutSets is an array
+      const setsArray = Array.isArray(workoutSets) ? workoutSets : [];
+      const sets = setsArray.filter(set => set.exerciseId === te.exerciseId);
       const isCompleted = sets.length >= te.sets;
       
       return {

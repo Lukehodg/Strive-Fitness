@@ -120,11 +120,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/workout-template-exercises", async (req: Request, res: Response) => {
     try {
-      const exerciseData = insertWorkoutTemplateExerciseSchema.parse(req.body);
-      const exercise = await storage.createWorkoutTemplateExercise(exerciseData);
-      res.status(201).json(exercise);
+      console.log("Received workout template exercise data:", req.body);
+      
+      // Validate the exercise data with more detailed error logging
+      try {
+        const exerciseData = insertWorkoutTemplateExerciseSchema.parse(req.body);
+        console.log("Validated exercise data:", exerciseData);
+        
+        const exercise = await storage.createWorkoutTemplateExercise(exerciseData);
+        console.log("Created template exercise:", exercise);
+        
+        res.status(201).json(exercise);
+      } catch (validationError) {
+        console.error("Validation error:", validationError);
+        res.status(400).json({ 
+          message: "Invalid template exercise data", 
+          error: validationError,
+          receivedData: req.body
+        });
+      }
     } catch (error) {
-      res.status(400).json({ message: "Invalid template exercise data", error });
+      console.error("Server error processing template exercise:", error);
+      res.status(500).json({ message: "Server error processing template exercise", error });
     }
   });
 
