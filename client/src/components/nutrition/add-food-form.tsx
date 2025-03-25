@@ -111,7 +111,7 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     }
   };
 
-  // Search for food using Nutritionix API (to be implemented)
+  // Search for food using our nutrition API
   const searchFood = async () => {
     if (!searchTerm.trim()) {
       toast({
@@ -125,33 +125,41 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     setIsSearching(true);
     
     try {
-      // This would need your Nutritionix API key
-      toast({
-        title: 'API Key Required',
-        description: 'MyFitnessPal API integration requires an API key',
-      });
+      // Call our API endpoint that accesses Nutritionix
+      const response = await fetch(`/api/nutrition/search?q=${encodeURIComponent(searchTerm)}`);
       
-      // Simulated results for demo
-      const mockResults: FoodResult[] = [
-        {
-          food_name: 'Chicken Breast',
-          nf_protein: 26,
-          nf_total_carbohydrate: 0,
-          nf_total_fat: 3.6,
-          serving_qty: 100,
-          serving_unit: 'g'
-        },
-        {
-          food_name: 'Brown Rice',
-          nf_protein: 2.6,
-          nf_total_carbohydrate: 23,
-          nf_total_fat: 0.9,
-          serving_qty: 100,
-          serving_unit: 'g'
-        }
-      ];
+      if (!response.ok) {
+        throw new Error(`Error searching for food: ${response.statusText}`);
+      }
       
-      setSearchResults(mockResults);
+      // Check if we're using fallback data
+      const isFallback = response.headers.get('X-Using-Fallback') === 'true';
+      
+      if (isFallback) {
+        toast({
+          title: 'Using Fallback Data',
+          description: 'Nutritional data is approximate. Add API key for accurate data.',
+        });
+      }
+      
+      const foods = await response.json();
+      
+      if (foods && Array.isArray(foods)) {
+        setSearchResults(foods.map(food => ({
+          food_name: food.food_name,
+          nf_protein: food.nf_protein,
+          nf_total_carbohydrate: food.nf_total_carbohydrate,
+          nf_total_fat: food.nf_total_fat,
+          serving_qty: food.serving_qty,
+          serving_unit: food.serving_unit
+        })));
+      } else {
+        setSearchResults([]);
+        toast({
+          title: 'No Results',
+          description: 'No foods found for your search term.',
+        });
+      }
     } catch (error) {
       console.error('Error searching for food:', error);
       toast({
@@ -350,7 +358,7 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
             </div>
             
             <div className="text-xs text-gray-500 text-center">
-              Powered by MyFitnessPal API (requires API key)
+              Powered by Nutritionix API (requires API key)
             </div>
           </div>
         </TabsContent>

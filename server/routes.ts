@@ -12,6 +12,7 @@ import {
   insertWorkoutTemplateExerciseSchema,
   insertWorkoutTemplateSchema
 } from "@shared/schema";
+import { searchFoods, getFallbackFoods } from "./nutritionApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -332,8 +333,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const mealData = insertMealSchema.parse(req.body);
       const meal = await storage.createMeal(mealData);
+      
+      // Get the current date at midnight to match with daily stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Get or create daily stats for the user
+      let dailyStats = await storage.getDailyStats(mealData.userId, today);
+      
+      if (!dailyStats) {
+        // Create new daily stats if none exist for today
+        dailyStats = await storage.createDailyStats({
+          userId: mealData.userId,
+          date: today,
+          caloriesConsumed: 0,
+          caloriesBurned: 0,
+          proteinConsumed: 0,
+          carbsConsumed: 0,
+          fatConsumed: 0,
+          stepsCount: 0,
+          waterIntake: 0
+        });
+      }
+      
+      // Update the daily stats with the new meal data
+      await storage.updateDailyStats(dailyStats.id, {
+        caloriesConsumed: (dailyStats.caloriesConsumed || 0) + mealData.calories,
+        proteinConsumed: (dailyStats.proteinConsumed || 0) + mealData.protein,
+        carbsConsumed: (dailyStats.carbsConsumed || 0) + mealData.carbs,
+        fatConsumed: (dailyStats.fatConsumed || 0) + mealData.fat
+      });
+      
       res.status(201).json(meal);
     } catch (error) {
+      console.error("Error creating meal:", error);
       res.status(400).json({ message: "Invalid meal data", error });
     }
   });
@@ -366,6 +399,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedStats);
     } catch (error) {
       res.status(400).json({ message: "Invalid stats data", error });
+    }
+  });
+
+  // Nutrition API routes for food search
+  app.get("/api/nutrition/search", async (req: Request, res: Response) => {
+    const query = req.query.q as string;
+    
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+    
+    try {
+      // Check if we have the API credentials
+      const hasApiCredentials = process.env.NUTRITIONIX_APP_ID && process.env.NUTRITIONIX_API_KEY;
+      
+      if (hasApiCredentials) {
+        // Use the real API if credentials are available
+        const foods = await searchFoods(query);
+        res.json(foods);
+      } else {
+        // Use the fallback data if no API credentials
+        const fallbackFoods = getFallbackFoods(query);
+        
+        // Inform the client that we're using fallback data
+        res.setHeader('X-Using-Fallback', 'true');
+        res.json(fallbackFoods);
+      }
+    } catch (error) {
+      console.error("Error searching for nutritional data:", error);
+      
+      // If the API fails, use fallback data as a last resort
+      const fallbackFoods = getFallbackFoods(query);
+      res.setHeader('X-Using-Fallback', 'true');
+      res.status(200).json(fallbackFoods);
     }
   });
 
