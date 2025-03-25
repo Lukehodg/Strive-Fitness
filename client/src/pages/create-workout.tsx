@@ -37,7 +37,7 @@ const CreateWorkout = () => {
       
       console.log("Created template:", template);
       
-      if (!template || !template.id) {
+      if (!template || template.id === undefined) {
         throw new Error("Failed to create workout template - no template ID returned");
       }
       
@@ -54,21 +54,28 @@ const CreateWorkout = () => {
           const repsMin = exercise.repsMin || 8;
           const repsMax = exercise.repsMax || 12;
           
+          // Make sure we have all the required fields from the schema
+          // workoutTemplateId, exerciseId, sets, repsMin, repsMax, order
           const templateExerciseData = {
             workoutTemplateId: template.id,
             exerciseId: exercise.id,
             sets: sets,
             repsMin: repsMin,
             repsMax: repsMax,
-            restSeconds: 90, // Default rest time
-            order: i + 1
+            order: i + 1,
+            restSeconds: 90 // Optional but good to include
           };
           
           console.log("Sending template exercise data:", templateExerciseData);
           
           const templateExercise = await apiRequest('POST', '/api/workout-template-exercises', templateExerciseData);
           console.log("Created template exercise:", templateExercise);
-          addedExercises.push(templateExercise);
+          
+          if (templateExercise) {
+            addedExercises.push(templateExercise);
+          } else {
+            console.error(`No response received when creating template exercise for ${exercise.name}`);
+          }
         } catch (error) {
           console.error(`Failed to create template exercise for ${exercise.name}:`, error);
           // Continue with other exercises even if one fails
