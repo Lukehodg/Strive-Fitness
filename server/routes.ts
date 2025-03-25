@@ -13,6 +13,7 @@ import {
   insertWorkoutTemplateSchema
 } from "@shared/schema";
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
+import { getProductByBarcode } from "./openFoodFactsApi";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -402,7 +403,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Nutrition API routes for food search
+  // Nutrition API routes for food search and barcode lookup
+  app.get("/api/nutrition/barcode/:barcode", async (req: Request, res: Response) => {
+    const barcode = req.params.barcode;
+    
+    if (!barcode || barcode.trim() === '') {
+      return res.status(400).json({ message: "Barcode is required" });
+    }
+    
+    try {
+      const product = await getProductByBarcode(barcode);
+      
+      if (product) {
+        res.json(product);
+      } else {
+        res.status(404).json({ 
+          message: "Product not found", 
+          barcode
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching product by barcode:", error);
+      res.status(500).json({ 
+        message: "Error searching for product",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   app.get("/api/nutrition/search", async (req: Request, res: Response) => {
     const query = req.query.q as string;
     
