@@ -37,7 +37,8 @@ const CreateWorkout = () => {
       
       console.log("Created template:", template);
       
-      if (!template || template.id === undefined) {
+      if (!template || !template.id) {
+        console.error("Template response:", template);
         throw new Error("Failed to create workout template - no template ID returned");
       }
       
