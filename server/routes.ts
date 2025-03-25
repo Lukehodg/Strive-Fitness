@@ -332,7 +332,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/meals", async (req: Request, res: Response) => {
     try {
-      const mealData = insertMealSchema.parse(req.body);
+      // Ensure timestamp is a Date object before parsing
+      const data = { ...req.body };
+      
+      // Convert timestamp string to Date if necessary
+      if (data.timestamp && typeof data.timestamp === 'string') {
+        data.timestamp = new Date(data.timestamp);
+      }
+      
+      const mealData = insertMealSchema.parse(data);
       const meal = await storage.createMeal(mealData);
       
       // Get the current date at midnight to match with daily stats

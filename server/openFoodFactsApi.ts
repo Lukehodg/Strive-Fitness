@@ -48,7 +48,19 @@ export async function getProductByBarcode(barcode: string): Promise<FoodData | n
     
     // Extract and normalize the data
     const servingSize = extractServingSize(product);
-    const quantity = 1; // Default quantity
+    
+    // Try to parse the quantity from the product data
+    let quantity = 1; // Default quantity
+    let packageUnit = 'g';
+    
+    // Try to extract quantity from product.quantity (e.g. "500ml", "1kg", etc.)
+    if (product.quantity) {
+      const qtyMatch = product.quantity.match(/(\d+)\s*([a-zA-Z]+)/);
+      if (qtyMatch && qtyMatch.length >= 3) {
+        quantity = parseFloat(qtyMatch[1]);
+        packageUnit = qtyMatch[2].toLowerCase();
+      }
+    }
     
     // Convert from Open Food Facts format to our app's format
     const foodData: FoodData = {
@@ -58,7 +70,7 @@ export async function getProductByBarcode(barcode: string): Promise<FoodData | n
       nf_total_carbohydrate: product.nutriments.carbohydrates_100g || 0,
       nf_total_fat: product.nutriments.fat_100g || 0,
       serving_qty: quantity,
-      serving_unit: servingSize.unit,
+      serving_unit: packageUnit || servingSize.unit,
       serving_weight_grams: servingSize.weight,
       image: product.image_url,
     };
