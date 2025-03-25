@@ -477,7 +477,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         {/* Exercise List */}
         {showAllExercises && (
           <div className="mt-2 max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-2">
-            {templateExercises.map((exercise, index) => {
+            {templateExercises.map((exercise: any, index: number) => {
               const ex = exercises?.find((e: any) => e.id === exercise.exerciseId);
               const sets = exerciseSets.get(exercise.exerciseId) || [];
               const completedSets = sets.filter(s => s.isCompleted).length;
@@ -524,8 +524,27 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-medium">Sets</h4>
-            <div className="text-sm text-gray-500">
-              {currentSets.filter(s => s.isCompleted).length} / {currentSets.length} completed
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-gray-500">
+                {currentSets.filter(s => s.isCompleted).length} / {currentSets.length} completed
+              </div>
+              <div className="flex border rounded-md">
+                <button
+                  className="p-1 text-gray-500 hover:text-primary"
+                  onClick={() => removeSet(currentTemplateExercise.exerciseId)}
+                  title="Remove a set"
+                  disabled={currentSets.length <= 1 || currentSets[currentSets.length - 1].isCompleted}
+                >
+                  <Minus size={16} />
+                </button>
+                <button
+                  className="p-1 text-gray-500 hover:text-primary"
+                  onClick={() => addSet(currentTemplateExercise.exerciseId)}
+                  title="Add a set"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -608,6 +627,33 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
                     )}
                   </div>
                 </div>
+                
+                {/* Manual rest timer buttons */}
+                {set.isCompleted && setIndex < currentSets.length - 1 && !currentSets[setIndex + 1].isCompleted && (
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-500">Need a break before next set?</div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        onClick={() => startRestTimer(30)}
+                      >
+                        <TimerIcon size={12} /> 30s
+                      </button>
+                      <button 
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        onClick={() => startRestTimer(60)}
+                      >
+                        <TimerIcon size={12} /> 60s
+                      </button>
+                      <button 
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        onClick={() => startRestTimer(90)}
+                      >
+                        <TimerIcon size={12} /> 90s
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
