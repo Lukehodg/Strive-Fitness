@@ -107,19 +107,24 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   // Create workout set mutation
   const createSetMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest('POST', '/api/workout-sets', {
+      // Make sure setType is used instead of type for the API
+      const payload = {
         completedWorkoutId: workoutId,
         exerciseId: data.exerciseId,
         weight: data.weight,
         reps: data.reps,
         rpe: data.rpe || 7,
         setNumber: data.setNumber,
-        setType: data.type,
+        setType: data.setType || 'working',
         isCompleted: true,
         timestamp: new Date().toISOString()
-      });
+      };
+      
+      console.log("Sending workout set data:", payload);
+      return await apiRequest('POST', '/api/workout-sets', payload);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Set created successfully:", data);
       queryClient.invalidateQueries({ queryKey: [`/api/completed-workouts/${workoutId}/sets`] });
     },
     onError: (error) => {
@@ -128,7 +133,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         description: "Failed to save workout set",
         variant: "destructive"
       });
-      console.error(error);
+      console.error("Error creating set:", error);
     }
   });
   
@@ -183,21 +188,35 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
       return;
     }
     
-    createSetMutation.mutate({
-      exerciseId,
-      weight: parseFloat(set.weight),
-      reps: parseInt(set.reps),
-      setNumber: set.setNumber,
-      type: set.type
-    });
-    
-    // Mark as completed
-    updateSetValue(exerciseId, setIndex, 'isCompleted', true);
-    
-    toast({
-      title: "Set Saved",
-      description: `${set.weight}kg x ${set.reps} reps`,
-    });
+    try {
+      // Use setType field instead of type for the API
+      createSetMutation.mutate({
+        completedWorkoutId: workoutId,
+        exerciseId,
+        weight: parseFloat(set.weight),
+        reps: parseInt(set.reps),
+        rpe: 7, // Default RPE
+        setNumber: set.setNumber,
+        setType: set.type || 'working', // Ensure we're using the correct field name
+        isCompleted: true,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Mark as completed locally
+      updateSetValue(exerciseId, setIndex, 'isCompleted', true);
+      
+      toast({
+        title: "Set Saved",
+        description: `${set.weight}kg x ${set.reps} reps`,
+      });
+    } catch (error) {
+      console.error("Error saving set:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save set data. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Toggle set type between warmup and working

@@ -24,6 +24,7 @@ const CreateWorkout = () => {
   // Mutation for creating a workout template
   const createWorkoutMutation = useMutation({
     mutationFn: async (data: any) => {
+      // First create the workout template
       const template = await apiRequest('POST', '/api/workout-templates', {
         userId: 1, // In a real app, we would get this from auth
         name: data.name,
@@ -32,20 +33,27 @@ const CreateWorkout = () => {
         color: getRandomColor()
       });
       
-      // Create template exercises for each selected exercise
-      const exercisePromises = data.exercises.map((exercise: any, index: number) => {
-        return apiRequest('POST', '/api/workout-template-exercises', {
-          workoutTemplateId: template.id,
-          exerciseId: exercise.id,
-          sets: exercise.sets,
-          repsMin: exercise.repsMin,
-          repsMax: exercise.repsMax,
-          restSeconds: 90, // Default rest time
-          order: index + 1
-        });
-      });
+      console.log("Created template:", template);
       
-      await Promise.all(exercisePromises);
+      // Create template exercises for each selected exercise
+      for (let i = 0; i < data.exercises.length; i++) {
+        const exercise = data.exercises[i];
+        try {
+          const templateExercise = await apiRequest('POST', '/api/workout-template-exercises', {
+            workoutTemplateId: template.id,
+            exerciseId: exercise.id,
+            sets: exercise.sets || 3,
+            repsMin: exercise.repsMin || 8,
+            repsMax: exercise.repsMax || 12,
+            restSeconds: 90, // Default rest time
+            order: i + 1
+          });
+          console.log("Created template exercise:", templateExercise);
+        } catch (error) {
+          console.error("Failed to create template exercise:", error);
+        }
+      }
+      
       return template;
     },
     onSuccess: () => {
