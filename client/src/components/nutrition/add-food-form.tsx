@@ -18,7 +18,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Scan, Camera } from 'lucide-react';
+import BarcodeScanner from './barcode-scanner';
 
 // Define the form schema
 const foodSchema = z.object({
@@ -42,6 +43,7 @@ type FoodResult = {
   nf_total_fat: number;
   serving_qty: number;
   serving_unit: string;
+  image?: string;
 };
 
 const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = "Breakfast" }) => {
@@ -50,6 +52,7 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
   const [searchResults, setSearchResults] = useState<FoodResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>('manual');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Initialize the form
   const form = useForm<z.infer<typeof foodSchema>>({
@@ -151,7 +154,8 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
           nf_total_carbohydrate: food.nf_total_carbohydrate,
           nf_total_fat: food.nf_total_fat,
           serving_qty: food.serving_qty,
-          serving_unit: food.serving_unit
+          serving_unit: food.serving_unit,
+          image: food.image
         })));
       } else {
         setSearchResults([]);
@@ -181,15 +185,60 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     form.setValue('quantity', 1);
     setSelectedTab('manual');
   };
+  
+  // Handle barcode scanning
+  const handleBarcodeScan = async (barcode: string) => {
+    setIsScannerOpen(false);
+    setIsSearching(true);
+    
+    try {
+      const response = await fetch(`/api/nutrition/barcode/${barcode}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast({
+            title: 'Product Not Found',
+            description: `No product found with barcode ${barcode}`,
+            variant: 'destructive',
+          });
+        } else {
+          throw new Error(`Error fetching product: ${response.statusText}`);
+        }
+        return;
+      }
+      
+      const product = await response.json();
+      
+      if (product) {
+        toast({
+          title: 'Product Found',
+          description: `Found: ${product.food_name}`,
+        });
+        
+        // Select the food
+        selectFood(product);
+      }
+    } catch (error) {
+      console.error('Error scanning barcode:', error);
+      toast({
+        title: 'Scan Error',
+        description: 'Failed to get product information. Please try again or enter manually.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4">
       <h3 className="font-semibold text-lg mb-4">Add Food</h3>
       
       <Tabs defaultValue="manual" value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="manual">Manual Entry</TabsTrigger>
           <TabsTrigger value="search">Search Food</TabsTrigger>
+          <TabsTrigger value="scan">Scan Barcode</TabsTrigger>
         </TabsList>
         
         <TabsContent value="manual">
@@ -337,15 +386,26 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                   {searchResults.map((food, index) => (
                     <div 
                       key={index} 
-                      className="bg-[#F5F5F5] p-3 rounded-lg cursor-pointer hover:bg-gray-200"
+                      className="bg-[#F5F5F5] p-3 rounded-lg cursor-pointer hover:bg-gray-200 flex gap-3"
                       onClick={() => selectFood(food)}
                     >
-                      <div className="font-medium">{food.food_name}</div>
-                      <div className="text-sm text-gray-500">
-                        {food.serving_qty} {food.serving_unit} | 
-                        P: {food.nf_protein}g | 
-                        C: {food.nf_total_carbohydrate}g | 
-                        F: {food.nf_total_fat}g
+                      {food.image && (
+                        <div className="flex-shrink-0 w-12 h-12">
+                          <img 
+                            src={food.image} 
+                            alt={food.food_name} 
+                            className="w-full h-full object-cover rounded" 
+                          />
+                        </div>
+                      )}
+                      <div className="flex-grow">
+                        <div className="font-medium">{food.food_name}</div>
+                        <div className="text-sm text-gray-500">
+                          {food.serving_qty} {food.serving_unit} | 
+                          P: {food.nf_protein}g | 
+                          C: {food.nf_total_carbohydrate}g | 
+                          F: {food.nf_total_fat}g
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -362,7 +422,58 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
             </div>
           </div>
         </TabsContent>
+        
+        <TabsContent value="scan">
+          <div className="space-y-4">
+            <div className="text-center p-4">
+              <p className="mb-4">Scan a food product barcode to get nutritional information</p>
+              
+              <Button 
+                onClick={() => setIsScannerOpen(true)} 
+                className="w-full flex items-center justify-center gap-2"
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Scan className="h-5 w-5" />
+                    <span>Open Scanner</span>
+                  </>
+                )}
+              </Button>
+              
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                Powered by Open Food Facts database
+              </div>
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
+      
+      {/* Barcode Scanner Modal */}
+      {isScannerOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-4 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-lg">Scan Barcode</h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsScannerOpen(false)}
+                className="h-8 w-8 p-0"
+              >
+                &times;
+              </Button>
+            </div>
+            
+            <BarcodeScanner 
+              onScan={handleBarcodeScan} 
+              onClose={() => setIsScannerOpen(false)} 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
