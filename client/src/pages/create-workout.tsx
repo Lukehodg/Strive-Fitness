@@ -14,6 +14,10 @@ const CreateWorkout = () => {
   // Fetch available exercises
   const { data: exercises, isLoading: isLoadingExercises } = useQuery({
     queryKey: ['/api/exercises'],
+    queryFn: async () => {
+      const data = await apiRequest('GET', '/api/exercises');
+      return data || [];
+    },
     staleTime: 60000, // 1 minute
   });
   
