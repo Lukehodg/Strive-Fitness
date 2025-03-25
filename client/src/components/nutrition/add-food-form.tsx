@@ -92,7 +92,7 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
       const meal = {
         userId: 1, // In a real app, this would come from user context
         name: data.mealName,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(), // Send the actual Date object, not a string
         calories: Math.round(calories),
         protein: data.protein,
         carbs: data.carbs,
@@ -192,6 +192,12 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     form.setValue('fat', food.nf_total_fat);
     form.setValue('quantity', 1);
     setSelectedTab('manual');
+    
+    // Show a success toast with nutrition info summary
+    toast({
+      title: 'Food Selected',
+      description: `${food.food_name} (P: ${food.nf_protein}g, C: ${food.nf_total_carbohydrate}g, F: ${food.nf_total_fat}g)`,
+    });
   };
   
   // Handle barcode scanning
@@ -272,7 +278,10 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                   name="protein"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Protein (g)</FormLabel>
+                      <FormLabel className="flex items-center">
+                        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded mr-2">P</span> 
+                        Protein (g)
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.1" {...field} />
                       </FormControl>
@@ -286,7 +295,10 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                   name="carbs"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Carbs (g)</FormLabel>
+                      <FormLabel className="flex items-center">
+                        <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded mr-2">C</span> 
+                        Carbs (g)
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.1" {...field} />
                       </FormControl>
@@ -300,7 +312,10 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                   name="fat"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fat (g)</FormLabel>
+                      <FormLabel className="flex items-center">
+                        <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded mr-2">F</span> 
+                        Fat (g)
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" step="0.1" {...field} />
                       </FormControl>
