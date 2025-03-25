@@ -13,6 +13,9 @@ export const users = pgTable("users", {
   bodyFat: real("body_fat"),
   dailyCalorieTarget: integer("daily_calorie_target"),
   dailyStepTarget: integer("daily_step_target"),
+  dailyProteinTarget: integer("daily_protein_target"),
+  dailyCarbsTarget: integer("daily_carbs_target"),
+  dailyFatTarget: integer("daily_fat_target"),
   profileType: text("profile_type").default("standard"),
 });
 
@@ -139,6 +142,9 @@ export const dailyStats = pgTable("daily_stats", {
   date: timestamp("date").notNull(),
   caloriesConsumed: integer("calories_consumed").default(0),
   caloriesBurned: integer("calories_burned").default(0),
+  proteinConsumed: real("protein_consumed").default(0),
+  carbsConsumed: real("carbs_consumed").default(0),
+  fatConsumed: real("fat_consumed").default(0),
   stepsCount: integer("steps_count").default(0),
   waterIntake: real("water_intake").default(0),
   weightMeasurement: real("weight_measurement"),
