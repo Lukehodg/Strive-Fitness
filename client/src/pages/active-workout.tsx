@@ -306,18 +306,21 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
     }
     
     try {
-      // Use setType field instead of type for the API
-      createSetMutation.mutate({
+      // Format the workout set data according to the schema required by the API
+      const setData = {
         completedWorkoutId: workoutId,
         exerciseId,
-        weight: parseFloat(set.weight),
-        reps: parseInt(set.reps),
+        weight: typeof set.weight === 'string' ? parseFloat(set.weight) : set.weight,
+        reps: typeof set.reps === 'string' ? parseInt(set.reps) : set.reps,
         rpe: 7, // Default RPE
         setNumber: set.setNumber,
-        setType: set.type || 'working', // Ensure we're using the correct field name
+        setType: set.type || 'working',
         isCompleted: true,
         timestamp: new Date().toISOString()
-      });
+      };
+      
+      console.log("Sending set data:", setData);
+      createSetMutation.mutate(setData);
       
       // Mark as completed locally
       updateSetValue(exerciseId, setIndex, 'isCompleted', true);
