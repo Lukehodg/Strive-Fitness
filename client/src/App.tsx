@@ -8,6 +8,8 @@ import Workouts from "@/pages/workouts";
 import Exercise from "@/pages/exercise";
 import Nutrition from "@/pages/nutrition";
 import Profile from "@/pages/profile";
+import CreateWorkout from "@/pages/create-workout";
+import ActiveWorkout from "@/pages/active-workout";
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { useEffect, useState } from "react";
 
@@ -66,6 +68,10 @@ function Router() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/workouts" component={Workouts} />
+          <Route path="/workouts/create" component={CreateWorkout} />
+          <Route path="/workouts/active/:id">
+            {(params) => <ActiveWorkout workoutId={parseInt(params.id, 10)} />}
+          </Route>
           <Route path="/exercise/:id">
             {(params) => <Exercise exerciseId={parseInt(params.id, 10)} />}
           </Route>

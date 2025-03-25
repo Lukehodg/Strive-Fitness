@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { AddIcon } from '@/lib/icons';
 import { useToast } from '@/hooks/use-toast';
 
@@ -9,6 +11,7 @@ import CurrentWorkout from '@/components/workouts/current-workout';
 
 const Workouts = () => {
   const { toast } = useToast();
+  const [_, setLocation] = useLocation();
   
   // Fetch workout templates
   const { data: workoutTemplates } = useQuery({
@@ -48,25 +51,53 @@ const Workouts = () => {
   });
   
   const handleCreateWorkout = () => {
-    toast({
-      title: "Create Workout",
-      description: "This feature is coming soon!",
-    });
+    setLocation('/workouts/create');
   };
   
   const handleEditTemplates = () => {
     toast({
       title: "Edit Templates",
-      description: "This feature is coming soon!",
+      description: "This feature will be available soon!",
     });
   };
   
   const handleContinueWorkout = () => {
-    toast({
-      title: "Continue Workout",
-      description: "This feature is coming soon!",
-    });
+    if (currentWorkout) {
+      setLocation(`/workouts/active/${currentWorkout.id}`);
+    } else {
+      // If no current workout, create one from the first template
+      startWorkoutMutation.mutate(workoutTemplates[0]?.id || 1);
+    }
   };
+  
+  // Mutation for starting a new workout
+  const startWorkoutMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      const startedWorkout = await apiRequest('POST', '/api/completed-workouts', {
+        userId: 1, // In a real app, we would get this from auth
+        workoutTemplateId: templateId,
+        startTime: new Date().toISOString()
+      });
+      return startedWorkout;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Workout Started",
+        description: "Your workout has been started",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
+      // Navigate to the active workout page
+      setLocation(`/workouts/active/${data.id}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to start workout",
+        variant: "destructive"
+      });
+      console.error(error);
+    }
+  });
   
   // Prepare data for CurrentWorkout component
   const prepareCurrentWorkoutData = () => {

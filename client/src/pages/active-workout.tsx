@@ -19,20 +19,34 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   
   // Fetch workout data
   const { data: workout, isLoading: isLoadingWorkout } = useQuery({
-    queryKey: [`/api/completed-workouts/${workoutId}`],
+    queryKey: ['/api/completed-workouts', workoutId],
+    queryFn: async () => {
+      const data = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
+      return data;
+    },
     staleTime: 60000, // 1 minute
   });
   
   // Fetch workout template data
   const { data: workoutTemplate, isLoading: isLoadingTemplate } = useQuery({
-    queryKey: [`/api/workout-templates/${workout?.workoutTemplateId}`],
+    queryKey: ['/api/workout-templates', workout?.workoutTemplateId],
+    queryFn: async () => {
+      if (!workout?.workoutTemplateId) return null;
+      const data = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}`);
+      return data;
+    },
     staleTime: 60000, // 1 minute
     enabled: !!workout?.workoutTemplateId,
   });
   
   // Fetch template exercises
   const { data: templateExercises, isLoading: isLoadingExercises } = useQuery({
-    queryKey: [`/api/workout-templates/${workout?.workoutTemplateId}/exercises`],
+    queryKey: ['/api/workout-templates', workout?.workoutTemplateId, 'exercises'],
+    queryFn: async () => {
+      if (!workout?.workoutTemplateId) return null;
+      const data = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}/exercises`);
+      return data;
+    },
     staleTime: 60000, // 1 minute
     enabled: !!workout?.workoutTemplateId,
   });
@@ -40,6 +54,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   // Fetch exercise details
   const { data: exercises } = useQuery({
     queryKey: ['/api/exercises'],
+    queryFn: async () => {
+      const data = await apiRequest('GET', '/api/exercises');
+      return data;
+    },
     staleTime: 60000, // 1 minute
   });
   
