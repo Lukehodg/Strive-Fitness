@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AddIcon } from '@/lib/icons';
+import { Scan } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 import CalorieSummary from '@/components/nutrition/calorie-summary';
 import TodayMeals from '@/components/nutrition/today-meals';
@@ -13,6 +15,7 @@ const Nutrition = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<any>(null);
   const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
+  const [initialScanMode, setInitialScanMode] = useState(false);
   
   // Fetch user data
   const { data: userData } = useQuery({
@@ -33,6 +36,12 @@ const Nutrition = () => {
   });
   
   const handleAddMeal = () => {
+    setInitialScanMode(false);
+    setIsAddFoodOpen(true);
+  };
+  
+  const handleScanBarcode = () => {
+    setInitialScanMode(true);
     setIsAddFoodOpen(true);
   };
   
@@ -80,21 +89,50 @@ const Nutrition = () => {
     <div className="p-4 space-y-6 pb-20">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-['Inter',sans-serif] text-2xl font-bold">Nutrition</h2>
-        <Dialog open={isAddFoodOpen} onOpenChange={setIsAddFoodOpen}>
-          <DialogTrigger asChild>
-            <button 
-              className="bg-primary text-white rounded-full p-2"
-              onClick={handleAddMeal}
-            >
-              <AddIcon className="w-6 h-6" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <AddFoodForm 
-              onSuccess={() => setIsAddFoodOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          {/* Barcode scan button */}
+          <Dialog open={isAddFoodOpen && initialScanMode} onOpenChange={(open) => {
+            if (!open) setIsAddFoodOpen(false);
+          }}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="rounded-full"
+                onClick={handleScanBarcode}
+              >
+                <Scan className="w-5 h-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <AddFoodForm 
+                onSuccess={() => setIsAddFoodOpen(false)}
+                initialTab="scan"
+              />
+            </DialogContent>
+          </Dialog>
+          
+          {/* Add food button */}
+          <Dialog open={isAddFoodOpen && !initialScanMode} onOpenChange={(open) => {
+            if (!open) setIsAddFoodOpen(false);
+          }}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="default" 
+                size="icon"
+                className="bg-primary text-white rounded-full"
+                onClick={handleAddMeal}
+              >
+                <AddIcon className="w-5 h-5" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <AddFoodForm 
+                onSuccess={() => setIsAddFoodOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       
       <CalorieSummary 

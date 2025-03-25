@@ -34,6 +34,7 @@ const foodSchema = z.object({
 interface AddFoodFormProps {
   onSuccess: () => void;
   defaultMealName?: string;
+  initialTab?: 'manual' | 'search' | 'scan';
 }
 
 type FoodResult = {
