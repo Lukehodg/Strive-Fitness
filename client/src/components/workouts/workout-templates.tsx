@@ -26,10 +26,16 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
   const startWorkoutMutation = useMutation({
     mutationFn: async (templateId: number) => {
       console.log("Starting workout with template ID:", templateId);
+      
+      // Create a new Date object for the start time
+      const currentTime = new Date();
+      
+      // Format the date as an ISO string - this is required by the API
+      // The server will parse this into a Date object
       return await apiRequest('POST', '/api/completed-workouts', {
         userId: 1, // In a real app, we would get this from auth
         workoutTemplateId: templateId,
-        startTime: new Date()
+        startTime: currentTime.toISOString()
       });
     },
     onSuccess: (data) => {

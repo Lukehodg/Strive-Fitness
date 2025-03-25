@@ -168,11 +168,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Received completed workout data:", req.body);
       
       try {
-        // First try to validate the schema
-        const workoutData = insertCompletedWorkoutSchema.parse(req.body);
+        // Parse and transform data
+        let workoutData = {...req.body};
+        
+        // Convert ISO string dates to Date objects
+        if (typeof workoutData.startTime === 'string') {
+          workoutData.startTime = new Date(workoutData.startTime);
+        }
+        
+        // Validate using schema
+        workoutData = insertCompletedWorkoutSchema.parse(workoutData);
         console.log("Validated workout data:", workoutData);
         
-        // Then create the workout
+        // Create the workout
         const workout = await storage.createCompletedWorkout(workoutData);
         console.log("Created completed workout:", workout);
         

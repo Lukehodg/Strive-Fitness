@@ -285,41 +285,61 @@ export class MemStorage implements IStorage {
       isCompleted: false
     };
 
-    const completedWorkout = this.createCompletedWorkout(workout);
+    // For initialization, we'll create the workout directly instead of using the async method
+    const id = this.currentCompletedWorkoutId++;
+    const completedWorkout: CompletedWorkout = { 
+      ...workout, 
+      id, 
+      endTime: null, 
+      isCompleted: false 
+    };
+    this.completedWorkouts.set(id, completedWorkout);
 
-    // Add some sets
-    this.createWorkoutSet({
+    // Add some sets - create them directly for initialization
+    const setId1 = this.currentWorkoutSetId++;
+    const set1: WorkoutSet = {
+      id: setId1,
       completedWorkoutId: completedWorkout.id,
       exerciseId: 1,
       weight: 60,
       reps: 10,
       rpe: 7,
       setNumber: 1,
+      setType: "working",
       isCompleted: true,
       timestamp: new Date()
-    });
+    };
+    this.workoutSets.set(setId1, set1);
 
-    this.createWorkoutSet({
+    const setId2 = this.currentWorkoutSetId++;
+    const set2: WorkoutSet = {
+      id: setId2,
       completedWorkoutId: completedWorkout.id,
       exerciseId: 1,
       weight: 65,
       reps: 8,
       rpe: 8,
       setNumber: 2,
+      setType: "working",
       isCompleted: true,
       timestamp: new Date()
-    });
+    };
+    this.workoutSets.set(setId2, set2);
 
-    this.createWorkoutSet({
+    const setId3 = this.currentWorkoutSetId++;
+    const set3: WorkoutSet = {
+      id: setId3,
       completedWorkoutId: completedWorkout.id,
       exerciseId: 1,
       weight: 70,
       reps: 6,
       rpe: 9,
       setNumber: 3,
+      setType: "working",
       isCompleted: true,
       timestamp: new Date()
-    });
+    };
+    this.workoutSets.set(setId3, set3);
   }
 
   // User methods
@@ -423,13 +443,23 @@ export class MemStorage implements IStorage {
 
   async createCompletedWorkout(workout: InsertCompletedWorkout): Promise<CompletedWorkout> {
     const id = this.currentCompletedWorkoutId++;
+    
+    // Make sure we convert string dates to Date objects if needed
+    let startTime = workout.startTime;
+    if (typeof startTime === 'string') {
+      startTime = new Date(startTime);
+    }
+    
     const newWorkout: CompletedWorkout = { 
       ...workout, 
       id, 
+      startTime, // Use the properly typed startTime
       endTime: null, 
       isCompleted: false 
     };
+    
     this.completedWorkouts.set(id, newWorkout);
+    console.log("Storage: Created completed workout with ID:", id);
     return newWorkout;
   }
 
