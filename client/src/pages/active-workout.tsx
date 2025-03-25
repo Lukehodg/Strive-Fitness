@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { 
+  Timer as TimerIcon, 
+  Plus, 
+  Minus, 
+  Flame as FireIcon,
+  Dumbbell,
+  ChevronDown, 
+  ChevronUp
+} from 'lucide-react';
 
 interface ActiveWorkoutProps {
   workoutId: number;
@@ -16,6 +25,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   const [timerActive, setTimerActive] = useState<boolean>(true);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
   const [exerciseSets, setExerciseSets] = useState<Map<number, any[]>>(new Map());
+  const [restTimer, setRestTimer] = useState<number | null>(null);
+  const [restTimerActive, setRestTimerActive] = useState<boolean>(false);
+  const [showAllExercises, setShowAllExercises] = useState<boolean>(false);
+  const restTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Fetch workout data
   const { data: workout, isLoading: isLoadingWorkout } = useQuery({
@@ -104,6 +117,37 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
     }
   }, [templateExercises]);
   
+  // Rest timer effect
+  useEffect(() => {
+    if (restTimerActive && restTimer !== null && restTimer > 0) {
+      restTimerRef.current = setInterval(() => {
+        setRestTimer((prev) => {
+          if (prev !== null && prev > 0) {
+            return prev - 1;
+          } else {
+            clearInterval(restTimerRef.current as NodeJS.Timeout);
+            setRestTimerActive(false);
+            return null;
+          }
+        });
+      }, 1000);
+    } else if (restTimer === 0) {
+      toast({
+        title: "Rest Complete",
+        description: "Time to start your next set!",
+      });
+      clearInterval(restTimerRef.current as NodeJS.Timeout);
+      setRestTimerActive(false);
+      setRestTimer(null);
+    }
+    
+    return () => {
+      if (restTimerRef.current) {
+        clearInterval(restTimerRef.current);
+      }
+    };
+  }, [restTimerActive, restTimer, toast]);
+  
   // Create workout set mutation
   const createSetMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -164,7 +208,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   });
   
   // Update set data
-  const updateSetValue = (exerciseId: number, setIndex: number, field: string, value: number | string) => {
+  const updateSetValue = (exerciseId: number, setIndex: number, field: string, value: number | string | boolean) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const updatedSets = [...currentSets];
     updatedSets[setIndex] = { ...updatedSets[setIndex], [field]: value };
@@ -172,6 +216,79 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
     const newSetsMap = new Map(exerciseSets);
     newSetsMap.set(exerciseId, updatedSets);
     setExerciseSets(newSetsMap);
+  };
+  
+  // Add a new set
+  const addSet = (exerciseId: number) => {
+    const currentSets = exerciseSets.get(exerciseId) || [];
+    const newSetNumber = currentSets.length + 1;
+    
+    const newSet = {
+      setNumber: newSetNumber,
+      weight: currentSets.length > 0 ? currentSets[currentSets.length - 1].weight : 0,
+      reps: currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0,
+      type: 'working',
+      isCompleted: false
+    };
+    
+    const updatedSets = [...currentSets, newSet];
+    const newSetsMap = new Map(exerciseSets);
+    newSetsMap.set(exerciseId, updatedSets);
+    setExerciseSets(newSetsMap);
+    
+    toast({
+      title: "Set Added",
+      description: `Set ${newSetNumber} added to exercise`,
+    });
+  };
+  
+  // Remove the last set
+  const removeSet = (exerciseId: number) => {
+    const currentSets = exerciseSets.get(exerciseId) || [];
+    
+    if (currentSets.length <= 1) {
+      toast({
+        title: "Cannot Remove",
+        description: "You need at least one set for the exercise",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if the last set is completed
+    if (currentSets[currentSets.length - 1].isCompleted) {
+      toast({
+        title: "Cannot Remove",
+        description: "Cannot remove a completed set",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const updatedSets = currentSets.slice(0, -1);
+    const newSetsMap = new Map(exerciseSets);
+    newSetsMap.set(exerciseId, updatedSets);
+    setExerciseSets(newSetsMap);
+    
+    toast({
+      title: "Set Removed",
+      description: `Set ${currentSets.length} removed from exercise`,
+    });
+  };
+  
+  // Start rest timer
+  const startRestTimer = (seconds: number) => {
+    if (restTimerActive) {
+      clearInterval(restTimerRef.current as NodeJS.Timeout);
+    }
+    
+    setRestTimer(seconds);
+    setRestTimerActive(true);
+    
+    toast({
+      title: "Rest Timer Started",
+      description: `${seconds} seconds rest timer started`,
+    });
   };
   
   // Save completed set
@@ -209,6 +326,13 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         title: "Set Saved",
         description: `${set.weight}kg x ${set.reps} reps`,
       });
+      
+      // Start a rest timer if not the last set
+      if (setIndex < currentSets.length - 1) {
+        // Get rest time from the template exercise
+        const restSeconds = currentTemplateExercise.restSeconds || 90;
+        startRestTimer(restSeconds);
+      }
     } catch (error) {
       console.error("Error saving set:", error);
       toast({
@@ -317,6 +441,73 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
             }} 
           />
         </div>
+        
+        {/* Rest Timer */}
+        {restTimerActive && restTimer !== null && (
+          <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center justify-between">
+            <div className="flex items-center">
+              <TimerIcon className="text-blue-600 mr-2" size={20} />
+              <div>
+                <div className="text-sm font-medium">Rest Timer</div>
+                <div className="text-lg font-bold text-blue-600">{restTimer}s</div>
+              </div>
+            </div>
+            <button 
+              className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+              onClick={() => {
+                clearInterval(restTimerRef.current as NodeJS.Timeout);
+                setRestTimerActive(false);
+                setRestTimer(null);
+              }}
+            >
+              Skip
+            </button>
+          </div>
+        )}
+        
+        {/* Exercise List Toggle */}
+        <button 
+          className="flex items-center justify-between w-full mt-3 text-sm font-medium text-gray-600 bg-gray-50 p-2 rounded-lg"
+          onClick={() => setShowAllExercises(!showAllExercises)}
+        >
+          <span>All Exercises</span>
+          {showAllExercises ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        
+        {/* Exercise List */}
+        {showAllExercises && (
+          <div className="mt-2 max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-2">
+            {templateExercises.map((exercise, index) => {
+              const ex = exercises?.find((e: any) => e.id === exercise.exerciseId);
+              const sets = exerciseSets.get(exercise.exerciseId) || [];
+              const completedSets = sets.filter(s => s.isCompleted).length;
+              
+              return (
+                <div 
+                  key={exercise.id} 
+                  className={`p-2 rounded-lg mb-1 border ${
+                    index === currentExerciseIndex 
+                      ? 'bg-primary-50 border-primary-100' 
+                      : 'bg-white border-gray-100'
+                  } ${
+                    completedSets === sets.length && sets.length > 0
+                      ? 'border-green-200 bg-green-50'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    setCurrentExerciseIndex(index);
+                    setShowAllExercises(false);
+                  }}
+                >
+                  <div className="flex justify-between">
+                    <div className="font-medium text-sm">{ex?.name || 'Exercise'}</div>
+                    <div className="text-xs text-gray-500">{completedSets}/{sets.length} sets</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       
       <div className="bg-white rounded-xl shadow-sm p-4">
