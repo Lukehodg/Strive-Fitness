@@ -419,7 +419,14 @@ export class MemStorage implements IStorage {
 
   async createWorkoutSet(set: InsertWorkoutSet): Promise<WorkoutSet> {
     const id = this.currentWorkoutSetId++;
-    const newSet: WorkoutSet = { ...set, id };
+    // Default setType to "working" if not provided
+    const setType = set.setType || "working";
+    const newSet: WorkoutSet = { 
+      ...set, 
+      id,
+      setType,
+      isCompleted: set.isCompleted ?? false 
+    };
     this.workoutSets.set(id, newSet);
     return newSet;
   }

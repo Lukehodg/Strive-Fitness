@@ -88,6 +88,7 @@ export const workoutSets = pgTable("workout_sets", {
   reps: integer("reps").notNull(),
   rpe: integer("rpe"),
   setNumber: integer("set_number").notNull(),
+  setType: text("set_type").default("working").notNull(), // 'warmup' or 'working'
   isCompleted: boolean("is_completed").default(false),
   timestamp: timestamp("timestamp").notNull(),
 });
