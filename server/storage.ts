@@ -767,7 +767,20 @@ export class MemStorage implements IStorage {
       setNumber: 1,
       setType: "working",
       isCompleted: true,
-      timestamp: new Date()
+      timestamp: new Date(),
+      // Add endurance-specific fields
+      measurementType: "weight_reps",
+      duration: null,
+      distance: null,
+      pace: null,
+      calories: null,
+      heartRate: null,
+      laps: null,
+      rounds: null,
+      resistence: null,
+      incline: null,
+      cadence: null,
+      metricValue: null
     };
     this.workoutSets.set(setId1, set1);
 
@@ -782,7 +795,20 @@ export class MemStorage implements IStorage {
       setNumber: 2,
       setType: "working",
       isCompleted: true,
-      timestamp: new Date()
+      timestamp: new Date(),
+      // Add endurance-specific fields
+      measurementType: "weight_reps",
+      duration: null,
+      distance: null,
+      pace: null,
+      calories: null,
+      heartRate: null,
+      laps: null,
+      rounds: null,
+      resistence: null,
+      incline: null,
+      cadence: null,
+      metricValue: null
     };
     this.workoutSets.set(setId2, set2);
 
@@ -797,7 +823,20 @@ export class MemStorage implements IStorage {
       setNumber: 3,
       setType: "working",
       isCompleted: true,
-      timestamp: new Date()
+      timestamp: new Date(),
+      // Add endurance-specific fields
+      measurementType: "weight_reps",
+      duration: null,
+      distance: null,
+      pace: null,
+      calories: null,
+      heartRate: null,
+      laps: null,
+      rounds: null,
+      resistence: null,
+      incline: null,
+      cadence: null,
+      metricValue: null
     };
     this.workoutSets.set(setId3, set3);
   }
@@ -969,7 +1008,14 @@ export class MemStorage implements IStorage {
       repsMin: templateExercise.repsMin,
       repsMax: templateExercise.repsMax,
       order: templateExercise.order,
-      restSeconds: templateExercise.restSeconds !== undefined ? templateExercise.restSeconds : null
+      restSeconds: templateExercise.restSeconds !== undefined ? templateExercise.restSeconds : null,
+      // Endurance workout specific fields
+      distance: templateExercise.distance || null,
+      duration: templateExercise.duration || null,
+      targetType: templateExercise.targetType || "reps",
+      targetValue: templateExercise.targetValue || null,
+      intervals: templateExercise.intervals || null,
+      workToRestRatio: templateExercise.workToRestRatio || null
     };
     this.workoutTemplateExercises.set(id, newTemplateExercise);
     return newTemplateExercise;
@@ -1047,13 +1093,26 @@ export class MemStorage implements IStorage {
       id,
       completedWorkoutId: set.completedWorkoutId,
       exerciseId: set.exerciseId,
-      weight: set.weight,
-      reps: set.reps,
+      weight: set.weight || null,
+      reps: set.reps || null,
       rpe: set.rpe !== undefined ? set.rpe : null,
       setNumber: set.setNumber,
       setType: set.setType || "working",
       isCompleted: set.isCompleted !== undefined ? set.isCompleted : false,
-      timestamp: set.timestamp
+      timestamp: set.timestamp,
+      // Endurance workout specific fields
+      measurementType: set.measurementType || "weight_reps",
+      duration: set.duration || null,
+      distance: set.distance || null,
+      pace: set.pace || null,
+      calories: set.calories || null,
+      heartRate: set.heartRate || null,
+      laps: set.laps || null,
+      rounds: set.rounds || null,
+      resistence: set.resistence || null,
+      incline: set.incline || null,
+      cadence: set.cadence || null,
+      metricValue: set.metricValue || null
     };
     
     console.log("Storage: Creating workout set:", newSet);
