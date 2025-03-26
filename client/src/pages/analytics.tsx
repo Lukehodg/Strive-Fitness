@@ -267,7 +267,7 @@ export default function AnalyticsPage() {
     const avgDuration = totalWorkouts > 0 ? Math.round(totalDuration / totalWorkouts) : 0;
     
     // Calculate avg daily calories
-    const totalCalories = nutritionData.reduce((sum: number, day: any) => sum + day.calories, 0);
+    const totalCalories = nutritionData.reduce((sum: number, day: any) => sum + (day.calories || 0), 0);
     const avgCalories = nutritionData.length > 0 ? Math.round(totalCalories / nutritionData.length) : 0;
     
     // Weight change if available
