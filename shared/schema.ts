@@ -12,7 +12,8 @@ export const HealthMetricTypes = [
   'sleep',
   'oxygen_saturation',
   'temperature',
-  'cholesterol'
+  'cholesterol',
+  'respiration_rate'
 ] as const;
 
 // User model
