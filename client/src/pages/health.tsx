@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import HealthIntegrations from "@/components/health/health-integrations";
 import PlatformMetrics from "@/components/health/platform-metrics";
@@ -38,6 +39,7 @@ export default function HealthPage() {
   const [addMetricOpen, setAddMetricOpen] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [smoothChart, setSmoothChart] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -274,23 +276,42 @@ export default function HealthPage() {
                       {selectedMetricType === 'weight' && 'Weight History'}
                       {selectedMetricType === 'body_fat' && 'Body Fat History'}
                       {selectedMetricType === 'blood_glucose' && 'Blood Glucose History'}
+                      {selectedMetricType === 'respiration_rate' && 'Respiration Rate History'}
+                      {selectedMetricType === 'temperature' && 'Body Temperature History'}
+                      {selectedMetricType === 'oxygen_saturation' && 'Oxygen Saturation History'}
+                      {selectedMetricType === 'hrv' && 'HRV History'}
+                      {selectedMetricType === 'sleep_duration' && 'Sleep Duration History'}
+                      {selectedMetricType === 'sleep_quality' && 'Sleep Quality History'}
+                      {selectedMetricType === 'stress_level' && 'Stress Level History'}
+                      {selectedMetricType === 'steps' && 'Step Count History'}
+                      {selectedMetricType === 'cholesterol' && 'Cholesterol History'}
                     </CardTitle>
                     <CardDescription>
                       {formatDate(startDate)} - {formatDate(endDate)}
                     </CardDescription>
                   </div>
-                  <Select value={timeRange} onValueChange={setTimeRange}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Time Range" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="7">Last Week</SelectItem>
-                      <SelectItem value="30">Last Month</SelectItem>
-                      <SelectItem value="90">Last 3 Months</SelectItem>
-                      <SelectItem value="180">Last 6 Months</SelectItem>
-                      <SelectItem value="365">Last Year</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Select value={timeRange} onValueChange={setTimeRange}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Time Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7">Last Week</SelectItem>
+                        <SelectItem value="30">Last Month</SelectItem>
+                        <SelectItem value="90">Last 3 Months</SelectItem>
+                        <SelectItem value="180">Last 6 Months</SelectItem>
+                        <SelectItem value="365">Last Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        id="chart-smooth" 
+                        checked={smoothChart}
+                        onCheckedChange={setSmoothChart}
+                      />
+                      <Label htmlFor="chart-smooth" className="text-sm">Smooth Line</Label>
+                    </div>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -313,8 +334,24 @@ export default function HealthPage() {
                           <YAxis />
                           <Tooltip />
                           <Legend />
-                          <Line type="monotone" dataKey="systolic" stroke="#8884d8" name="Systolic" />
-                          <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" name="Diastolic" />
+                          <Line 
+                            type={smoothChart ? "natural" : "monotone"} 
+                            dataKey="systolic" 
+                            stroke="#FF5E5B" 
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 6, strokeWidth: 2 }}
+                            name="Systolic (mmHg)" 
+                          />
+                          <Line 
+                            type={smoothChart ? "natural" : "monotone"} 
+                            dataKey="diastolic" 
+                            stroke="#4BC0C0" 
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 6, strokeWidth: 2 }}
+                            name="Diastolic (mmHg)" 
+                          />
                         </LineChart>
                       ) : (
                         <LineChart data={chartData}>
@@ -324,9 +361,26 @@ export default function HealthPage() {
                           <Tooltip />
                           <Legend />
                           <Line 
-                            type="monotone" 
+                            type={smoothChart ? "natural" : "monotone"} 
                             dataKey="value" 
-                            stroke="#8884d8" 
+                            stroke={
+                              selectedMetricType === 'heart_rate' ? '#FF5E5B' :  // Red for heart
+                              selectedMetricType === 'weight' ? '#36A2EB' :      // Blue for weight
+                              selectedMetricType === 'body_fat' ? '#8A2BE2' :    // Purple for body fat
+                              selectedMetricType === 'blood_glucose' ? '#FF9F40' : // Orange for glucose
+                              selectedMetricType === 'respiration_rate' ? '#4BC0C0' : // Teal for respiration
+                              selectedMetricType === 'temperature' ? '#FF6384' :  // Pink for temperature
+                              selectedMetricType === 'oxygen_saturation' ? '#45b6fe' : // Light blue for oxygen
+                              selectedMetricType === 'hrv' ? '#9966FF' :        // Lavender for HRV
+                              selectedMetricType === 'sleep_duration' ? '#3e4ebc' : // Navy for sleep
+                              selectedMetricType === 'sleep_quality' ? '#8e5ea2' : // Purple for sleep quality
+                              selectedMetricType === 'stress_level' ? '#e8454e' : // Red for stress
+                              selectedMetricType === 'steps' ? '#3cba9f' :      // Green for steps
+                              selectedMetricType === 'cholesterol' ? '#e2962d' : // Amber for cholesterol
+                              '#8884d8'                               // Default purple
+                            }
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
                             name={
                               selectedMetricType === 'heart_rate' ? 'Heart Rate (BPM)' :
                               selectedMetricType === 'weight' ? 'Weight (kg)' :
