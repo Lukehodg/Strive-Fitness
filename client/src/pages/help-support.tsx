@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '../lib/queryClient';
 import { 
   ChevronLeft, 
   HelpCircle, 
@@ -48,17 +50,35 @@ const HelpSupport = () => {
     }));
   };
   
+  // Send support message mutation
+  const contactMutation = useMutation({
+    mutationFn: async (data: typeof contactForm) => {
+      const res = await apiRequest('POST', '/api/support/contact', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Message Sent',
+        description: 'We\'ve received your message and will respond shortly.',
+      });
+      setContactForm({
+        name: '',
+        email: '',
+        message: ''
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error Sending Message',
+        description: error.message || 'There was a problem sending your message. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  });
+  
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: 'Message Sent',
-      description: 'We\'ve received your message and will respond shortly.',
-    });
-    setContactForm({
-      name: '',
-      email: '',
-      message: ''
-    });
+    contactMutation.mutate(contactForm);
   };
   
   // Example FAQ data
@@ -211,9 +231,22 @@ const HelpSupport = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full flex items-center justify-center gap-2">
-              <Send className="h-4 w-4" />
-              <span>Send Message</span>
+            <Button 
+              type="submit" 
+              className="w-full flex items-center justify-center gap-2"
+              disabled={contactMutation.isPending}
+            >
+              {contactMutation.isPending ? (
+                <>
+                  <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                  <span>Sending...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  <span>Send Message</span>
+                </>
+              )}
             </Button>
           </form>
           

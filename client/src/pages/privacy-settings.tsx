@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '../lib/queryClient';
 import { 
   ChevronLeft, 
   ShieldAlert, 
@@ -40,11 +42,46 @@ const PrivacySettings = () => {
     analyticsSharing: true
   });
   
+  // Fetch user data
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ['/api/user/1'],
+    queryFn: async () => {
+      const response = await fetch('/api/user/1');
+      return response.json();
+    }
+  });
+  
+  // Update user settings on the server
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (settings: any) => {
+      const res = await apiRequest('PATCH', '/api/user/1', { privacySettings: settings });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/1'] });
+      toast({
+        title: 'Privacy Settings Saved',
+        description: 'Your privacy settings have been updated successfully.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error Saving Settings',
+        description: error.message || 'Something went wrong. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  });
+  
+  // Load user data when available
+  useEffect(() => {
+    if (userData && userData.privacySettings) {
+      setPrivacySettings(userData.privacySettings);
+    }
+  }, [userData]);
+  
   const handleSaveChanges = () => {
-    toast({
-      title: 'Privacy Settings Saved',
-      description: 'Your privacy settings have been updated successfully.',
-    });
+    updateSettingsMutation.mutate(privacySettings);
   };
   
   const handleSwitchChange = (name: string, checked: boolean) => {
@@ -250,9 +287,19 @@ const PrivacySettings = () => {
         <Button 
           onClick={handleSaveChanges}
           className="flex items-center gap-2 w-full max-w-xs"
+          disabled={updateSettingsMutation.isPending || isLoading}
         >
-          <Save className="h-4 w-4" />
-          <span>Save Changes</span>
+          {updateSettingsMutation.isPending ? (
+            <>
+              <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              <span>Save Changes</span>
+            </>
+          )}
         </Button>
       </div>
     </div>
