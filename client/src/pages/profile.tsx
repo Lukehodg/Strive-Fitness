@@ -122,17 +122,17 @@ const Profile = () => {
     {
       icon: 'account_circle',
       label: 'Account',
-      action: () => handleSettingsAction('Account Settings')
+      action: () => handleSettingsNavigation('/account-settings')
     },
     {
       icon: 'lock',
       label: 'Privacy Settings',
-      action: () => handleSettingsAction('Privacy Settings')
+      action: () => handleSettingsNavigation('/privacy-settings')
     },
     {
       icon: 'help',
       label: 'Help & Support',
-      action: () => handleSettingsAction('Help & Support')
+      action: () => handleSettingsNavigation('/help-support')
     }
   ];
   
