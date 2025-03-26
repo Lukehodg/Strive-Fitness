@@ -73,10 +73,26 @@ const Nutrition = () => {
   // Update user nutrition goals
   const updateUserMutation = useMutation({
     mutationFn: async (userData: Partial<User>) => {
-      const response = await apiRequest('PATCH', `/api/user/1`, userData);
-      return await response.json();
+      try {
+        console.log("Making PATCH request to /api/user/1 with data:", userData);
+        const response = await apiRequest('PATCH', `/api/user/1`, userData);
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error("Server response error:", response.status, errorData);
+          throw new Error(`Server responded with status ${response.status}: ${errorData}`);
+        }
+        
+        const data = await response.json();
+        console.log("Server response success:", data);
+        return data;
+      } catch (err) {
+        console.error("Mutation failed:", err);
+        throw err;
+      }
     },
     onSuccess: (updatedUser) => {
+      console.log("Mutation success, updated user:", updatedUser);
       // Update the cache with the new user data
       queryClient.setQueryData(['/api/user/1'], updatedUser);
       
@@ -88,10 +104,11 @@ const Nutrition = () => {
       // Update the local state
       setUser(updatedUser);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to update nutrition goals. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to update nutrition goals. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       console.error("Error updating nutrition goals:", error);
@@ -116,6 +133,13 @@ const Nutrition = () => {
     fat: number;
   }) => {
     if (user) {
+      console.log("Updating goals with:", {
+        dailyCalorieTarget: newGoals.calories,
+        dailyProteinTarget: newGoals.protein,
+        dailyCarbsTarget: newGoals.carbs,
+        dailyFatTarget: newGoals.fat
+      });
+      
       updateUserMutation.mutate({
         dailyCalorieTarget: newGoals.calories,
         dailyProteinTarget: newGoals.protein,
