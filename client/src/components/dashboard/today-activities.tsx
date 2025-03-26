@@ -52,7 +52,7 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
         setLocation('/nutrition');
         break;
       case 'medication':
-        setLocation('/medications');
+        setLocation('/health');
         break;
       default:
         console.log('Unknown activity type:', activity.type);
