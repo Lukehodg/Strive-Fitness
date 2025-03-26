@@ -147,8 +147,8 @@ const Dashboard = () => {
         percentage: Math.min(Math.round((dailyStats.waterIntake / 3) * 100), 100),
         color: "#03A9F4",
         value: String(dailyStats.waterIntake),
-        total: "3L"
-        // No route yet - we could add a water tracking page in the future
+        total: "3L",
+        route: "/water" // Link to our new water tracking page
       },
       {
         label: "Protein",
