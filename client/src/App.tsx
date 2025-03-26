@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -24,6 +24,38 @@ import Logo from "@/components/ui/logo";
 
 function Router() {
   const { user, isLoading } = useAuth();
+  const [location, setLocation] = useState('/');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  // Handle notification click
+  const handleNotificationClick = () => {
+    setNotificationsOpen(!notificationsOpen);
+  };
+  
+  // Handle profile click
+  const handleProfileClick = () => {
+    setLocation('/profile');
+  };
+  
+  // Handle navigation when location changes
+  useEffect(() => {
+    if (location && location !== '/') {
+      window.location.href = location;
+    }
+  }, [location]);
+  
+  // Handle click outside to close notifications dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (notificationsOpen && !target.closest('.notifications-container')) {
+        setNotificationsOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationsOpen]);
   
   if (isLoading) {
     return (
@@ -46,16 +78,50 @@ function Router() {
       {user && (
         <header className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white p-4 shadow-lg border-b border-indigo-700/50">
           <div className="flex justify-between items-center max-w-lg mx-auto">
-            <Logo size="sm" textClassName="text-white font-semibold" />
+            <div 
+              onClick={() => setLocation('/')} 
+              className="cursor-pointer"
+            >
+              <Logo size="sm" textClassName="text-white font-semibold" />
+            </div>
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-blue-700/30 flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer">
+              <div 
+                className={`w-8 h-8 rounded-full ${notificationsOpen ? 'bg-blue-600/40' : 'bg-blue-700/30'} flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer relative`}
+                onClick={handleNotificationClick}
+              >
                 <span className="material-icons text-sm">notifications</span>
+                {/* Notification indicator dot */}
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
               </div>
-              <div className="w-8 h-8 rounded-full bg-blue-700/30 flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer">
+              <div 
+                className="w-8 h-8 rounded-full bg-blue-700/30 flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer"
+                onClick={handleProfileClick}
+              >
                 <span className="material-icons text-sm">person</span>
               </div>
             </div>
           </div>
+          
+          {/* Notifications dropdown (conditionally rendered) */}
+          {notificationsOpen && (
+            <div className="absolute right-4 mt-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2 max-w-xs w-full max-w-lg mx-auto z-50 notifications-container">
+              <div className="px-4 py-2 border-b border-gray-700">
+                <h3 className="font-semibold text-white">Notifications</h3>
+              </div>
+              <div className="px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer">
+                <p className="text-sm text-white">New workout plan available for you</p>
+                <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
+              </div>
+              <div className="px-4 py-3 border-b border-gray-700 hover:bg-gray-800 cursor-pointer">
+                <p className="text-sm text-white">You reached your protein goal today!</p>
+                <p className="text-xs text-gray-400 mt-1">5 hours ago</p>
+              </div>
+              <div className="px-4 py-3 hover:bg-gray-800 cursor-pointer">
+                <p className="text-sm text-white">Time to take your medication</p>
+                <p className="text-xs text-gray-400 mt-1">8 hours ago</p>
+              </div>
+            </div>
+          )}
         </header>
       )}
       
