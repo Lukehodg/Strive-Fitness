@@ -10,7 +10,8 @@ import {
   insertUserSchema,
   insertWorkoutSetSchema,
   insertWorkoutTemplateExerciseSchema,
-  insertWorkoutTemplateSchema
+  insertWorkoutTemplateSchema,
+  HealthMetricTypes
 } from "@shared/schema";
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
 import { getProductByBarcode } from "./openFoodFactsApi";
@@ -542,6 +543,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedStats);
     } catch (error) {
       res.status(400).json({ message: "Invalid stats data", error });
+    }
+  });
+
+  // Health Metrics routes
+  app.get("/api/users/:userId/health-metrics", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    const startDateParam = req.query.startDate as string;
+    const endDateParam = req.query.endDate as string;
+    const metricType = req.query.type as string;
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+    
+    try {
+      // Default to last 30 days if no date range is provided
+      const endDate = endDateParam ? new Date(endDateParam) : new Date();
+      const startDate = startDateParam ? new Date(startDateParam) : new Date(endDate);
+      if (!startDateParam) {
+        startDate.setDate(startDate.getDate() - 30); // Default to 30 days before end date
+      }
+      
+      if ((startDateParam && isNaN(startDate.getTime())) || 
+          (endDateParam && isNaN(endDate.getTime()))) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      
+      let metrics;
+      
+      if (metricType) {
+        // Get metrics of a specific type
+        metrics = await storage.getHealthMetricsByType(userId, metricType as HealthMetricType, startDate, endDate);
+      } else {
+        // Get all metrics
+        metrics = await storage.getHealthMetrics(userId, startDate, endDate);
+      }
+      
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching health metrics:", error);
+      res.status(500).json({ message: "Error fetching health metrics" });
+    }
+  });
+  
+  app.get("/api/health-metrics/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+    
+    try {
+      const metric = await storage.getHealthMetric(id);
+      
+      if (metric) {
+        res.json(metric);
+      } else {
+        res.status(404).json({ message: "Health metric not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching health metric:", error);
+      res.status(500).json({ message: "Error fetching health metric" });
+    }
+  });
+  
+  app.post("/api/health-metrics", async (req: Request, res: Response) => {
+    try {
+      // Convert timestamp string to Date if needed
+      const metricData = { ...req.body };
+      if (typeof metricData.timestamp === 'string') {
+        metricData.timestamp = new Date(metricData.timestamp);
+      } else if (!metricData.timestamp) {
+        metricData.timestamp = new Date(); // Default to current time
+      }
+      
+      const metric = await storage.createHealthMetric(metricData);
+      res.status(201).json(metric);
+    } catch (error) {
+      console.error("Error creating health metric:", error);
+      res.status(500).json({ message: "Error creating health metric" });
+    }
+  });
+  
+  app.patch("/api/health-metrics/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+    
+    try {
+      // Convert timestamp string to Date if it's being updated
+      const metricData = { ...req.body };
+      if (typeof metricData.timestamp === 'string') {
+        metricData.timestamp = new Date(metricData.timestamp);
+      }
+      
+      const updatedMetric = await storage.updateHealthMetric(id, metricData);
+      
+      if (updatedMetric) {
+        res.json(updatedMetric);
+      } else {
+        res.status(404).json({ message: "Health metric not found" });
+      }
+    } catch (error) {
+      console.error("Error updating health metric:", error);
+      res.status(500).json({ message: "Error updating health metric" });
+    }
+  });
+  
+  app.delete("/api/health-metrics/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+    
+    try {
+      const success = await storage.deleteHealthMetric(id);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Health metric not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting health metric:", error);
+      res.status(500).json({ message: "Error deleting health metric" });
     }
   });
 

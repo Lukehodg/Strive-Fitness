@@ -763,7 +763,18 @@ export class MemStorage implements IStorage {
 
   async createActivity(activity: InsertActivity): Promise<Activity> {
     const id = this.currentActivityId++;
-    const newActivity: Activity = { ...activity, id };
+    const newActivity: Activity = { 
+      id,
+      userId: activity.userId,
+      date: activity.date,
+      type: activity.type,
+      title: activity.title,
+      description: activity.description !== undefined ? activity.description : null,
+      startTime: activity.startTime !== undefined ? activity.startTime : null,
+      endTime: activity.endTime !== undefined ? activity.endTime : null,
+      isCompleted: activity.isCompleted !== undefined ? activity.isCompleted : null,
+      metadata: activity.metadata !== undefined ? activity.metadata : null
+    };
     this.activities.set(id, newActivity);
     return newActivity;
   }
