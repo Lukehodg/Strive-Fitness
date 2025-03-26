@@ -145,6 +145,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     res.json(template);
   });
+  
+  app.patch("/api/workout-templates/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    const template = await storage.getWorkoutTemplate(id);
+    
+    if (!template) {
+      return res.status(404).json({ message: "Workout template not found" });
+    }
+    
+    try {
+      const updatedTemplate = await storage.updateWorkoutTemplate(id, req.body);
+      res.json(updatedTemplate);
+    } catch (error) {
+      res.status(400).json({ message: "Could not update workout template" });
+    }
+  });
+  
+  app.delete("/api/workout-templates/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    const template = await storage.getWorkoutTemplate(id);
+    
+    if (!template) {
+      return res.status(404).json({ message: "Workout template not found" });
+    }
+    
+    try {
+      const result = await storage.deleteWorkoutTemplate(id);
+      
+      if (result) {
+        res.sendStatus(204);
+      } else {
+        res.status(500).json({ message: "Could not delete workout template" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Could not delete workout template" });
+    }
+  });
 
   app.post("/api/workout-templates", async (req: Request, res: Response) => {
     try {

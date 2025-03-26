@@ -38,6 +38,8 @@ export interface IStorage {
   getWorkoutTemplates(userId: number): Promise<WorkoutTemplate[]>;
   getWorkoutTemplate(id: number): Promise<WorkoutTemplate | undefined>;
   createWorkoutTemplate(template: InsertWorkoutTemplate): Promise<WorkoutTemplate>;
+  updateWorkoutTemplate(id: number, data: Partial<WorkoutTemplate>): Promise<WorkoutTemplate | undefined>;
+  deleteWorkoutTemplate(id: number): Promise<boolean>;
 
   // Workout template exercises
   getWorkoutTemplateExercises(workoutTemplateId: number): Promise<WorkoutTemplateExercise[]>;
@@ -382,10 +384,10 @@ export class MemStorage implements IStorage {
 
     // Create workout templates
     const templates = [
-      { userId: 1, name: "Upper Body", exerciseCount: 6, duration: 45, color: "#3F51B5" },
-      { userId: 1, name: "Lower Body", exerciseCount: 5, duration: 50, color: "#FF5722" },
-      { userId: 1, name: "Push Day", exerciseCount: 7, duration: 60, color: "#4CAF50" },
-      { userId: 1, name: "Pull Day", exerciseCount: 6, duration: 55, color: "#9C27B0" }
+      { userId: 1, name: "Upper Body", exerciseCount: 6, duration: 45, color: "#3F51B5", scheduledDay: "Monday", description: "Focus on chest, shoulders, and triceps" },
+      { userId: 1, name: "Lower Body", exerciseCount: 5, duration: 50, color: "#FF5722", scheduledDay: "Tuesday", description: "Squats, deadlifts and accessory work" },
+      { userId: 1, name: "Push Day", exerciseCount: 7, duration: 60, color: "#4CAF50", scheduledDay: "Thursday", description: "Chest, shoulders, and triceps volume" },
+      { userId: 1, name: "Pull Day", exerciseCount: 6, duration: 55, color: "#9C27B0", scheduledDay: "Friday", description: "Back, biceps, and rear delts" }
     ];
 
     templates.forEach(template => this.createWorkoutTemplate(template));
