@@ -885,7 +885,10 @@ export class MemStorage implements IStorage {
       name: exercise.name,
       category: exercise.category,
       muscleGroup: exercise.muscleGroup,
-      description: exercise.description !== undefined ? exercise.description : null
+      description: exercise.description !== undefined ? exercise.description : null,
+      measurementType: exercise.measurementType || "weight_reps",
+      defaultTarget: exercise.defaultTarget || null,
+      isEndurance: exercise.isEndurance || false
     };
     this.exercises.set(id, newExercise);
     return newExercise;
@@ -912,7 +915,11 @@ export class MemStorage implements IStorage {
       duration: template.duration,
       color: template.color !== undefined ? template.color : null,
       scheduledDay: template.scheduledDay || null,
-      description: template.description || null
+      description: template.description || null,
+      workoutType: template.workoutType || "traditional",
+      targetTimeInMinutes: template.targetTimeInMinutes || null,
+      rounds: template.rounds || null,
+      isReversed: template.isReversed || false
     };
     this.workoutTemplates.set(id, newTemplate);
     return newTemplate;
