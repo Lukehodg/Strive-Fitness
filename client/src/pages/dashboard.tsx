@@ -131,14 +131,16 @@ const Dashboard = () => {
         percentage: Math.min(Math.round((dailyStats.caloriesConsumed / user.dailyCalorieTarget) * 100), 100),
         color: "#FF5722",
         value: String(dailyStats.caloriesConsumed),
-        total: String(user.dailyCalorieTarget)
+        total: String(user.dailyCalorieTarget),
+        route: "/nutrition" // Link to nutrition page
       },
       {
         label: "Steps",
         percentage: Math.min(Math.round((dailyStats.stepsCount / user.dailyStepTarget) * 100), 100),
         color: "#3F51B5",
         value: String(dailyStats.stepsCount),
-        total: String(user.dailyStepTarget)
+        total: String(user.dailyStepTarget),
+        route: "/steps" // Link to dedicated steps page
       },
       {
         label: "Water",
@@ -146,13 +148,15 @@ const Dashboard = () => {
         color: "#03A9F4",
         value: String(dailyStats.waterIntake),
         total: "3L"
+        // No route yet - we could add a water tracking page in the future
       },
       {
         label: "Protein",
         percentage: Math.min(Math.round((dailyStats.proteinConsumed / user.dailyProteinTarget) * 100), 100),
         color: "#4CAF50",
         value: String(dailyStats.proteinConsumed),
-        total: String(user.dailyProteinTarget) + "g"
+        total: String(user.dailyProteinTarget) + "g",
+        route: "/nutrition" // Link to nutrition page
       }
     ];
     
@@ -160,12 +164,24 @@ const Dashboard = () => {
       {
         remaining: user.dailyCalorieTarget - dailyStats.caloriesConsumed,
         consumed: dailyStats.caloriesConsumed,
-        target: user.dailyCalorieTarget
+        target: user.dailyCalorieTarget,
+        route: "/nutrition" // Link to nutrition page
       }
     ];
     
-    const workoutsData = workoutTemplates || [];
-    const activitiesData = activities || [];
+    // Add route to workout templates
+    const workoutsData = workoutTemplates?.map(workout => ({
+      ...workout,
+      route: "/workouts"
+    })) || [];
+    
+    // Add routes to activities based on their type
+    const activitiesData = activities?.map(activity => ({
+      ...activity,
+      route: activity.type === "workout" ? "/workouts" : 
+             activity.type === "nutrition" ? "/nutrition" : 
+             activity.type === "medication" ? "/health" : undefined
+    })) || [];
     
     return {
       progress: progressData,

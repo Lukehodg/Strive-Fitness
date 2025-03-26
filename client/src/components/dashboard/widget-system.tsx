@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
+import { useLocation } from 'wouter';
 import ProgressCircle from '@/components/ui/progress-circle';
 import { 
   DropdownMenu,
@@ -14,6 +15,7 @@ export interface Widget {
   type: 'progress' | 'nutrition' | 'workout' | 'activity';
   title: string;
   data: any;
+  route?: string; // Optional route to navigate to when widget is clicked
 }
 
 interface WidgetSystemProps {
@@ -26,6 +28,8 @@ const WidgetRenderer: React.FC<{
   widget: Widget; 
   onRemove: (id: string) => void 
 }> = ({ widget, onRemove }) => {
+  const [_, setLocation] = useLocation();
+  
   // Render different widget types
   const renderWidgetContent = () => {
     switch (widget.type) {
@@ -75,9 +79,18 @@ const WidgetRenderer: React.FC<{
     }
   };
 
+  const handleWidgetClick = () => {
+    if (widget.route) {
+      setLocation(widget.route);
+    }
+  };
+
   return (
-    <div className="relative dark-card p-4">
-      <div className="absolute top-2 right-2">
+    <div 
+      className={`relative dark-card p-4 ${widget.route ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
+      onClick={widget.route ? handleWidgetClick : undefined}
+    >
+      <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="sm"
@@ -90,6 +103,11 @@ const WidgetRenderer: React.FC<{
       </div>
       <h3 className="font-['Inter',sans-serif] text-sm font-medium mb-2 text-white">{widget.title}</h3>
       {renderWidgetContent()}
+      {widget.route && (
+        <div className="absolute bottom-2 right-2 text-xs text-blue-400">
+          <span className="material-icons text-xs">arrow_forward</span>
+        </div>
+      )}
     </div>
   );
 };
