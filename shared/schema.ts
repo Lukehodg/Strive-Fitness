@@ -1,6 +1,14 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, real, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Define subscription plan types for validation
+export const SubscriptionPlanTypes = [
+  'free',
+  'basic',
+  'premium',
+  'elite'
+] as const;
 
 // Define health metric types for validation
 export const HealthMetricTypes = [
@@ -63,6 +71,9 @@ export const users = pgTable("users", {
   dailyFatTarget: integer("daily_fat_target"),
   profileType: text("profile_type").default("standard"),
   dashboardWidgets: json("dashboard_widgets"),
+  subscriptionPlan: text("subscription_plan").default("free").notNull(),
+  subscriptionExpiry: timestamp("subscription_expiry"),
+  stripeCustomerId: text("stripe_customer_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -290,6 +301,55 @@ export type Medication = typeof medications.$inferSelect;
 export type InsertMedication = z.infer<typeof insertMedicationSchema>;
 export type MedicationType = typeof MedicationTypes[number];
 
+// Subscription plans model
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  price: real("price").notNull(),
+  billingCycle: text("billing_cycle").notNull(), // monthly, annually
+  features: json("features").notNull(), // Array of features included
+  stripePriceId: text("stripe_price_id"), // Stripe price ID for billing
+  isActive: boolean("is_active").default(true),
+  maxWorkoutTemplates: integer("max_workout_templates"),
+  maxHealthMetrics: integer("max_health_metrics"),
+  maxMedications: integer("max_medications"),
+  allowsAnalytics: boolean("allows_analytics").default(false),
+  allowsHealthIntegrations: boolean("allows_health_integrations").default(false),
+  allowsCustomWorkouts: boolean("allows_custom_workouts").default(false),
+  allowsPdfUpload: boolean("allows_pdf_upload").default(false),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+});
+
+// Subscription transactions model
+export const subscriptionTransactions = pgTable("subscription_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  subscriptionPlanId: integer("subscription_plan_id").notNull(),
+  amount: real("amount").notNull(),
+  status: text("status").notNull(), // succeeded, failed, pending
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  paymentMethod: text("payment_method"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  receiptUrl: text("receipt_url"),
+  metadata: json("metadata"),
+});
+
+export const insertSubscriptionTransactionSchema = createInsertSchema(subscriptionTransactions).omit({
+  id: true,
+  transactionDate: true,
+});
+
 export type MedicationSchedule = typeof medicationSchedule.$inferSelect;
 export type InsertMedicationSchedule = z.infer<typeof insertMedicationScheduleSchema>;
 export type InjectionSite = typeof InjectionSites[number];
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlanType = typeof SubscriptionPlanTypes[number];
+
+export type SubscriptionTransaction = typeof subscriptionTransactions.$inferSelect;
+export type InsertSubscriptionTransaction = z.infer<typeof insertSubscriptionTransactionSchema>;

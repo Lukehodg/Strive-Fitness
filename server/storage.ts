@@ -10,7 +10,10 @@ import {
   dailyStats, DailyStats, InsertDailyStats,
   healthMetrics, HealthMetric, InsertHealthMetric, HealthMetricType,
   medications, Medication, InsertMedication, MedicationType,
-  medicationSchedule, MedicationSchedule, InsertMedicationSchedule, InjectionSite
+  medicationSchedule, MedicationSchedule, InsertMedicationSchedule, InjectionSite,
+  subscriptionPlans, SubscriptionPlan, InsertSubscriptionPlan,
+  subscriptionTransactions, SubscriptionTransaction, InsertSubscriptionTransaction,
+  SubscriptionPlanType
 } from "@shared/schema";
 
 // Storage interface with CRUD methods
@@ -93,6 +96,23 @@ export interface IStorage {
   createMedicationSchedule(schedule: InsertMedicationSchedule): Promise<MedicationSchedule>;
   updateMedicationSchedule(id: number, data: Partial<MedicationSchedule>): Promise<MedicationSchedule | undefined>;
   deleteMedicationSchedule(id: number): Promise<boolean>;
+  
+  // Subscription plans
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByName(planType: SubscriptionPlanType): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+  updateSubscriptionPlan(id: number, data: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined>;
+  
+  // Subscription transactions
+  getUserSubscriptionTransactions(userId: number): Promise<SubscriptionTransaction[]>;
+  getSubscriptionTransaction(id: number): Promise<SubscriptionTransaction | undefined>;
+  createSubscriptionTransaction(transaction: InsertSubscriptionTransaction): Promise<SubscriptionTransaction>;
+  
+  // User subscription management
+  updateUserSubscription(userId: number, planType: SubscriptionPlanType, expiryDate: Date): Promise<User | undefined>;
+  getUserSubscriptionDetails(userId: number): Promise<{plan: SubscriptionPlan, expiryDate: Date | null} | undefined>;
+  checkUserSubscriptionAccess(userId: number, featureName: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -108,6 +128,8 @@ export class MemStorage implements IStorage {
   private healthMetrics: Map<number, HealthMetric>;
   private medications: Map<number, Medication>;
   private medicationSchedules: Map<number, MedicationSchedule>;
+  private subscriptionPlans: Map<number, SubscriptionPlan>;
+  private subscriptionTransactions: Map<number, SubscriptionTransaction>;
 
   private currentUserId: number;
   private currentExerciseId: number;
@@ -121,6 +143,8 @@ export class MemStorage implements IStorage {
   private currentHealthMetricId: number;
   private currentMedicationId: number;
   private currentMedicationScheduleId: number;
+  private currentSubscriptionPlanId: number;
+  private currentSubscriptionTransactionId: number;
 
   constructor() {
     this.users = new Map();
