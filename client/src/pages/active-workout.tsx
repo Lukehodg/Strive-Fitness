@@ -493,18 +493,18 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
   const startTime = new Date(workout.startTime);
   
   return (
-    <div className="p-4 space-y-6">
-      <div className="bg-white rounded-xl shadow-sm p-4 sticky top-0 z-10">
+    <div className="p-4 space-y-6 bg-gray-900 min-h-screen text-white">
+      <div className="bg-gray-800 rounded-xl shadow-md p-4 sticky top-0 z-10 border border-gray-700">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="font-['Inter',sans-serif] text-xl font-bold">{workoutTemplate.name}</h2>
-          <div className="text-lg font-medium">{formatTime(timer)}</div>
+          <h2 className="font-['Inter',sans-serif] text-xl font-bold text-white">{workoutTemplate.name}</h2>
+          <div className="text-lg font-medium text-white bg-gray-700 px-3 py-1 rounded-lg">{formatTime(timer)}</div>
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-400">
           Started at {format(startTime, 'h:mm a')} · {templateExercises.length} exercises
         </div>
-        <div className="mt-2 h-1 w-full bg-gray-200 rounded-full">
+        <div className="mt-2 h-1 w-full bg-gray-700 rounded-full">
           <div 
-            className="h-1 bg-primary rounded-full" 
+            className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" 
             style={{ 
               width: `${((currentExerciseIndex + 1) / templateExercises.length) * 100}%` 
             }} 
@@ -513,16 +513,16 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         
         {/* Rest Timer */}
         {restTimerActive && restTimer !== null && (
-          <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center justify-between">
+          <div className="mt-3 bg-blue-900/30 p-3 rounded-lg border border-blue-800 flex items-center justify-between">
             <div className="flex items-center">
-              <TimerIcon className="text-blue-600 mr-2" size={20} />
+              <TimerIcon className="text-blue-400 mr-2" size={20} />
               <div>
-                <div className="text-sm font-medium">Rest Timer</div>
-                <div className="text-lg font-bold text-blue-600">{restTimer}s</div>
+                <div className="text-sm font-medium text-gray-300">Rest Timer</div>
+                <div className="text-lg font-bold text-blue-400">{restTimer}s</div>
               </div>
             </div>
             <button 
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+              className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors"
               onClick={() => {
                 clearInterval(restTimerRef.current as NodeJS.Timeout);
                 setRestTimerActive(false);
@@ -536,7 +536,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         
         {/* Exercise List Toggle */}
         <button 
-          className="flex items-center justify-between w-full mt-3 text-sm font-medium text-gray-600 bg-gray-50 p-2 rounded-lg"
+          className="flex items-center justify-between w-full mt-3 text-sm font-medium text-gray-300 bg-gray-700 p-2 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors"
           onClick={() => setShowAllExercises(!showAllExercises)}
         >
           <span>All Exercises</span>
@@ -545,7 +545,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         
         {/* Exercise List */}
         {showAllExercises && (
-          <div className="mt-2 max-h-48 overflow-y-auto bg-gray-50 rounded-lg p-2">
+          <div className="mt-2 max-h-48 overflow-y-auto bg-gray-700 rounded-lg p-2 border border-gray-600">
             {templateExercises.map((exercise: any, index: number) => {
               const ex = exercises?.find((e: any) => e.id === exercise.exerciseId);
               const sets = exerciseSets.get(exercise.exerciseId) || [];
@@ -554,13 +554,13 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
               return (
                 <div 
                   key={exercise.id} 
-                  className={`p-2 rounded-lg mb-1 border ${
+                  className={`p-2 rounded-lg mb-1 border cursor-pointer hover:bg-gray-600 transition-colors ${
                     index === currentExerciseIndex 
-                      ? 'bg-primary-50 border-primary-100' 
-                      : 'bg-white border-gray-100'
+                      ? 'bg-blue-900/50 border-blue-800' 
+                      : 'bg-gray-800 border-gray-700'
                   } ${
                     completedSets === sets.length && sets.length > 0
-                      ? 'border-green-200 bg-green-50'
+                      ? 'border-green-700 bg-green-900/30'
                       : ''
                   }`}
                   onClick={() => {
@@ -569,8 +569,8 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                   }}
                 >
                   <div className="flex justify-between">
-                    <div className="font-medium text-sm">{ex?.name || 'Exercise'}</div>
-                    <div className="text-xs text-gray-500">{completedSets}/{sets.length} sets</div>
+                    <div className="font-medium text-sm text-white">{ex?.name || 'Exercise'}</div>
+                    <div className="text-xs text-gray-400">{completedSets}/{sets.length} sets</div>
                   </div>
                 </div>
               );
@@ -579,27 +579,27 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         )}
       </div>
       
-      <div className="bg-white rounded-xl shadow-sm p-4">
+      <div className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="font-['Inter',sans-serif] text-lg font-medium">{currentExercise?.name || 'Exercise'}</h3>
-            <p className="text-sm text-gray-500">{currentExercise?.muscleGroup || 'Muscle Group'}</p>
+            <h3 className="font-['Inter',sans-serif] text-lg font-medium text-white">{currentExercise?.name || 'Exercise'}</h3>
+            <p className="text-sm text-gray-400">{currentExercise?.muscleGroup || 'Muscle Group'}</p>
           </div>
-          <div className="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">
+          <div className="bg-blue-900/30 text-blue-400 text-sm font-medium px-3 py-1 rounded-full border border-blue-800">
             {currentExerciseIndex + 1} / {templateExercises.length}
           </div>
         </div>
         
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="font-medium">Sets</h4>
+            <h4 className="font-medium text-white">Sets</h4>
             <div className="flex items-center gap-2">
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-400">
                 {currentSets.filter(s => s.isCompleted).length} / {currentSets.length} completed
               </div>
-              <div className="flex border rounded-md">
+              <div className="flex border border-gray-600 rounded-md bg-gray-700">
                 <button
-                  className="p-1 text-gray-500 hover:text-primary"
+                  className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
                   onClick={() => removeSet(currentTemplateExercise.exerciseId)}
                   title="Remove a set"
                   disabled={currentSets.length <= 1 || currentSets[currentSets.length - 1].isCompleted}
@@ -607,7 +607,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                   <Minus size={16} />
                 </button>
                 <button
-                  className="p-1 text-gray-500 hover:text-primary"
+                  className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
                   onClick={() => addSet(currentTemplateExercise.exerciseId)}
                   title="Add a set"
                 >
@@ -623,21 +623,21 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                 key={setIndex}
                 className={`border rounded-lg p-3 ${
                   set.isCompleted 
-                    ? 'border-green-200 bg-green-50' 
-                    : 'border-gray-200'
+                    ? 'border-green-700 bg-green-900/30' 
+                    : 'border-gray-700 bg-gray-700'
                 } ${
                   set.type === 'warmup'
-                    ? 'border-yellow-200 bg-yellow-50'
+                    ? 'border-yellow-700 bg-yellow-900/30'
                     : ''
                 }`}
               >
                 <div className="flex justify-between items-center mb-3">
-                  <h5 className="font-medium">Set {set.setNumber}</h5>
+                  <h5 className="font-medium text-white">Set {set.setNumber}</h5>
                   <button 
-                    className={`text-xs px-2 py-1 rounded ${
+                    className={`text-xs px-2 py-1 rounded transition-colors ${
                       set.type === 'warmup'
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-blue-100 text-blue-800'
+                        ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-800' 
+                        : 'bg-blue-900/50 text-blue-400 border border-blue-800'
                     }`}
                     onClick={() => toggleSetType(currentTemplateExercise.exerciseId, setIndex)}
                     disabled={set.isCompleted}
@@ -648,7 +648,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                 
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Weight (kg)</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Weight (kg)</label>
                     <input 
                       type="number" 
                       value={set.weight || ''} 
@@ -659,11 +659,11 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                         e.target.value
                       )}
                       disabled={set.isCompleted}
-                      className="bg-[#F5F5F5] border border-[#E0E0E0] rounded-lg p-2 w-full text-center" 
+                      className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Reps</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Reps</label>
                     <input 
                       type="number" 
                       value={set.reps || ''} 
@@ -674,21 +674,21 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                         e.target.value
                       )}
                       disabled={set.isCompleted}
-                      className="bg-[#F5F5F5] border border-[#E0E0E0] rounded-lg p-2 w-full text-center" 
+                      className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Action</label>
+                    <label className="text-xs text-gray-400 mb-1 block">Action</label>
                     {!set.isCompleted ? (
                       <button 
-                        className="bg-primary text-white w-full py-2 rounded-lg text-sm"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white w-full py-2 rounded-lg text-sm transition-colors"
                         onClick={() => saveSet(currentTemplateExercise.exerciseId, setIndex)}
                       >
                         Save
                       </button>
                     ) : (
                       <button 
-                        className="bg-green-500 text-white w-full py-2 rounded-lg text-sm"
+                        className="bg-gradient-to-r from-green-600 to-green-700 text-white w-full py-2 rounded-lg text-sm"
                         disabled
                       >
                         Completed
@@ -700,22 +700,22 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                 {/* Manual rest timer buttons */}
                 {set.isCompleted && setIndex < currentSets.length - 1 && !currentSets[setIndex + 1].isCompleted && (
                   <div className="flex justify-between items-center">
-                    <div className="text-xs text-gray-500">Need a break before next set?</div>
+                    <div className="text-xs text-gray-400">Need a break before next set?</div>
                     <div className="flex gap-2">
                       <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
                         onClick={() => startRestTimer(30)}
                       >
                         <TimerIcon size={12} /> 30s
                       </button>
                       <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
                         onClick={() => startRestTimer(60)}
                       >
                         <TimerIcon size={12} /> 60s
                       </button>
                       <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
                         onClick={() => startRestTimer(90)}
                       >
                         <TimerIcon size={12} /> 90s
@@ -730,10 +730,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         
         <div className="grid grid-cols-2 gap-4">
           <button 
-            className={`py-3 rounded-lg font-medium border ${
+            className={`py-3 rounded-lg font-medium border transition-colors ${
               currentExerciseIndex === 0 
-                ? 'bg-gray-100 text-gray-400 border-gray-200' 
-                : 'bg-white text-gray-700 border-gray-300'
+                ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed' 
+                : 'bg-gray-700 text-white border-gray-600 hover:bg-gray-600'
             }`}
             onClick={moveToPrevExercise}
             disabled={currentExerciseIndex === 0}
@@ -741,10 +741,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
             Previous
           </button>
           <button 
-            className={`py-3 rounded-lg font-medium ${
+            className={`py-3 rounded-lg font-medium transition-colors ${
               currentExerciseIndex === templateExercises.length - 1 
-                ? 'bg-primary text-white' 
-                : 'bg-white text-gray-700 border border-gray-300'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white' 
+                : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600'
             }`}
             onClick={currentExerciseIndex === templateExercises.length - 1 
               ? handleFinishWorkout 
@@ -761,7 +761,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
       
       <div className="flex justify-center">
         <button 
-          className="text-red-500 text-sm"
+          className="text-red-400 text-sm hover:text-red-300 transition-colors border border-red-800 px-4 py-2 rounded-lg bg-red-900/20 hover:bg-red-800/30"
           onClick={handleCancelWorkout}
         >
           Cancel Workout
