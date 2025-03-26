@@ -63,15 +63,29 @@ const Dashboard = () => {
     staleTime: 60000, // 1 minute
   });
   
-  // Fetch activities
+  // Fetch activities for the selected date
   const { data: activities } = useQuery<DashboardActivity[]>({
-    queryKey: ['/api/users/1/activities'],
+    queryKey: ['/api/users/1/activities', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/1/activities?date=${format(selectedDate, 'yyyy-MM-dd')}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch activities');
+      }
+      return response.json();
+    },
     staleTime: 60000, // 1 minute
   });
   
-  // Fetch daily stats
+  // Fetch daily stats for the selected date
   const { data: dailyStats } = useQuery<DailyStats>({
-    queryKey: ['/api/users/1/daily-stats'],
+    queryKey: ['/api/users/1/daily-stats', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(`/api/users/1/daily-stats?date=${format(selectedDate, 'yyyy-MM-dd')}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch daily stats');
+      }
+      return response.json();
+    },
     staleTime: 60000, // 1 minute
   });
   
