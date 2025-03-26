@@ -1390,7 +1390,7 @@ export class MemStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return undefined;
 
-    const plan = await this.getSubscriptionPlanByName(user.subscriptionPlan || 'free');
+    const plan = await this.getSubscriptionPlanByName(user.subscriptionPlan || 'basic');
     if (!plan) return undefined;
 
     return {
@@ -1405,25 +1405,36 @@ export class MemStorage implements IStorage {
 
     // Check if subscription has expired
     if (user.subscriptionExpiry && new Date(user.subscriptionExpiry) < new Date()) {
-      // Subscription expired, downgrade to free
-      await this.updateUserSubscription(userId, 'free', new Date());
-      return this.checkFeatureAccessByPlan('free', featureName);
+      // Subscription expired, downgrade to basic
+      await this.updateUserSubscription(userId, 'basic', new Date());
+      return this.checkFeatureAccessByPlan('basic', featureName);
     }
 
-    return this.checkFeatureAccessByPlan(user.subscriptionPlan || 'free', featureName);
+    return this.checkFeatureAccessByPlan(user.subscriptionPlan || 'basic', featureName);
   }
 
   // Helper method to check feature access by plan name
   private checkFeatureAccessByPlan(planType: string, featureName: string): boolean {
+    // Allow all features during trial period
+    if (planType.toLowerCase() === 'trial') {
+      return true;
+    }
+    
     switch (featureName) {
+      // Basic features - available in both Basic and Advanced plans
+      case 'workout_tracking':
+      case 'food_logging':
+      case 'step_counter':
+        return ['basic', 'advanced'].includes(planType.toLowerCase());
+      
+      // Advanced features - available only in Advanced plan
       case 'analytics':
-        return ['basic', 'premium', 'elite'].includes(planType.toLowerCase());
       case 'health_integrations':
-        return ['premium', 'elite'].includes(planType.toLowerCase());
       case 'custom_workouts':
-        return ['basic', 'premium', 'elite'].includes(planType.toLowerCase());
       case 'pdf_upload':
-        return ['premium', 'elite'].includes(planType.toLowerCase());
+      case 'medication_tracking':
+        return ['advanced'].includes(planType.toLowerCase());
+      
       default:
         return true; // Default access for unspecified features
     }
