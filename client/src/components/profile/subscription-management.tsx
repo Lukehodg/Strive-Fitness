@@ -247,7 +247,7 @@ export default function SubscriptionManagement() {
             </div>
           </CardContent>
           <CardFooter className="flex justify-end pt-0">
-            <Button variant="outline" disabled={currentPlan.planType === 'free'}>
+            <Button variant="outline" disabled={currentPlan.price === 0}>
               Manage Billing
             </Button>
           </CardFooter>
