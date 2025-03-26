@@ -20,6 +20,33 @@ export const HealthMetricTypes = [
   'steps'
 ] as const;
 
+// Define medication types for validation
+export const MedicationTypes = [
+  'tablet',
+  'capsule',
+  'liquid',
+  'injection',
+  'topical',
+  'inhaler',
+  'patch',
+  'drops',
+  'spray',
+  'powder',
+  'other'
+] as const;
+
+// Define injection sites for validation
+export const InjectionSites = [
+  'left_arm',
+  'right_arm',
+  'left_thigh',
+  'right_thigh',
+  'abdomen',
+  'buttocks',
+  'deltoid',
+  'other'
+] as const;
+
 // User model
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -218,6 +245,51 @@ export type InsertMeal = z.infer<typeof insertMealSchema>;
 export type DailyStats = typeof dailyStats.$inferSelect;
 export type InsertDailyStats = z.infer<typeof insertDailyStatsSchema>;
 
+// Medications model
+export const medications = pgTable("medications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // tablet, capsule, liquid, injection, etc.
+  dosage: text("dosage").notNull(), // e.g., "10mg", "5ml"
+  frequency: text("frequency").notNull(), // e.g., "once daily", "twice daily"
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // Optional end date
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+});
+
+export const insertMedicationSchema = createInsertSchema(medications).omit({
+  id: true,
+});
+
+// Medication schedule model
+export const medicationSchedule = pgTable("medication_schedule", {
+  id: serial("id").primaryKey(),
+  medicationId: integer("medication_id").notNull(),
+  scheduledTime: timestamp("scheduled_time").notNull(),
+  takenTime: timestamp("taken_time"),
+  isTaken: boolean("is_taken").default(false),
+  skipped: boolean("skipped").default(false),
+  notes: text("notes"),
+  injectionSite: text("injection_site"), // For injections only
+});
+
+export const insertMedicationScheduleSchema = createInsertSchema(medicationSchedule).omit({
+  id: true,
+  takenTime: true,
+  isTaken: true,
+  skipped: true,
+});
+
 export type HealthMetric = typeof healthMetrics.$inferSelect;
 export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
 export type HealthMetricType = typeof HealthMetricTypes[number];
+
+export type Medication = typeof medications.$inferSelect;
+export type InsertMedication = z.infer<typeof insertMedicationSchema>;
+export type MedicationType = typeof MedicationTypes[number];
+
+export type MedicationSchedule = typeof medicationSchedule.$inferSelect;
+export type InsertMedicationSchedule = z.infer<typeof insertMedicationScheduleSchema>;
+export type InjectionSite = typeof InjectionSites[number];

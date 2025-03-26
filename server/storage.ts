@@ -8,7 +8,9 @@ import {
   activities, Activity, InsertActivity,
   meals, Meal, InsertMeal,
   dailyStats, DailyStats, InsertDailyStats,
-  healthMetrics, HealthMetric, InsertHealthMetric, HealthMetricType
+  healthMetrics, HealthMetric, InsertHealthMetric, HealthMetricType,
+  medications, Medication, InsertMedication, MedicationType,
+  medicationSchedule, MedicationSchedule, InsertMedicationSchedule, InjectionSite
 } from "@shared/schema";
 
 // Storage interface with CRUD methods
@@ -75,6 +77,22 @@ export interface IStorage {
   createHealthMetric(metric: InsertHealthMetric): Promise<HealthMetric>;
   updateHealthMetric(id: number, data: Partial<HealthMetric>): Promise<HealthMetric | undefined>;
   deleteHealthMetric(id: number): Promise<boolean>;
+  
+  // Medications
+  getMedications(userId: number): Promise<Medication[]>;
+  getActiveMedications(userId: number): Promise<Medication[]>;
+  getMedication(id: number): Promise<Medication | undefined>;
+  createMedication(medication: InsertMedication): Promise<Medication>;
+  updateMedication(id: number, data: Partial<Medication>): Promise<Medication | undefined>;
+  deleteMedication(id: number): Promise<boolean>;
+  
+  // Medication schedules
+  getMedicationSchedules(medicationId: number): Promise<MedicationSchedule[]>;
+  getMedicationSchedulesByDateRange(userId: number, startDate: Date, endDate: Date): Promise<MedicationSchedule[]>;
+  getMedicationSchedule(id: number): Promise<MedicationSchedule | undefined>;
+  createMedicationSchedule(schedule: InsertMedicationSchedule): Promise<MedicationSchedule>;
+  updateMedicationSchedule(id: number, data: Partial<MedicationSchedule>): Promise<MedicationSchedule | undefined>;
+  deleteMedicationSchedule(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -88,6 +106,8 @@ export class MemStorage implements IStorage {
   private meals: Map<number, Meal>;
   private dailyStats: Map<number, DailyStats>;
   private healthMetrics: Map<number, HealthMetric>;
+  private medications: Map<number, Medication>;
+  private medicationSchedules: Map<number, MedicationSchedule>;
 
   private currentUserId: number;
   private currentExerciseId: number;
@@ -99,6 +119,8 @@ export class MemStorage implements IStorage {
   private currentMealId: number;
   private currentDailyStatsId: number;
   private currentHealthMetricId: number;
+  private currentMedicationId: number;
+  private currentMedicationScheduleId: number;
 
   constructor() {
     this.users = new Map();
@@ -111,6 +133,8 @@ export class MemStorage implements IStorage {
     this.meals = new Map();
     this.dailyStats = new Map();
     this.healthMetrics = new Map();
+    this.medications = new Map();
+    this.medicationSchedules = new Map();
 
     this.currentUserId = 1;
     this.currentExerciseId = 1;
@@ -122,6 +146,8 @@ export class MemStorage implements IStorage {
     this.currentMealId = 1;
     this.currentDailyStatsId = 1;
     this.currentHealthMetricId = 1;
+    this.currentMedicationId = 1;
+    this.currentMedicationScheduleId = 1;
 
     // Initialize with some sample data
     this.initializeData();
