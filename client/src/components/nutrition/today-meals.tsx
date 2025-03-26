@@ -53,9 +53,7 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
     if (!selectedMeal) return;
     
     try {
-      await apiRequest(`/api/meals/${selectedMeal.id}`, {
-        method: 'DELETE',
-      });
+      await apiRequest(`/api/meals/${selectedMeal.id}`, 'DELETE');
       
       // Invalidate and refetch meals data
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/meals'] });

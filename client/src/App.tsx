@@ -41,7 +41,7 @@ function Router() {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="w-full max-w-md p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Loading FitForge...</h2>
+          <h2 className="text-2xl font-bold mb-4">Loading Strive...</h2>
           <div className="h-1 w-full bg-gray-200 rounded-full mt-1">
             <div className="h-1 bg-primary rounded-full animate-pulse" style={{width: '90%'}}></div>
           </div>
@@ -54,7 +54,7 @@ function Router() {
     <div className="min-h-screen bg-[#F5F5F5] pb-20 font-['Roboto',sans-serif] text-[#333333]">
       <header className="bg-primary text-white p-4 shadow-md">
         <div className="flex justify-between items-center max-w-lg mx-auto">
-          <h1 className="text-xl font-bold font-['Inter',sans-serif]">FitForge</h1>
+          <h1 className="text-xl font-bold font-['Inter',sans-serif]">Strive</h1>
           <div className="flex items-center space-x-2">
             <span className="material-icons">notifications</span>
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
