@@ -49,7 +49,8 @@ export default function SignIn() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user, isLoading, signIn, signUp } = useAuth();
+  const { user, isLoading: authLoading, signIn, signUp } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   
   // Redirect if user is already logged in
   useEffect(() => {
@@ -57,6 +58,9 @@ export default function SignIn() {
       setLocation('/');
     }
   }, [user, setLocation]);
+  
+  // Combine our component's loading state with auth context loading state
+  const isFormLoading = isLoading || authLoading;
 
   // Sign In form
   const signInForm = useForm<z.infer<typeof signInSchema>>({
@@ -80,43 +84,67 @@ export default function SignIn() {
 
   // Handle sign in form submission
   const onSignIn = async (values: z.infer<typeof signInSchema>) => {
+    setIsLoading(true);
     try {
       await signIn(values.email, values.password);
       // Navigation is handled by the auth context through useEffect above
     } catch (error) {
       console.error("Sign in error:", error);
       // Error toasts are handled by the auth context
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Handle sign up form submission
   const onSignUp = async (values: z.infer<typeof signUpSchema>) => {
+    setIsLoading(true);
     try {
       await signUp(values.name, values.email, values.password);
       // Navigation is handled by the auth context through useEffect above
     } catch (error) {
       console.error("Sign up error:", error);
       // Error toasts are handled by the auth context
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Handle social sign in
-  const handleSocialSignIn = (provider: 'google' | 'apple') => {
+  const handleSocialSignIn = async (provider: 'google' | 'apple') => {
+    setIsLoading(true);
+    
     toast({
-      title: "Redirecting...",
-      description: `Signing in with ${provider === 'google' ? 'Google' : 'Apple'}...`,
+      title: "Connecting...",
+      description: `Authenticating with ${provider === 'google' ? 'Google' : 'Apple'}...`,
     });
     
-    // For demo purposes, simulate successful authentication
-    setTimeout(() => {
-      // For demonstration, we'll sign in with a demo account
-      signIn("demo@strive.com", "password123");
+    try {
+      // For demo purposes, simulate API call to social auth endpoint
+      const response = await fetch(`/api/auth/social/${provider}`);
+      
+      if (!response.ok) {
+        throw new Error(`Authentication with ${provider} failed`);
+      }
+      
+      // For demonstration, after successful social auth we sign in with demo account
+      await signIn("demo@strive.com", "password123");
       
       toast({
         title: "Welcome!",
         description: `Successfully authenticated with ${provider === 'google' ? 'Google' : 'Apple'}.`,
       });
-    }, 1500);
+    } catch (error) {
+      console.error(`${provider} sign in error:`, error);
+      
+      toast({
+        title: "Authentication Failed",
+        description: error instanceof Error ? error.message : `Could not authenticate with ${provider}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -261,8 +289,16 @@ export default function SignIn() {
                     )}
                   />
                   
-                  <Button type="submit" className="w-full">
-                    Create Account
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating Account...
+                      </span>
+                    ) : "Create Account"}
                   </Button>
                 </form>
               </Form>
@@ -283,25 +319,51 @@ export default function SignIn() {
                   variant="outline" 
                   onClick={() => handleSocialSignIn('google')}
                   className="flex items-center justify-center gap-2"
+                  disabled={isLoading}
                 >
-                  <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-                    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                    <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-                  </svg>
-                  <span>Google</span>
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Connecting...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                        <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                      </svg>
+                      <span>Google</span>
+                    </>
+                  )}
                 </Button>
                 
                 <Button 
                   variant="outline" 
                   onClick={() => handleSocialSignIn('apple')}
                   className="flex items-center justify-center gap-2"
+                  disabled={isLoading}
                 >
-                  <svg width="16" height="16" viewBox="0 0 384 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
-                  </svg>
-                  <span>Apple</span>
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Connecting...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 384 512" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+                      </svg>
+                      <span>Apple</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
