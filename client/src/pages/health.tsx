@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import HealthIntegrations from "@/components/health/health-integrations";
 import PlatformMetrics from "@/components/health/platform-metrics";
+import MedicationsTab from "@/components/health/medications-tab";
 
 // Helper functions for date manipulation and formatting
 function formatDate(date: Date): string {
@@ -208,9 +209,10 @@ export default function HealthPage() {
       </div>
       
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
           <TabsTrigger value="blood-tests">Blood Test Results</TabsTrigger>
+          <TabsTrigger value="medications">Medications</TabsTrigger>
           <TabsTrigger value="integrations">Health Services</TabsTrigger>
         </TabsList>
         
