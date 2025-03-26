@@ -87,6 +87,7 @@ export class MemStorage implements IStorage {
   private activities: Map<number, Activity>;
   private meals: Map<number, Meal>;
   private dailyStats: Map<number, DailyStats>;
+  private healthMetrics: Map<number, HealthMetric>;
 
   private currentUserId: number;
   private currentExerciseId: number;
@@ -97,6 +98,7 @@ export class MemStorage implements IStorage {
   private currentActivityId: number;
   private currentMealId: number;
   private currentDailyStatsId: number;
+  private currentHealthMetricId: number;
 
   constructor() {
     this.users = new Map();
@@ -108,6 +110,7 @@ export class MemStorage implements IStorage {
     this.activities = new Map();
     this.meals = new Map();
     this.dailyStats = new Map();
+    this.healthMetrics = new Map();
 
     this.currentUserId = 1;
     this.currentExerciseId = 1;
@@ -118,6 +121,7 @@ export class MemStorage implements IStorage {
     this.currentActivityId = 1;
     this.currentMealId = 1;
     this.currentDailyStatsId = 1;
+    this.currentHealthMetricId = 1;
 
     // Initialize with some sample data
     this.initializeData();
@@ -336,12 +340,122 @@ export class MemStorage implements IStorage {
     this.createMeal(breakfast);
     this.createMeal(lunch);
     this.createMeal(snack);
+    
+    // Create sample health metrics
+    const todayDate = new Date();
+    const yesterday = new Date(todayDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const twoDaysAgo = new Date(todayDate);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    
+    // Blood pressure readings
+    const bloodPressureMetrics = [
+      {
+        userId: 1,
+        timestamp: todayDate,
+        metricType: 'blood_pressure' as HealthMetricType,
+        systolic: 122,
+        diastolic: 78,
+        notes: "Morning reading, after breakfast",
+      },
+      {
+        userId: 1,
+        timestamp: yesterday,
+        metricType: 'blood_pressure' as HealthMetricType,
+        systolic: 125,
+        diastolic: 80,
+        notes: "Evening reading, before bed",
+      },
+      {
+        userId: 1,
+        timestamp: twoDaysAgo,
+        metricType: 'blood_pressure' as HealthMetricType,
+        systolic: 120,
+        diastolic: 75,
+        notes: "Afternoon reading",
+      }
+    ];
+    
+    // Heart rate readings
+    const heartRateMetrics = [
+      {
+        userId: 1,
+        timestamp: todayDate,
+        metricType: 'heart_rate' as HealthMetricType,
+        value: 68,
+        notes: "Resting heart rate, morning",
+      },
+      {
+        userId: 1,
+        timestamp: yesterday,
+        metricType: 'heart_rate' as HealthMetricType,
+        value: 72,
+        notes: "Evening reading",
+      },
+      {
+        userId: 1,
+        timestamp: twoDaysAgo,
+        metricType: 'heart_rate' as HealthMetricType,
+        value: 65,
+        notes: "Resting heart rate after good sleep",
+      }
+    ];
+    
+    // Weight measurements
+    const weightMetrics = [
+      {
+        userId: 1,
+        timestamp: todayDate,
+        metricType: 'weight' as HealthMetricType,
+        value: 82.1,
+        notes: "Morning weight",
+      },
+      {
+        userId: 1,
+        timestamp: yesterday,
+        metricType: 'weight' as HealthMetricType,
+        value: 82.4,
+        notes: "Morning weight",
+      },
+      {
+        userId: 1,
+        timestamp: twoDaysAgo,
+        metricType: 'weight' as HealthMetricType,
+        value: 82.7,
+        notes: "Morning weight",
+      }
+    ];
+    
+    // Add all the metrics to the storage
+    [...bloodPressureMetrics, ...heartRateMetrics, ...weightMetrics].forEach(metric => {
+      const id = this.currentHealthMetricId++;
+      
+      // Add missing required fields based on the type of metric
+      if ('systolic' in metric) {
+        // Blood pressure metric
+        this.healthMetrics.set(id, { 
+          ...metric, 
+          id,
+          value: null,
+          tags: null
+        });
+      } else {
+        // Heart rate or weight metric
+        this.healthMetrics.set(id, { 
+          ...metric, 
+          id,
+          systolic: null,
+          diastolic: null,
+          tags: null
+        });
+      }
+    });
 
     // Create a workout in progress
     const workout = {
       userId: 1,
       workoutTemplateId: 1,
-      startTime: new Date(today.setHours(8, 0, 0, 0)),
+      startTime: new Date(todayDate.setHours(8, 0, 0, 0)),
       isCompleted: false
     };
 
@@ -413,7 +527,23 @@ export class MemStorage implements IStorage {
 
   async createUser(user: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const newUser: User = { ...user, id };
+    // Ensure all nullable fields have proper null values rather than undefined
+    const newUser: User = { 
+      id,
+      username: user.username,
+      password: user.password,
+      displayName: user.displayName,
+      height: user.height !== undefined ? user.height : null,
+      weight: user.weight !== undefined ? user.weight : null,
+      bodyFat: user.bodyFat !== undefined ? user.bodyFat : null,
+      dailyCalorieTarget: user.dailyCalorieTarget !== undefined ? user.dailyCalorieTarget : null,
+      dailyStepTarget: user.dailyStepTarget !== undefined ? user.dailyStepTarget : null,
+      dailyProteinTarget: user.dailyProteinTarget !== undefined ? user.dailyProteinTarget : null,
+      dailyCarbsTarget: user.dailyCarbsTarget !== undefined ? user.dailyCarbsTarget : null,
+      dailyFatTarget: user.dailyFatTarget !== undefined ? user.dailyFatTarget : null,
+      profileType: user.profileType || 'standard',
+      dashboardWidgets: user.dashboardWidgets || null
+    };
     this.users.set(id, newUser);
     return newUser;
   }
@@ -461,7 +591,13 @@ export class MemStorage implements IStorage {
 
   async createExercise(exercise: InsertExercise): Promise<Exercise> {
     const id = this.currentExerciseId++;
-    const newExercise: Exercise = { ...exercise, id };
+    const newExercise: Exercise = { 
+      id,
+      name: exercise.name,
+      category: exercise.category,
+      muscleGroup: exercise.muscleGroup,
+      description: exercise.description !== undefined ? exercise.description : null
+    };
     this.exercises.set(id, newExercise);
     return newExercise;
   }
@@ -479,7 +615,14 @@ export class MemStorage implements IStorage {
 
   async createWorkoutTemplate(template: InsertWorkoutTemplate): Promise<WorkoutTemplate> {
     const id = this.currentWorkoutTemplateId++;
-    const newTemplate: WorkoutTemplate = { ...template, id };
+    const newTemplate: WorkoutTemplate = { 
+      id,
+      name: template.name,
+      userId: template.userId,
+      exerciseCount: template.exerciseCount,
+      duration: template.duration,
+      color: template.color !== undefined ? template.color : null
+    };
     this.workoutTemplates.set(id, newTemplate);
     return newTemplate;
   }
@@ -493,7 +636,16 @@ export class MemStorage implements IStorage {
 
   async createWorkoutTemplateExercise(templateExercise: InsertWorkoutTemplateExercise): Promise<WorkoutTemplateExercise> {
     const id = this.currentWorkoutTemplateExerciseId++;
-    const newTemplateExercise: WorkoutTemplateExercise = { ...templateExercise, id };
+    const newTemplateExercise: WorkoutTemplateExercise = { 
+      id,
+      workoutTemplateId: templateExercise.workoutTemplateId,
+      exerciseId: templateExercise.exerciseId,
+      sets: templateExercise.sets,
+      repsMin: templateExercise.repsMin,
+      repsMax: templateExercise.repsMax,
+      order: templateExercise.order,
+      restSeconds: templateExercise.restSeconds !== undefined ? templateExercise.restSeconds : null
+    };
     this.workoutTemplateExercises.set(id, newTemplateExercise);
     return newTemplateExercise;
   }
@@ -699,6 +851,71 @@ export class MemStorage implements IStorage {
     const newStats: DailyStats = { ...stats, id };
     this.dailyStats.set(id, newStats);
     return newStats;
+  }
+
+  // Health metrics methods
+  async getHealthMetrics(userId: number, startDate: Date, endDate: Date): Promise<HealthMetric[]> {
+    return Array.from(this.healthMetrics.values()).filter(
+      metric => 
+        metric.userId === userId && 
+        metric.timestamp >= startDate && 
+        metric.timestamp <= endDate
+    );
+  }
+
+  async getHealthMetricsByType(userId: number, metricType: HealthMetricType, startDate: Date, endDate: Date): Promise<HealthMetric[]> {
+    return Array.from(this.healthMetrics.values()).filter(
+      metric => 
+        metric.userId === userId && 
+        metric.metricType === metricType &&
+        metric.timestamp >= startDate && 
+        metric.timestamp <= endDate
+    );
+  }
+
+  async getHealthMetric(id: number): Promise<HealthMetric | undefined> {
+    return this.healthMetrics.get(id);
+  }
+
+  async createHealthMetric(metric: InsertHealthMetric): Promise<HealthMetric> {
+    const id = this.currentHealthMetricId++;
+    
+    // Make sure we convert string date to Date object if needed
+    let timestamp = metric.timestamp;
+    if (typeof timestamp === 'string') {
+      timestamp = new Date(timestamp);
+    }
+    
+    // Ensure all required fields have values (null if not provided)
+    const newMetric: HealthMetric = {
+      id,
+      userId: metric.userId,
+      timestamp,
+      metricType: metric.metricType,
+      value: metric.value !== undefined ? metric.value : null,
+      systolic: metric.systolic !== undefined ? metric.systolic : null,
+      diastolic: metric.diastolic !== undefined ? metric.diastolic : null,
+      notes: metric.notes !== undefined ? metric.notes : null,
+      tags: metric.tags !== undefined ? metric.tags : null
+    };
+    
+    this.healthMetrics.set(id, newMetric);
+    return newMetric;
+  }
+
+  async updateHealthMetric(id: number, data: Partial<HealthMetric>): Promise<HealthMetric | undefined> {
+    const metric = this.healthMetrics.get(id);
+    if (!metric) return undefined;
+    
+    const updatedMetric = { ...metric, ...data };
+    this.healthMetrics.set(id, updatedMetric);
+    return updatedMetric;
+  }
+
+  async deleteHealthMetric(id: number): Promise<boolean> {
+    if (!this.healthMetrics.has(id)) return false;
+    
+    return this.healthMetrics.delete(id);
   }
 }
 
