@@ -15,11 +15,13 @@ import {
   insertWorkoutTemplateSchema,
   insertMedicationSchema,
   insertMedicationScheduleSchema,
-  HealthMetricTypes
+  HealthMetricTypes,
+  InsertWorkoutTemplate
 } from "@shared/schema";
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
 import { getProductByBarcode } from "./openFoodFactsApi";
 import { handleConnectHealthPlatform, handleSyncHealthData } from "./healthIntegrations";
+import { generateWorkoutExercises } from "./aiWorkoutGenerator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -190,6 +192,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(template);
     } catch (error) {
       res.status(400).json({ message: "Invalid workout template data", error });
+    }
+  });
+  
+  // AI Workout Generator endpoint
+  app.post("/api/generate-workout", async (req: Request, res: Response) => {
+    try {
+      const { 
+        userId, 
+        focus, 
+        duration, 
+        difficulty, 
+        equipment,
+        workoutName,
+        scheduledDay
+      } = req.body;
+      
+      if (!userId || !focus || !duration || !difficulty) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+      
+      // Generate a color based on the focus area
+      const colorMap: Record<string, string> = {
+        'upper body': '#4F46E5', // indigo
+        'lower body': '#7C3AED', // violet
+        'full body': '#0EA5E9', // sky
+        'cardio': '#F97316', // orange
+        'strength': '#10B981', // emerald
+        'hypertrophy': '#EC4899', // pink
+        'endurance': '#06B6D4', // cyan
+        'default': '#3B82F6', // blue
+      };
+      
+      const color = colorMap[focus.toLowerCase()] || colorMap['default'];
+      
+      // Create an actual workout template
+      const newWorkout: InsertWorkoutTemplate = {
+        userId,
+        name: workoutName || `${focus} Workout`,
+        description: `AI generated ${difficulty} level ${focus} workout${equipment ? ' with ' + equipment : ''}`,
+        exerciseCount: 0, // Will be updated after adding exercises
+        duration: Number(duration) || 45,
+        color,
+        scheduledDay: scheduledDay || undefined
+      };
+      
+      // Create the workout template
+      const workoutTemplate = await storage.createWorkoutTemplate(newWorkout);
+      
+      // Generate exercises based on the focus and difficulty
+      const exercises = await generateWorkoutExercises(
+        focus, 
+        difficulty, 
+        equipment || 'basic', 
+        workoutTemplate.id
+      );
+      
+      // Update the exercise count
+      const updatedTemplate = await storage.updateWorkoutTemplate(
+        workoutTemplate.id, 
+        { exerciseCount: exercises.length }
+      );
+      
+      res.status(201).json({ 
+        template: updatedTemplate, 
+        exercises 
+      });
+    } catch (error) {
+      console.error("Workout generation error:", error);
+      res.status(500).json({ message: "Failed to generate workout", error });
     }
   });
 
