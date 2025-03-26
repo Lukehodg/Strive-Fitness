@@ -18,7 +18,6 @@ export interface Widget {
 
 interface WidgetSystemProps {
   widgets: Widget[];
-  onAddWidget: () => void;
   onRemoveWidget: (id: string) => void;
 }
 
@@ -123,21 +122,7 @@ const AddWidgetPlaceholder: React.FC<{
   );
 };
 
-const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onAddWidget, onRemoveWidget }) => {
-  // Available widget types to add
-  const availableWidgets = [
-    { type: 'progress', title: 'Progress Circle' },
-    { type: 'nutrition', title: 'Nutrition Summary' },
-    { type: 'workout', title: 'Workout' },
-    { type: 'activity', title: 'Activity' }
-  ];
-
-  const handleSelectWidgetType = (type: string) => {
-    console.log(`Selected widget type: ${type}`);
-    // Pass the type to the parent component to handle
-    onAddWidget();
-  };
-
+const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onRemoveWidget }) => {
   return (
     <div className="grid grid-cols-3 gap-4 mb-6">
       {widgets.map((widget) => (
@@ -148,13 +133,13 @@ const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onAddWidget, onRem
         />
       ))}
       
-      {/* Placeholder for adding new widgets */}
-      {widgets.length < 6 && (
-        <AddWidgetPlaceholder 
-          onAddWidget={onAddWidget}
-          availableWidgets={availableWidgets}
-          onSelectWidgetType={handleSelectWidgetType}
-        />
+      {/* Show empty state when no widgets */}
+      {widgets.length === 0 && (
+        <div className="col-span-3 dark-card p-6 flex flex-col items-center justify-center">
+          <p className="text-gray-400 text-center">
+            No widgets added yet. Click the "Add Widget" button to customize your dashboard.
+          </p>
+        </div>
       )}
     </div>
   );

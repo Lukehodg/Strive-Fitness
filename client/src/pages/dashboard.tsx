@@ -88,10 +88,7 @@ const Dashboard = () => {
   // Mutation to update widgets
   const updateWidgetsMutation = useMutation({
     mutationFn: async (newWidgets: Widget[]) => {
-      return await apiRequest('/api/users/1/widgets', {
-        method: 'PUT',
-        body: JSON.stringify(newWidgets),
-      });
+      return await apiRequest('PUT', '/api/users/1/widgets', newWidgets);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/widgets'] });
@@ -236,10 +233,15 @@ const Dashboard = () => {
       <div className="mt-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white">Dashboard</h2>
+          <button
+            onClick={() => setIsAddWidgetDialogOpen(true)}
+            className="flex items-center gap-1 bg-gray-800 hover:bg-gray-700 text-white py-1 px-3 rounded-md text-sm transition-colors"
+          >
+            <span className="text-lg">+</span> Add Widget
+          </button>
         </div>
         <WidgetSystem 
           widgets={widgets}
-          onAddWidget={() => setIsAddWidgetDialogOpen(true)}
           onRemoveWidget={handleRemoveWidget}
         />
       </div>
