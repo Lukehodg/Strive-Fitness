@@ -176,6 +176,7 @@ const Dashboard = () => {
   };
   
   const handleViewAllActivities = () => {
+    // Default to activities or workouts page
     setLocation('/workouts');
   };
   

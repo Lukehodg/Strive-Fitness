@@ -44,10 +44,18 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
   };
 
   const handleActivityClick = (activity: Activity) => {
-    if (activity.type === 'workout') {
-      setLocation('/workouts');
-    } else if (activity.type === 'nutrition') {
-      setLocation('/nutrition');
+    switch (activity.type) {
+      case 'workout':
+        setLocation('/workouts');
+        break;
+      case 'nutrition':
+        setLocation('/nutrition');
+        break;
+      case 'medication':
+        setLocation('/medications');
+        break;
+      default:
+        console.log('Unknown activity type:', activity.type);
     }
   };
 
