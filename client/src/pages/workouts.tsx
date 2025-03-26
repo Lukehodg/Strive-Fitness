@@ -140,9 +140,12 @@ const Workouts = () => {
   
   const handleContinueWorkout = () => {
     if (currentWorkout) {
-      setLocation(`/workouts/active/${currentWorkout.id}`);
+      console.log("Continuing existing workout with ID:", currentWorkout.id);
+      // Use direct navigation to avoid any routing issues
+      window.location.href = `/workouts/active/${currentWorkout.id}`;
     } else if (workoutTemplates && workoutTemplates.length > 0) {
       // If no current workout, create one from the first template
+      console.log("Creating new workout from template:", workoutTemplates[0].id);
       startWorkoutMutation.mutate(workoutTemplates[0].id);
     } else {
       // Handle the case where no templates are available

@@ -37,10 +37,37 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
     queryKey: ['/api/completed-workouts', workoutId],
     queryFn: async () => {
       console.log("Fetching workout with ID:", workoutId);
-      const response = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
-      const data = await response.json();
-      console.log("Workout data:", data);
-      return data;
+      try {
+        if (!workoutId || isNaN(workoutId as number)) {
+          console.error("Invalid workout ID:", workoutId);
+          throw new Error("Invalid workout ID");
+        }
+        
+        const response = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
+        
+        if (!response.ok) {
+          console.error(`API error: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch workout: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log("Workout data:", data);
+        
+        if (!data || data.message === "Completed workout not found") {
+          console.error("Workout not found:", data);
+          throw new Error("Workout not found");
+        }
+        
+        return data;
+      } catch (error) {
+        console.error("Error fetching workout:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load workout data",
+          variant: "destructive"
+        });
+        throw error;
+      }
     },
     staleTime: 60000, // 1 minute
   });

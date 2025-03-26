@@ -61,22 +61,50 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
       // Create a new Date object for the start time
       const currentTime = new Date();
       
-      // Format the date as an ISO string - this is required by the API
-      // The server will parse this into a Date object
-      return await apiRequest('POST', '/api/completed-workouts', {
-        userId: 1, // In a real app, we would get this from auth
-        workoutTemplateId: templateId,
-        startTime: currentTime.toISOString()
-      });
+      try {
+        // Format the date as an ISO string - this is required by the API
+        // The server will parse this into a Date object
+        const response = await apiRequest('POST', '/api/completed-workouts', {
+          userId: 1, // In a real app, we would get this from auth
+          workoutTemplateId: templateId,
+          startTime: currentTime.toISOString()
+        });
+        
+        // Parse the JSON response
+        const responseData = await response.json();
+        console.log("Workout created successfully:", responseData);
+        return responseData;
+      } catch (error) {
+        console.error("Error creating workout:", error);
+        throw error;
+      }
     },
     onSuccess: (data: any) => {
+      console.log("Success data:", data);
+      
       toast({
         title: "Workout Started",
         description: "Your workout has been started",
       });
+      
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
-      // Cast data to any to access id property
-      setLocation(`/workouts/active/${data.id}`);
+      
+      // Make sure we have a valid ID
+      if (data && data.id && !isNaN(data.id)) {
+        // Convert to number and ensure it's a valid integer
+        const workoutId = Math.floor(Number(data.id));
+        console.log(`Navigating to workout with ID: ${workoutId}`);
+        
+        // Use window.location for a hard navigation
+        window.location.href = `/workouts/active/${workoutId}`;
+      } else {
+        console.error("Invalid workout ID in response:", data);
+        toast({
+          title: "Error",
+          description: "Failed to start workout - invalid ID",
+          variant: "destructive"
+        });
+      }
     },
     onError: (error) => {
       toast({
