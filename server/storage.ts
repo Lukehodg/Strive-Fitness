@@ -159,6 +159,8 @@ export class MemStorage implements IStorage {
     this.healthMetrics = new Map();
     this.medications = new Map();
     this.medicationSchedules = new Map();
+    this.subscriptionPlans = new Map();
+    this.subscriptionTransactions = new Map();
 
     this.currentUserId = 1;
     this.currentExerciseId = 1;
@@ -172,12 +174,112 @@ export class MemStorage implements IStorage {
     this.currentHealthMetricId = 1;
     this.currentMedicationId = 1;
     this.currentMedicationScheduleId = 1;
+    this.currentSubscriptionPlanId = 1;
+    this.currentSubscriptionTransactionId = 1;
 
     // Initialize with some sample data
     this.initializeData();
   }
 
   private initializeData() {
+    // Create subscription plans
+    const subscriptionPlans = [
+      {
+        name: "Free",
+        description: "Basic fitness tracking with limited features",
+        price: 0,
+        billingCycle: "monthly",
+        features: ["Basic workout tracking", "Food logging", "Step counter"],
+        isActive: true,
+        maxWorkoutTemplates: 2,
+        maxHealthMetrics: 3,
+        maxMedications: 2,
+        allowsAnalytics: false,
+        allowsHealthIntegrations: false,
+        allowsCustomWorkouts: false,
+        allowsPdfUpload: false
+      },
+      {
+        name: "Basic",
+        description: "Essential fitness tracking and planning",
+        price: 4.99,
+        billingCycle: "monthly",
+        features: [
+          "Advanced workout tracking",
+          "Detailed nutrition analysis",
+          "Health metrics tracking",
+          "Workout plans",
+          "Goal setting"
+        ],
+        stripePriceId: "price_basic_monthly",
+        isActive: true,
+        maxWorkoutTemplates: 5,
+        maxHealthMetrics: 8,
+        maxMedications: 5,
+        allowsAnalytics: true,
+        allowsHealthIntegrations: false,
+        allowsCustomWorkouts: true,
+        allowsPdfUpload: false
+      },
+      {
+        name: "Premium",
+        description: "Complete fitness and health tracking solution",
+        price: 9.99,
+        billingCycle: "monthly",
+        features: [
+          "Advanced workout tracking",
+          "Detailed nutrition analysis",
+          "Comprehensive health metrics",
+          "Unlimited workout plans",
+          "Advanced analytics",
+          "Health platform integrations",
+          "Medication tracking",
+          "PDF health report upload"
+        ],
+        stripePriceId: "price_premium_monthly",
+        isActive: true,
+        maxWorkoutTemplates: 20,
+        maxHealthMetrics: 20,
+        maxMedications: 20,
+        allowsAnalytics: true,
+        allowsHealthIntegrations: true,
+        allowsCustomWorkouts: true,
+        allowsPdfUpload: true
+      },
+      {
+        name: "Elite",
+        description: "Ultimate fitness tracking suite with premium features",
+        price: 19.99,
+        billingCycle: "monthly",
+        features: [
+          "All Premium features",
+          "Priority support",
+          "Unlimited everything",
+          "AI workout recommendations",
+          "Advanced health insights",
+          "Personalized meal plans"
+        ],
+        stripePriceId: "price_elite_monthly",
+        isActive: true,
+        maxWorkoutTemplates: null,
+        maxHealthMetrics: null,
+        maxMedications: null,
+        allowsAnalytics: true,
+        allowsHealthIntegrations: true,
+        allowsCustomWorkouts: true,
+        allowsPdfUpload: true
+      }
+    ];
+
+    // Add subscription plans to storage
+    subscriptionPlans.forEach(plan => {
+      const id = this.currentSubscriptionPlanId++;
+      this.subscriptionPlans.set(id, { 
+        ...plan, 
+        id 
+      });
+    });
+    
     // Create sample user
     const sampleUser: InsertUser = {
       username: "james",
