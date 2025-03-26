@@ -11,7 +11,6 @@ import Profile from "@/pages/profile";
 import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
 import Health from "@/pages/health";
-// Medications tab is now integrated into the Health page
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { useEffect, useState } from "react";
 

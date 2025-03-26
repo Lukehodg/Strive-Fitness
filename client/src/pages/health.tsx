@@ -18,7 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import HealthIntegrations from "@/components/health/health-integrations";
 import PlatformMetrics from "@/components/health/platform-metrics";
-import MedicationsTab from "@/components/health/medications-tab";
+// Import MedicationsTab directly with a relative path
+import MedicationsTab from "../components/health/medications-tab";
 
 // Helper functions for date manipulation and formatting
 function formatDate(date: Date): string {
