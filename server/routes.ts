@@ -8,6 +8,7 @@ import {
   insertCompletedWorkoutSchema,
   insertExerciseSchema,
   insertMealSchema,
+  SubscriptionPlanType,
   insertUserSchema,
   insertWorkoutSetSchema,
   insertWorkoutTemplateExerciseSchema,
@@ -1043,14 +1044,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { planType, expiryDate } = req.body;
     
     try {
-      // Validate that the plan exists
-      const plan = await storage.getSubscriptionPlanByName(planType);
-      if (!plan) {
+      // Validate that planType is one of our allowed types
+      if (!['basic', 'advanced', 'trial'].includes(planType)) {
         return res.status(400).json({ success: false, message: "Invalid subscription plan type" });
+      }
+      
+      // Validate that the plan exists
+      const plan = await storage.getSubscriptionPlanByName(planType as SubscriptionPlanType);
+      if (!plan) {
+        return res.status(400).json({ success: false, message: "Subscription plan not found" });
       }
 
       // Update the user's subscription
-      const user = await storage.updateUserSubscription(userId, planType, new Date(expiryDate));
+      const user = await storage.updateUserSubscription(userId, planType as SubscriptionPlanType, new Date(expiryDate));
       if (user) {
         // Create a subscription transaction record
         await storage.createSubscriptionTransaction({

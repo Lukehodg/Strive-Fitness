@@ -1348,8 +1348,21 @@ export class MemStorage implements IStorage {
   async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
     const id = this.currentSubscriptionPlanId++;
     const newPlan: SubscriptionPlan = { 
-      ...plan, 
-      id 
+      id,
+      name: plan.name,
+      description: plan.description,
+      price: plan.price,
+      billingCycle: plan.billingCycle,
+      isActive: plan.isActive === true ? true : null,
+      features: plan.features,
+      stripePriceId: plan.stripePriceId || null,
+      maxWorkoutTemplates: plan.maxWorkoutTemplates || null,
+      maxHealthMetrics: plan.maxHealthMetrics || null,
+      maxMedications: plan.maxMedications || null,
+      allowsAnalytics: plan.allowsAnalytics || null,
+      allowsHealthIntegrations: plan.allowsHealthIntegrations || null,
+      allowsCustomWorkouts: plan.allowsCustomWorkouts || null,
+      allowsPdfUpload: plan.allowsPdfUpload || null
     };
     this.subscriptionPlans.set(id, newPlan);
     return newPlan;
@@ -1377,10 +1390,21 @@ export class MemStorage implements IStorage {
 
   async createSubscriptionTransaction(transaction: InsertSubscriptionTransaction): Promise<SubscriptionTransaction> {
     const id = this.currentSubscriptionTransactionId++;
+    
+    // Create a complete transaction object with all required fields
     const newTransaction: SubscriptionTransaction = { 
-      ...transaction, 
-      id 
+      id,
+      userId: transaction.userId,
+      subscriptionPlanId: transaction.subscriptionPlanId,
+      amount: transaction.amount,
+      status: transaction.status,
+      transactionDate: new Date(), // Always use current date as default
+      paymentMethod: transaction.paymentMethod || null,
+      stripePaymentIntentId: transaction.stripePaymentIntentId || null,
+      receiptUrl: transaction.receiptUrl || null,
+      metadata: transaction.metadata || null
     };
+    
     this.subscriptionTransactions.set(id, newTransaction);
     return newTransaction;
   }
@@ -1402,8 +1426,10 @@ export class MemStorage implements IStorage {
   async getUserSubscriptionDetails(userId: number): Promise<{plan: SubscriptionPlan, expiryDate: Date | null} | undefined> {
     const user = await this.getUser(userId);
     if (!user) return undefined;
-
-    const plan = await this.getSubscriptionPlanByName(user.subscriptionPlan || 'basic');
+    
+    // Safely cast the subscription plan to our type
+    const safeSubscriptionPlan = (user.subscriptionPlan || 'basic') as SubscriptionPlanType;
+    const plan = await this.getSubscriptionPlanByName(safeSubscriptionPlan);
     if (!plan) return undefined;
 
     return {
