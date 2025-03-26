@@ -81,6 +81,20 @@ const Dashboard = () => {
     queryKey: ['/api/users/1/daily-stats', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const response = await fetch(`/api/users/1/daily-stats?date=${format(selectedDate, 'yyyy-MM-dd')}`);
+      // If data not found for selected date, provide default empty stats
+      if (response.status === 404) {
+        return {
+          id: 0,
+          userId: 1,
+          date: format(selectedDate, 'yyyy-MM-dd'),
+          caloriesConsumed: 0,
+          stepsCount: 0,
+          waterIntake: 0,
+          proteinConsumed: 0,
+          carbsConsumed: 0,
+          fatConsumed: 0
+        };
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch daily stats');
       }
@@ -201,12 +215,12 @@ const Dashboard = () => {
     })) || [];
     
     // Add routes to activities based on their type
-    const activitiesData = activities?.map(activity => ({
+    const activitiesData = displayActivities.map(activity => ({
       ...activity,
       route: activity.type === "workout" ? "/workouts" : 
              activity.type === "nutrition" ? "/nutrition" : 
              activity.type === "medication" ? "/health" : undefined
-    })) || [];
+    }));
     
     return {
       progress: progressData,
@@ -265,7 +279,10 @@ const Dashboard = () => {
     }
   }, [userWidgets, userData]);
   
-  if (!user || !dailyStats || !activities) {
+  // Default to empty array if activities is undefined
+  const displayActivities: DashboardActivity[] = activities || [];
+  
+  if (!user || !dailyStats) {
     return (
       <div className="p-4 flex items-center justify-center h-[90vh] bg-gray-900 text-white">
         <p>Loading...</p>
@@ -299,7 +316,7 @@ const Dashboard = () => {
       </div>
       
       <TodayActivities 
-        activities={activities}
+        activities={displayActivities}
         onViewAll={handleViewAllActivities}
         selectedDate={selectedDate}
       />
