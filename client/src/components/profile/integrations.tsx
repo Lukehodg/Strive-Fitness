@@ -18,7 +18,7 @@ interface HealthPlatform {
   lastSync: string | null;
 }
 
-export default function HealthDevices() {
+export default function Integrations() {
   const { toast } = useToast();
   const [platforms, setPlatforms] = useState<HealthPlatform[]>([]);
   const [autoSync, setAutoSync] = useState(true);
@@ -117,7 +117,7 @@ export default function HealthDevices() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Health Devices & Services</CardTitle>
+          <CardTitle>Integrations</CardTitle>
           <CardDescription>Connect your health devices and services</CardDescription>
         </CardHeader>
         <CardContent>
@@ -133,7 +133,7 @@ export default function HealthDevices() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Health Devices & Services</CardTitle>
+          <CardTitle>Integrations</CardTitle>
           <CardDescription>Connect your health devices and services to automatically sync your health data</CardDescription>
         </CardHeader>
         <CardContent>

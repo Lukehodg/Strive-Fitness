@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProfileHeader from '@/components/profile/profile-header';
 import ProfileStats from '@/components/profile/profile-stats';
 import Settings from '@/components/profile/settings';
-import HealthDevices from '@/components/profile/health-devices';
+import Integrations from '@/components/profile/integrations';
 
 const Profile = () => {
   const { toast } = useToast();
@@ -100,11 +100,11 @@ const Profile = () => {
             </svg>
             <span>Settings</span>
           </TabsTrigger>
-          <TabsTrigger value="devices" className="flex items-center gap-2">
+          <TabsTrigger value="integrations" className="flex items-center gap-2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M8 13V12M12 13V10M16 13V8M8 21L12 17L16 21M3 4H21M4 4H20V16C20 16.5523 19.5523 17 19 17H5C4.44772 17 4 16.5523 4 16V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span>Health Devices</span>
+            <span>Integrations</span>
           </TabsTrigger>
         </TabsList>
         
@@ -112,8 +112,8 @@ const Profile = () => {
           <Settings settings={settingsItems} />
         </TabsContent>
         
-        <TabsContent value="devices">
-          <HealthDevices />
+        <TabsContent value="integrations">
+          <Integrations />
         </TabsContent>
       </Tabs>
     </div>
