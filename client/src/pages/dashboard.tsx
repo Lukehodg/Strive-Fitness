@@ -260,6 +260,10 @@ const Dashboard = () => {
         <WidgetSystem 
           widgets={widgets}
           onRemoveWidget={handleRemoveWidget}
+          onReorderWidgets={(reorderedWidgets) => {
+            setWidgets(reorderedWidgets);
+            updateWidgetsMutation.mutate(reorderedWidgets);
+          }}
         />
       </div>
       

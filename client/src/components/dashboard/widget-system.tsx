@@ -1,7 +1,13 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, GripHorizontal } from 'lucide-react';
 import { useLocation } from 'wouter';
 import ProgressCircle from '@/components/ui/progress-circle';
+import { 
+  DragDropContext, 
+  Droppable, 
+  Draggable, 
+  DropResult 
+} from 'react-beautiful-dnd';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +27,7 @@ export interface Widget {
 interface WidgetSystemProps {
   widgets: Widget[];
   onRemoveWidget: (id: string) => void;
+  onReorderWidgets?: (reorderedWidgets: Widget[]) => void;
 }
 
 // Generic component to render different types of widgets
@@ -81,7 +88,10 @@ const WidgetRenderer: React.FC<{
 
   return (
     <div className="relative dark-card p-4">
-      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="drag-handle cursor-move text-gray-500 hover:text-gray-300 transition-colors">
+          <GripHorizontal size={14} />
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -131,7 +141,7 @@ const AddWidgetPlaceholder: React.FC<{
   );
 };
 
-const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onRemoveWidget }) => {
+const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onRemoveWidget, onReorderWidgets }) => {
   const [_, navigate] = useLocation();
   
   // Direct click handler at the parent level
@@ -142,44 +152,92 @@ const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onRemoveWidget }) 
     }
   };
   
+  // Handle drag end event
+  const handleDragEnd = (result: DropResult) => {
+    // Dropped outside the list
+    if (!result.destination) {
+      return;
+    }
+    
+    // If position hasn't changed
+    if (result.destination.index === result.source.index) {
+      return;
+    }
+    
+    // Create new array with reordered widgets
+    const reorderedWidgets = Array.from(widgets);
+    const [removed] = reorderedWidgets.splice(result.source.index, 1);
+    reorderedWidgets.splice(result.destination.index, 0, removed);
+    
+    // Call the callback to update parent state
+    if (onReorderWidgets) {
+      onReorderWidgets(reorderedWidgets);
+    }
+  };
+  
   return (
-    <div className="grid grid-cols-3 gap-4 mb-6">
-      {widgets.map((widget) => {
-        // Add a wrapper div to handle click events more reliably
-        const hasRoute = Boolean(widget.route);
-        
-        return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Droppable droppableId="widget-droppable" direction="horizontal">
+        {(provided) => (
           <div 
-            key={widget.id}
-            className={`${hasRoute ? 'cursor-pointer hover:opacity-90 transition-opacity relative overflow-hidden group' : ''}`}
-            onClick={hasRoute ? () => handleWidgetClick(widget.route) : undefined}
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className="grid grid-cols-3 gap-4 mb-6"
           >
-            {hasRoute && (
-              <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center z-10">
-                <div className="bg-blue-500/20 rounded-full p-1">
-                  <span className="material-icons text-white text-lg">
-                    arrow_forward
-                  </span>
-                </div>
+            {widgets.map((widget, index) => {
+              // Add a wrapper div to handle click events more reliably
+              const hasRoute = Boolean(widget.route);
+              
+              return (
+                <Draggable key={widget.id} draggableId={widget.id} index={index}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      style={{
+                        ...provided.draggableProps.style,
+                        opacity: snapshot.isDragging ? 0.8 : 1,
+                      }}
+                      className={`${hasRoute ? 'cursor-pointer hover:opacity-90 transition-opacity relative overflow-hidden group' : ''} ${snapshot.isDragging ? 'z-50' : ''}`}
+                      onClick={hasRoute && !snapshot.isDragging ? () => handleWidgetClick(widget.route) : undefined}
+                    >
+                      {hasRoute && (
+                        <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center z-10">
+                          <div className="bg-blue-500/20 rounded-full p-1">
+                            <span className="material-icons text-white text-lg">
+                              arrow_forward
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      <div
+                        {...provided.dragHandleProps}
+                        className="h-full w-full"
+                      >
+                        <WidgetRenderer 
+                          widget={widget} 
+                          onRemove={onRemoveWidget} 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </Draggable>
+              );
+            })}
+            {provided.placeholder}
+            
+            {/* Show empty state when no widgets */}
+            {widgets.length === 0 && (
+              <div className="col-span-3 dark-card p-6 flex flex-col items-center justify-center">
+                <p className="text-gray-400 text-center">
+                  No widgets added yet. Click the "Add Widget" button to customize your dashboard.
+                </p>
               </div>
             )}
-            <WidgetRenderer 
-              widget={widget} 
-              onRemove={onRemoveWidget} 
-            />
           </div>
-        );
-      })}
-      
-      {/* Show empty state when no widgets */}
-      {widgets.length === 0 && (
-        <div className="col-span-3 dark-card p-6 flex flex-col items-center justify-center">
-          <p className="text-gray-400 text-center">
-            No widgets added yet. Click the "Add Widget" button to customize your dashboard.
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </Droppable>
+    </DragDropContext>
   );
 };
 
