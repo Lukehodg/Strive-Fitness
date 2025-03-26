@@ -21,6 +21,7 @@ import ProfileStats from '@/components/profile/profile-stats';
 import Settings from '@/components/profile/settings';
 import Integrations from '@/components/profile/integrations';
 import NotificationSettings from '@/components/profile/notification-settings';
+import SubscriptionManagement from '@/components/profile/subscription-management';
 
 const Profile = () => {
   const { toast } = useToast();

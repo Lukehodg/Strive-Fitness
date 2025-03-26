@@ -831,7 +831,10 @@ export class MemStorage implements IStorage {
       dailyCarbsTarget: user.dailyCarbsTarget !== undefined ? user.dailyCarbsTarget : null,
       dailyFatTarget: user.dailyFatTarget !== undefined ? user.dailyFatTarget : null,
       profileType: user.profileType || 'standard',
-      dashboardWidgets: user.dashboardWidgets || null
+      dashboardWidgets: user.dashboardWidgets || null,
+      subscriptionPlan: user.subscriptionPlan || 'free',
+      subscriptionExpiry: user.subscriptionExpiry || null,
+      stripeCustomerId: user.stripeCustomerId || null
     };
     this.users.set(id, newUser);
     return newUser;

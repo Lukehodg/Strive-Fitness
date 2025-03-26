@@ -1000,6 +1000,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signout", handleSignOut);
   app.get("/api/auth/social/:provider", handleSocialAuth);
 
+  // Subscription routes
+  app.get("/api/subscription-plans", async (_req: Request, res: Response) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.status(200).json(plans);
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/subscription-plans/:id", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    try {
+      const plan = await storage.getSubscriptionPlan(id);
+      if (plan) {
+        res.status(200).json(plan);
+      } else {
+        res.status(404).json({ success: false, message: "Subscription plan not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/users/:userId/subscription", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    try {
+      const subscription = await storage.getUserSubscriptionDetails(userId);
+      if (subscription) {
+        res.status(200).json(subscription);
+      } else {
+        res.status(404).json({ success: false, message: "User subscription details not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
+  app.post("/api/users/:userId/subscription", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    const { planType, expiryDate } = req.body;
+    
+    try {
+      // Validate that the plan exists
+      const plan = await storage.getSubscriptionPlanByName(planType);
+      if (!plan) {
+        return res.status(400).json({ success: false, message: "Invalid subscription plan type" });
+      }
+
+      // Update the user's subscription
+      const user = await storage.updateUserSubscription(userId, planType, new Date(expiryDate));
+      if (user) {
+        // Create a subscription transaction record
+        await storage.createSubscriptionTransaction({
+          userId,
+          subscriptionPlanId: plan.id,
+          amount: plan.price,
+          status: 'completed',
+          transactionDate: new Date(),
+          paymentMethod: 'card',
+          stripePaymentIntentId: null,
+          receiptUrl: null,
+          metadata: null
+        });
+        
+        res.status(200).json({ success: true, user });
+      } else {
+        res.status(404).json({ success: false, message: "User not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/users/:userId/subscription-transactions", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    try {
+      const transactions = await storage.getUserSubscriptionTransactions(userId);
+      res.status(200).json(transactions);
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
+  app.get("/api/users/:userId/check-access/:feature", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    const feature = req.params.feature;
+    
+    try {
+      const hasAccess = await storage.checkUserSubscriptionAccess(userId, feature);
+      res.status(200).json({ hasAccess });
+    } catch (error) {
+      res.status(500).json({ success: false, message: (error as Error).message });
+    }
+  });
+
   // Return server
   const httpServer = createServer(app);
   return httpServer;
