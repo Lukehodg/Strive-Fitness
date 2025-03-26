@@ -476,6 +476,143 @@ export class MemStorage implements IStorage {
         });
       }
     });
+    
+    // Create sample medications
+    const sampleMedications = [
+      {
+        userId: 1,
+        name: "Fish Oil",
+        type: "capsule" as MedicationType,
+        dosage: "1000mg",
+        frequency: "twice daily",
+        startDate: new Date(todayDate.setMonth(todayDate.getMonth() - 1)),
+        notes: "Take with meals for better absorption",
+        isActive: true
+      },
+      {
+        userId: 1,
+        name: "Vitamin D3",
+        type: "tablet" as MedicationType,
+        dosage: "5000IU",
+        frequency: "once daily",
+        startDate: new Date(todayDate.setMonth(todayDate.getMonth() - 2)),
+        notes: "Take in the morning",
+        isActive: true
+      },
+      {
+        userId: 1,
+        name: "Protein Supplement",
+        type: "powder" as MedicationType,
+        dosage: "25g",
+        frequency: "post-workout",
+        startDate: new Date(todayDate.setMonth(todayDate.getMonth() - 3)),
+        endDate: new Date(todayDate.setMonth(todayDate.getMonth() + 3)),
+        notes: "Mix with water or milk",
+        isActive: true
+      },
+      {
+        userId: 1,
+        name: "Testosterone Enanthate",
+        type: "injection" as MedicationType,
+        dosage: "150mg",
+        frequency: "weekly",
+        startDate: new Date(todayDate.setMonth(todayDate.getMonth() - 1)),
+        endDate: new Date(todayDate.setMonth(todayDate.getMonth() + 5)),
+        notes: "IM injection, rotate sites",
+        isActive: true
+      }
+    ];
+    
+    // Add medications to storage
+    for (const med of sampleMedications) {
+      const id = this.currentMedicationId++;
+      const medication: Medication = {
+        ...med,
+        id,
+        notes: med.notes || null,
+        endDate: med.endDate || null
+      };
+      this.medications.set(id, medication);
+      
+      // Create schedules for the medications
+      if (med.name === "Fish Oil") {
+        // Create twice daily schedule for the next 7 days
+        for (let i = 0; i < 7; i++) {
+          const morningDate = new Date(todayDate);
+          morningDate.setDate(morningDate.getDate() + i);
+          morningDate.setHours(8, 0, 0, 0);
+          
+          const eveningDate = new Date(todayDate);
+          eveningDate.setDate(eveningDate.getDate() + i);
+          eveningDate.setHours(20, 0, 0, 0);
+          
+          const morningId = this.currentMedicationScheduleId++;
+          const eveningId = this.currentMedicationScheduleId++;
+          
+          this.medicationSchedules.set(morningId, {
+            id: morningId,
+            medicationId: id,
+            scheduledTime: morningDate,
+            takenTime: i === 0 ? new Date(morningDate.getTime() + 15 * 60000) : null,
+            isTaken: i === 0,
+            skipped: false,
+            notes: "With breakfast",
+            injectionSite: null
+          });
+          
+          this.medicationSchedules.set(eveningId, {
+            id: eveningId,
+            medicationId: id,
+            scheduledTime: eveningDate,
+            takenTime: null,
+            isTaken: false,
+            skipped: false,
+            notes: "With dinner",
+            injectionSite: null
+          });
+        }
+      } else if (med.name === "Vitamin D3") {
+        // Create once daily schedule for the next 7 days
+        for (let i = 0; i < 7; i++) {
+          const scheduleDate = new Date(todayDate);
+          scheduleDate.setDate(scheduleDate.getDate() + i);
+          scheduleDate.setHours(8, 0, 0, 0);
+          
+          const scheduleId = this.currentMedicationScheduleId++;
+          
+          this.medicationSchedules.set(scheduleId, {
+            id: scheduleId,
+            medicationId: id,
+            scheduledTime: scheduleDate,
+            takenTime: i === 0 ? new Date(scheduleDate.getTime() + 10 * 60000) : null,
+            isTaken: i === 0,
+            skipped: false,
+            notes: "With breakfast",
+            injectionSite: null
+          });
+        }
+      } else if (med.name === "Testosterone Enanthate") {
+        // Create weekly injection schedule
+        for (let i = 0; i < 4; i++) {
+          const scheduleDate = new Date(todayDate);
+          scheduleDate.setDate(scheduleDate.getDate() + (i * 7));
+          scheduleDate.setHours(18, 0, 0, 0);
+          
+          const scheduleId = this.currentMedicationScheduleId++;
+          
+          this.medicationSchedules.set(scheduleId, {
+            id: scheduleId,
+            medicationId: id,
+            scheduledTime: scheduleDate,
+            takenTime: i === 0 ? new Date(scheduleDate.getTime() - 7 * 24 * 60 * 60000) : null,
+            isTaken: i === 0,
+            skipped: false,
+            notes: i % 2 === 0 ? "Right glute" : "Left glute",
+            injectionSite: i % 2 === 0 ? "buttocks" as InjectionSite : "buttocks" as InjectionSite
+          });
+        }
+      }
+    }
 
     // Create a workout in progress
     const workout = {
@@ -965,6 +1102,106 @@ export class MemStorage implements IStorage {
     if (!this.healthMetrics.has(id)) return false;
     
     return this.healthMetrics.delete(id);
+  }
+
+  // Medication methods
+  async getMedications(userId: number): Promise<Medication[]> {
+    return Array.from(this.medications.values()).filter(
+      (medication) => medication.userId === userId
+    );
+  }
+
+  async getActiveMedications(userId: number): Promise<Medication[]> {
+    return Array.from(this.medications.values()).filter(
+      (medication) => medication.userId === userId && medication.isActive
+    );
+  }
+
+  async getMedication(id: number): Promise<Medication | undefined> {
+    return this.medications.get(id);
+  }
+
+  async createMedication(medication: InsertMedication): Promise<Medication> {
+    const id = this.currentMedicationId++;
+    const newMedication: Medication = {
+      ...medication,
+      id,
+      notes: medication.notes || null,
+      endDate: medication.endDate || null,
+      isActive: medication.isActive !== undefined ? medication.isActive : null,
+    };
+    this.medications.set(id, newMedication);
+    return newMedication;
+  }
+
+  async updateMedication(id: number, data: Partial<Medication>): Promise<Medication | undefined> {
+    const medication = this.medications.get(id);
+    if (!medication) return undefined;
+    
+    const updatedMedication = { ...medication, ...data };
+    this.medications.set(id, updatedMedication);
+    return updatedMedication;
+  }
+
+  async deleteMedication(id: number): Promise<boolean> {
+    if (!this.medications.has(id)) return false;
+    
+    return this.medications.delete(id);
+  }
+
+  // Medication schedule methods
+  async getMedicationSchedules(medicationId: number): Promise<MedicationSchedule[]> {
+    return Array.from(this.medicationSchedules.values()).filter(
+      (schedule) => schedule.medicationId === medicationId
+    );
+  }
+
+  async getMedicationSchedulesByDateRange(userId: number, startDate: Date, endDate: Date): Promise<MedicationSchedule[]> {
+    // First get all medications for the user
+    const userMedications = await this.getMedications(userId);
+    const medicationIds = userMedications.map(med => med.id);
+    
+    // Then get all schedules for those medications within the date range
+    return Array.from(this.medicationSchedules.values()).filter(
+      (schedule) => 
+        medicationIds.includes(schedule.medicationId) && 
+        schedule.scheduledTime >= startDate && 
+        schedule.scheduledTime <= endDate
+    );
+  }
+
+  async getMedicationSchedule(id: number): Promise<MedicationSchedule | undefined> {
+    return this.medicationSchedules.get(id);
+  }
+
+  async createMedicationSchedule(schedule: InsertMedicationSchedule): Promise<MedicationSchedule> {
+    const id = this.currentMedicationScheduleId++;
+    const newSchedule: MedicationSchedule = {
+      ...schedule,
+      id,
+      notes: schedule.notes || null,
+      injectionSite: schedule.injectionSite || null,
+      takenTime: null,
+      isTaken: null,
+      skipped: null
+    };
+    this.medicationSchedules.set(id, newSchedule);
+    return newSchedule;
+  }
+
+  async updateMedicationSchedule(id: number, data: Partial<MedicationSchedule>): Promise<MedicationSchedule | undefined> {
+    const schedule = this.medicationSchedules.get(id);
+    if (!schedule) return undefined;
+    
+    const updatedSchedule = { ...schedule, ...data };
+    this.medicationSchedules.set(id, updatedSchedule);
+    return updatedSchedule;
+  }
+
+  async deleteMedicationSchedule(id: number): Promise<boolean> {
+    if (!this.medicationSchedules.has(id)) return false;
+    
+    return this.medicationSchedules.delete(id);
   }
 }
 
