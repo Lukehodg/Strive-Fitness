@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,34 +11,16 @@ import Profile from "@/pages/profile";
 import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
 import Health from "@/pages/health";
+import SignIn from "@/pages/sign-in";
 import BottomNavigation from "@/components/ui/bottom-navigation";
+import { ProtectedRoute } from "@/lib/protected-route";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { useEffect, useState } from "react";
 
 function Router() {
-  const [_, setLocation] = useLocation();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading } = useAuth();
   
-  // Fetch the user on load
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const response = await fetch('/api/user/1');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchUser();
-  }, []);
-  
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="w-full max-w-md p-8 text-center">
@@ -53,37 +35,40 @@ function Router() {
   
   return (
     <div className="min-h-screen bg-[#1E1E1E] pb-20 font-['Roboto',sans-serif] text-[#F5F5F5]">
-      <header className="bg-primary text-white p-4 shadow-md">
-        <div className="flex justify-between items-center max-w-lg mx-auto">
-          <h1 className="text-xl font-bold font-['Inter',sans-serif]">Strive</h1>
-          <div className="flex items-center space-x-2">
-            <span className="material-icons">notifications</span>
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="material-icons text-sm">person</span>
+      {user && (
+        <header className="bg-primary text-white p-4 shadow-md">
+          <div className="flex justify-between items-center max-w-lg mx-auto">
+            <h1 className="text-xl font-bold font-['Inter',sans-serif]">Strive</h1>
+            <div className="flex items-center space-x-2">
+              <span className="material-icons">notifications</span>
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="material-icons text-sm">person</span>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
       
       <main className="max-w-lg mx-auto">
         <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/workouts" component={Workouts} />
-          <Route path="/workouts/create" component={CreateWorkout} />
+          <ProtectedRoute path="/" component={Dashboard} />
+          <ProtectedRoute path="/workouts" component={Workouts} />
+          <ProtectedRoute path="/workouts/create" component={CreateWorkout} />
           <Route path="/workouts/active/:id">
-            {(params) => <ActiveWorkout workoutId={parseInt(params.id, 10)} />}
+            {(params) => user ? <ActiveWorkout workoutId={parseInt(params.id, 10)} /> : <Redirect to="/auth" />}
           </Route>
           <Route path="/exercise/:id">
-            {(params) => <Exercise exerciseId={parseInt(params.id, 10)} />}
+            {(params) => user ? <Exercise exerciseId={parseInt(params.id, 10)} /> : <Redirect to="/auth" />}
           </Route>
-          <Route path="/nutrition" component={Nutrition} />
-          <Route path="/health" component={Health} />
-          <Route path="/profile" component={Profile} />
+          <ProtectedRoute path="/nutrition" component={Nutrition} />
+          <ProtectedRoute path="/health" component={Health} />
+          <ProtectedRoute path="/profile" component={Profile} />
+          <Route path="/auth" component={SignIn} />
           <Route component={NotFound} />
         </Switch>
       </main>
       
-      <BottomNavigation />
+      {user && <BottomNavigation />}
     </div>
   );
 }
@@ -91,8 +76,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

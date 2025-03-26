@@ -1,5 +1,6 @@
-import { useLocation, Route, Redirect } from "wouter";
+import { Route, Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ProtectedRouteProps {
   path: string;
@@ -7,11 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ path, component: Component }: ProtectedRouteProps) {
-  const [location] = useLocation();
-  
-  // This is a simplified authentication check - in a real app, would use useAuth hook
-  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
-  const isLoading = false; // Would be provided by useAuth hook
+  const { user, isLoading } = useAuth();
   
   if (isLoading) {
     return (
@@ -23,7 +20,7 @@ export function ProtectedRoute({ path, component: Component }: ProtectedRoutePro
     );
   }
   
-  if (!isAuthenticated) {
+  if (!user) {
     return (
       <Route path={path}>
         <Redirect to="/auth" />
@@ -31,5 +28,9 @@ export function ProtectedRoute({ path, component: Component }: ProtectedRoutePro
     );
   }
   
-  return <Route path={path} component={Component} />;
+  return (
+    <Route path={path}>
+      <Component />
+    </Route>
+  );
 }
