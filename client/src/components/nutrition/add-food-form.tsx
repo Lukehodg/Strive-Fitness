@@ -94,24 +94,6 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({
     }
   }, [selectedTab]);
 
-  // Set initial values with edit mode data if available
-  useEffect(() => {
-    if (editMode && initialValues) {
-      if (initialValues.foodName) {
-        form.setValue('name', initialValues.foodName);
-      }
-      if (initialValues.protein) {
-        form.setValue('protein', initialValues.protein);
-      }
-      if (initialValues.carbs) {
-        form.setValue('carbs', initialValues.carbs);
-      }
-      if (initialValues.fat) {
-        form.setValue('fat', initialValues.fat);
-      }
-    }
-  }, [editMode, initialValues, form]);
-
   // Initialize the form
   const form = useForm<z.infer<typeof foodSchema>>({
     resolver: zodResolver(foodSchema),
@@ -165,12 +147,23 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({
         foods: [`${data.name} (${quantityDisplay})`],
       };
       
-      await apiRequest('POST', '/api/meals', meal);
-      
-      toast({
-        title: 'Food Added',
-        description: `${data.name} has been added to your ${data.mealName}`,
-      });
+      if (editMode && mealId) {
+        // Update existing meal
+        await apiRequest('PATCH', `/api/meals/${mealId}`, meal);
+        
+        toast({
+          title: 'Meal Updated',
+          description: `${data.name} has been updated in your ${data.mealName}`,
+        });
+      } else {
+        // Create new meal
+        await apiRequest('POST', '/api/meals', meal);
+        
+        toast({
+          title: 'Food Added',
+          description: `${data.name} has been added to your ${data.mealName}`,
+        });
+      }
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/meals'] });
@@ -178,10 +171,10 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({
       
       onSuccess();
     } catch (error) {
-      console.error('Error adding food:', error);
+      console.error('Error saving food:', error);
       toast({
         title: 'Error',
-        description: 'Failed to add food. Please try again.',
+        description: `Failed to ${editMode ? 'update' : 'add'} food. Please try again.`,
         variant: 'destructive',
       });
     }
