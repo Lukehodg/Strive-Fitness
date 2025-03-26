@@ -63,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: password 
       });
       
-      if (response.success) {
-        setUser(response.user);
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
         localStorage.setItem("isAuthenticated", "true");
         
         toast({
@@ -72,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: "You have successfully signed in.",
         });
       } else {
-        throw new Error(response.message || "Invalid email or password");
+        const errorData = await response.text();
+        throw new Error(errorData || "Invalid email or password");
       }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Sign in failed"));
@@ -100,8 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: password,
       });
       
-      if (response.success) {
-        setUser(response.user);
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
         localStorage.setItem("isAuthenticated", "true");
         
         toast({
@@ -109,7 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: "You have successfully created an account.",
         });
       } else {
-        throw new Error(response.message || "Registration failed");
+        const errorData = await response.text();
+        throw new Error(errorData || "Registration failed");
       }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Registration failed"));
@@ -129,20 +133,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       // Call the server signout endpoint
-      await apiRequest('POST', '/api/auth/signout');
+      const response = await apiRequest('POST', '/api/auth/signout');
       
-      // Clear user data from state
+      // Clear user data from state regardless of server response
       setUser(null);
       localStorage.removeItem("isAuthenticated");
       
-      toast({
-        title: "Signed out",
-        description: "You have been successfully signed out.",
-      });
+      if (response.ok) {
+        toast({
+          title: "Signed out",
+          description: "You have been successfully signed out.",
+        });
+      } else {
+        console.error("Sign out server error:", await response.text());
+        toast({
+          title: "Sign out issue",
+          description: "Your session has been ended but there was an issue with the server.",
+          variant: "destructive",
+        });
+      }
     } catch (err) {
-      console.error("Sign out error:", err);
+      console.error("Sign out client error:", err);
       
-      // Even if the server request fails, clear the local session
+      // Even if the request fails, clear the local session
       setUser(null);
       localStorage.removeItem("isAuthenticated");
       

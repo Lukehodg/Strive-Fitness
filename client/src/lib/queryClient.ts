@@ -11,22 +11,19 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<any> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  
-  // Parse JSON instead of returning the response object
+): Promise<Response> {
   try {
-    return await res.json();
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+    
+    return res;
   } catch (error) {
-    console.error('Failed to parse JSON response:', error);
-    return {}; // Return empty object if JSON parsing fails
+    console.error('API request failed:', error);
+    throw error;
   }
 }
 

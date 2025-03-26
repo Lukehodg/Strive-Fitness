@@ -133,19 +133,23 @@ const Nutrition = () => {
     fat: number;
   }) => {
     if (user) {
-      console.log("Updating goals with:", {
+      const updatedData = {
         dailyCalorieTarget: newGoals.calories,
         dailyProteinTarget: newGoals.protein,
         dailyCarbsTarget: newGoals.carbs,
         dailyFatTarget: newGoals.fat
+      };
+      
+      console.log("Updating goals with:", updatedData);
+      
+      // Update local state immediately for a better user experience
+      setUser({
+        ...user,
+        ...updatedData
       });
       
-      updateUserMutation.mutate({
-        dailyCalorieTarget: newGoals.calories,
-        dailyProteinTarget: newGoals.protein,
-        dailyCarbsTarget: newGoals.carbs,
-        dailyFatTarget: newGoals.fat
-      });
+      // Send update to the server
+      updateUserMutation.mutate(updatedData);
     }
   };
   
