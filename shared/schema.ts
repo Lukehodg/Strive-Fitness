@@ -27,6 +27,39 @@ export const HealthMetricTypes = [
   'steps'
 ] as const;
 
+// Define exercise categories for validation
+export const ExerciseCategories = [
+  'strength',
+  'bodyweight',
+  'cardio',
+  'endurance',
+  'hiit',
+  'functional'
+] as const;
+
+// Define exercise measurement types for validation
+export const ExerciseMeasurementTypes = [
+  'weight_reps', // Traditional weight lifting (bench press: 100kg x 10 reps)
+  'distance_time', // Running, swimming (5km in 25min)
+  'reps_only', // Bodyweight exercises (20 push-ups)
+  'time_only', // Plank (60 seconds)
+  'distance_only', // Sled push (20 meters)
+  'calories', // Rowing, biking (100 calories)
+  'laps', // Swimming (10 laps)
+  'height', // Box jumps (24-inch box)
+  'custom' // User defined measurement
+] as const;
+
+// Define workout types for validation
+export const WorkoutTypes = [
+  'traditional', // Standard strength training
+  'endurance', // Endurance or HYROX-style workouts
+  'hiit', // High intensity interval training
+  'cardio', // Pure cardio sessions
+  'circuit', // Circuit training
+  'custom' // User-defined formats
+] as const;
+
 // Define medication types for validation
 export const MedicationTypes = [
   'tablet',
@@ -86,6 +119,9 @@ export const exercises = pgTable("exercises", {
   category: text("category").notNull(),
   muscleGroup: text("muscle_group").notNull(),
   description: text("description"),
+  measurementType: text("measurement_type").default("weight_reps"),
+  defaultTarget: json("default_target"), // Stores target values based on measurementType
+  isEndurance: boolean("is_endurance").default(false),
 });
 
 export const insertExerciseSchema = createInsertSchema(exercises).omit({
@@ -102,6 +138,10 @@ export const workoutTemplates = pgTable("workout_templates", {
   color: text("color").default("#3F51B5"),
   scheduledDay: text("scheduled_day"), // Monday, Tuesday, etc.
   description: text("description"),
+  workoutType: text("workout_type").default("traditional"), // traditional, endurance, hiit, etc.
+  targetTimeInMinutes: integer("target_time_in_minutes"), // For endurance/HYROX workouts
+  rounds: integer("rounds"), // For circuit/HIIT workouts
+  isReversed: boolean("is_reversed").default(false), // For completing exercises in reverse order (HYROX type)
 });
 
 export const insertWorkoutTemplateSchema = createInsertSchema(workoutTemplates).omit({
@@ -118,6 +158,13 @@ export const workoutTemplateExercises = pgTable("workout_template_exercises", {
   repsMax: integer("reps_max").notNull(),
   restSeconds: integer("rest_seconds"),
   order: integer("order").notNull(),
+  // Endurance workout specific fields
+  distance: real("distance"), // Distance in meters/kilometers
+  duration: integer("duration"), // Duration in seconds
+  targetType: text("target_type").default("reps"), // reps, time, distance, calories
+  targetValue: real("target_value"), // The target value based on targetType
+  intervals: integer("intervals"), // Number of intervals for HIIT
+  workToRestRatio: text("work_to_rest_ratio"), // Format: "40:20" (40s work, 20s rest)
 });
 
 export const insertWorkoutTemplateExerciseSchema = createInsertSchema(workoutTemplateExercises).omit({
@@ -145,13 +192,25 @@ export const workoutSets = pgTable("workout_sets", {
   id: serial("id").primaryKey(),
   completedWorkoutId: integer("completed_workout_id").notNull(),
   exerciseId: integer("exercise_id").notNull(),
-  weight: real("weight").notNull(),
-  reps: integer("reps").notNull(),
+  weight: real("weight"),
+  reps: integer("reps"),
   rpe: integer("rpe"),
   setNumber: integer("set_number").notNull(),
   setType: text("set_type").default("working").notNull(), // 'warmup' or 'working'
   isCompleted: boolean("is_completed").default(false),
   timestamp: timestamp("timestamp").notNull(),
+  // Fields for endurance and other workout types
+  distance: real("distance"), // Distance in meters
+  duration: integer("duration"), // Time in seconds
+  pace: real("pace"), // Time per distance unit (e.g., minutes per km)
+  calories: integer("calories"), // Calories burned
+  heartRate: integer("heart_rate"), // Average heart rate during the set
+  laps: integer("laps"), // Number of laps
+  notes: text("notes"), // Additional notes
+  perceivedEffort: integer("perceived_effort"), // Scale 1-10
+  elevationGain: real("elevation_gain"), // For climbing/hill exercises
+  measurementType: text("measurement_type").default("weight_reps"), // Same as exercise.measurementType
+  metricValue: json("metric_value"), // Flexible storage for any metric type
 });
 
 export const insertWorkoutSetSchema = createInsertSchema(workoutSets).omit({
@@ -247,6 +306,10 @@ export type InsertCompletedWorkout = z.infer<typeof insertCompletedWorkoutSchema
 
 export type WorkoutSet = typeof workoutSets.$inferSelect;
 export type InsertWorkoutSet = z.infer<typeof insertWorkoutSetSchema>;
+
+export type ExerciseCategory = typeof ExerciseCategories[number];
+export type ExerciseMeasurementType = typeof ExerciseMeasurementTypes[number];
+export type WorkoutType = typeof WorkoutTypes[number];
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
