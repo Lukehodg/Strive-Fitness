@@ -776,10 +776,9 @@ export class MemStorage implements IStorage {
       calories: null,
       heartRate: null,
       laps: null,
-      rounds: null,
-      resistence: null,
-      incline: null,
-      cadence: null,
+      notes: null,
+      perceivedEffort: null,
+      elevationGain: null,
       metricValue: null
     };
     this.workoutSets.set(setId1, set1);
@@ -804,10 +803,9 @@ export class MemStorage implements IStorage {
       calories: null,
       heartRate: null,
       laps: null,
-      rounds: null,
-      resistence: null,
-      incline: null,
-      cadence: null,
+      notes: null,
+      perceivedEffort: null,
+      elevationGain: null,
       metricValue: null
     };
     this.workoutSets.set(setId2, set2);
@@ -832,10 +830,9 @@ export class MemStorage implements IStorage {
       calories: null,
       heartRate: null,
       laps: null,
-      rounds: null,
-      resistence: null,
-      incline: null,
-      cadence: null,
+      notes: null,
+      perceivedEffort: null,
+      elevationGain: null,
       metricValue: null
     };
     this.workoutSets.set(setId3, set3);
@@ -1108,10 +1105,9 @@ export class MemStorage implements IStorage {
       calories: set.calories || null,
       heartRate: set.heartRate || null,
       laps: set.laps || null,
-      rounds: set.rounds || null,
-      resistence: set.resistence || null,
-      incline: set.incline || null,
-      cadence: set.cadence || null,
+      notes: set.notes || null,
+      perceivedEffort: set.perceivedEffort || null,
+      elevationGain: set.elevationGain || null,
       metricValue: set.metricValue || null
     };
     
