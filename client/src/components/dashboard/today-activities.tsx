@@ -20,13 +20,13 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
   const getIconClass = (type: string) => {
     switch (type) {
       case 'workout':
-        return 'bg-primary/10 text-primary';
+        return 'bg-primary/20 text-primary';
       case 'nutrition':
-        return 'bg-secondary/10 text-secondary';
+        return 'bg-secondary/20 text-secondary';
       case 'medication':
-        return 'bg-accent/10 text-accent';
+        return 'bg-accent/20 text-accent';
       default:
-        return 'bg-gray-100 text-gray-500';
+        return 'bg-gray-800 text-gray-300';
     }
   };
 
@@ -52,16 +52,16 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+    <div className="bg-gray-800 rounded-xl shadow-sm p-4 mb-6 border border-gray-700">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="font-['Inter',sans-serif] text-lg font-semibold">Today's Activities</h3>
-        <span className="text-primary text-sm cursor-pointer" onClick={onViewAll}>View All</span>
+        <h3 className="font-['Inter',sans-serif] text-lg font-semibold text-white">Today's Activities</h3>
+        <span className="text-primary text-sm cursor-pointer hover:text-primary/80" onClick={onViewAll}>View All</span>
       </div>
       
       {activities.map((activity) => (
         <div 
           key={activity.id}
-          className="bg-[#F5F5F5] rounded-lg p-3 mb-3 last:mb-0 flex items-center justify-between cursor-pointer"
+          className="bg-gray-900 rounded-lg p-3 mb-3 last:mb-0 flex items-center justify-between cursor-pointer hover:bg-gray-800 border border-gray-700 transition-colors"
           onClick={() => handleActivityClick(activity)}
         >
           <div className="flex items-center">
@@ -69,8 +69,8 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
               <span className="material-icons">{getIcon(activity.type)}</span>
             </div>
             <div>
-              <h4 className="font-medium">{activity.title}</h4>
-              <p className="text-xs text-gray-500">{activity.description}</p>
+              <h4 className="font-medium text-white">{activity.title}</h4>
+              <p className="text-xs text-gray-400">{activity.description}</p>
             </div>
           </div>
           <ChevronRightIcon className="text-gray-400 w-5 h-5" />

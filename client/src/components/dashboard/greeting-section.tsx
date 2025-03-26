@@ -11,8 +11,8 @@ const GreetingSection: React.FC<GreetingSectionProps> = ({ username }) => {
 
   return (
     <div className="mb-6">
-      <h2 className="font-['Inter',sans-serif] text-2xl font-bold">Hey, {username}!</h2>
-      <p className="text-gray-600">{formattedDate}</p>
+      <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Hey, {username}!</h2>
+      <p className="text-gray-400">{formattedDate}</p>
     </div>
   );
 };

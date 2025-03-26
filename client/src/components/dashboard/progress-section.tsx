@@ -24,8 +24,8 @@ const ProgressSection: React.FC<ProgressSectionProps> = ({
   const waterPercentage = Math.round((waterIntake / waterTarget) * 100);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-2">Today's Progress</h3>
+    <div className="dark-card p-4 mb-6">
+      <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-2 text-white">Today's Progress</h3>
       <div className="flex justify-between">
         <ProgressCircle
           progress={caloriesPercentage}

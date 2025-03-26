@@ -29,7 +29,7 @@ const ProgressCircle: React.FC<ProgressCircleProps> = ({
         <svg className="transform -rotate-90" width={size} height={size}>
           <circle
             className="progress-ring-bg"
-            stroke="#E0E0E0"
+            stroke="#444444"
             strokeWidth={strokeWidth}
             fill="transparent"
             r={radius}
@@ -50,14 +50,14 @@ const ProgressCircle: React.FC<ProgressCircleProps> = ({
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center flex-col">
-          <span className="text-xs font-semibold">{progress}%</span>
+          <span className="text-xs font-semibold text-white">{progress}%</span>
         </div>
       </div>
-      <span className="text-sm mt-1">{label}</span>
+      <span className="text-sm mt-1 text-white">{label}</span>
       {total ? (
-        <span className="text-xs text-gray-500">{value}/{total}</span>
+        <span className="text-xs text-gray-400">{value}/{total}</span>
       ) : (
-        <span className="text-xs text-gray-500">{value}</span>
+        <span className="text-xs text-gray-400">{value}</span>
       )}
     </div>
   );
