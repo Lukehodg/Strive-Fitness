@@ -31,7 +31,7 @@ export function AIWorkoutGenerator({ open, onClose, userId }: AIWorkoutGenerator
     duration: 45,
     equipment: "basic",
     workoutName: "",
-    scheduledDay: ""
+    scheduledDay: "none"
   });
   
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function AIWorkoutGenerator({ open, onClose, userId }: AIWorkoutGenerator
         duration: 45,
         equipment: "basic",
         workoutName: "",
-        scheduledDay: ""
+        scheduledDay: "none"
       });
       
       // Invalidate queries to refresh the workout templates
@@ -189,7 +189,7 @@ export function AIWorkoutGenerator({ open, onClose, userId }: AIWorkoutGenerator
                 <SelectValue placeholder="Select day" />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-gray-700">
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 <SelectItem value="Monday">Monday</SelectItem>
                 <SelectItem value="Tuesday">Tuesday</SelectItem>
                 <SelectItem value="Wednesday">Wednesday</SelectItem>
