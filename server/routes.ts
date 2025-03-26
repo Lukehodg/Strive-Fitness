@@ -57,6 +57,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(400).json({ message: "Invalid user data", error });
     }
   });
+  
+  // Dashboard widget routes
+  app.get("/api/users/:userId/widgets", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      const widgets = await storage.getUserWidgets(userId);
+      
+      if (!widgets) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(widgets);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get user widgets", error });
+    }
+  });
+  
+  app.put("/api/users/:userId/widgets", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      const widgets = req.body;
+      
+      if (!Array.isArray(widgets)) {
+        return res.status(400).json({ message: "Widgets must be an array" });
+      }
+      
+      const updatedWidgets = await storage.updateUserWidgets(userId, widgets);
+      
+      if (!updatedWidgets) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(updatedWidgets);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user widgets", error });
+    }
+  });
 
   // Exercise routes
   app.get("/api/exercises", async (_req: Request, res: Response) => {

@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+import { apiRequest } from '@/lib/queryClient';
 
 import GreetingSection from '@/components/dashboard/greeting-section';
-import ProgressSection from '@/components/dashboard/progress-section';
 import TodayActivities from '@/components/dashboard/today-activities';
 import WeeklyWorkoutPlan from '@/components/dashboard/weekly-workout-plan';
+import WidgetSystem, { Widget } from '@/components/dashboard/widget-system';
+import AddWidgetDialog from '@/components/dashboard/add-widget-dialog';
 
 // Define interfaces for typings
 interface User {
   displayName: string;
   dailyCalorieTarget: number;
   dailyStepTarget: number;
+  dashboardWidgets?: Widget[];
   [key: string]: any;
 }
 
@@ -20,6 +24,9 @@ interface DailyStats {
   caloriesConsumed: number;
   stepsCount: number;
   waterIntake: number;
+  proteinConsumed: number;
+  carbsConsumed: number;
+  fatConsumed: number;
   [key: string]: any;
 }
 
@@ -32,9 +39,21 @@ interface DashboardActivity {
   [key: string]: any;
 }
 
+interface WorkoutTemplate {
+  id: number;
+  name: string;
+  exerciseCount: number;
+  duration: number;
+  color: string;
+}
+
 const Dashboard = () => {
   const [_, setLocation] = useLocation();
   const [user, setUser] = useState<User | null>(null);
+  const [isAddWidgetDialogOpen, setIsAddWidgetDialogOpen] = useState(false);
+  const [widgets, setWidgets] = useState<Widget[]>([]);
+  
+  const queryClient = useQueryClient();
   
   // Fetch user data
   const { data: userData } = useQuery<User>({
@@ -52,6 +71,31 @@ const Dashboard = () => {
   const { data: dailyStats } = useQuery<DailyStats>({
     queryKey: ['/api/users/1/daily-stats'],
     staleTime: 60000, // 1 minute
+  });
+  
+  // Fetch workout templates
+  const { data: workoutTemplates } = useQuery<WorkoutTemplate[]>({
+    queryKey: ['/api/users/1/workout-templates'],
+    staleTime: 60000, // 1 minute
+  });
+  
+  // Fetch user widgets
+  const { data: userWidgets } = useQuery<Widget[]>({
+    queryKey: ['/api/users/1/widgets'],
+    staleTime: 60000, // 1 minute
+  });
+  
+  // Mutation to update widgets
+  const updateWidgetsMutation = useMutation({
+    mutationFn: async (newWidgets: Widget[]) => {
+      return await apiRequest('/api/users/1/widgets', {
+        method: 'PUT',
+        body: JSON.stringify(newWidgets),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users/1/widgets'] });
+    }
   });
   
   // Create weekly workout plan
@@ -75,6 +119,65 @@ const Dashboard = () => {
     });
   };
   
+  // Create available widget data
+  const generateAvailableWidgetData = () => {
+    if (!user || !dailyStats) return {
+      progress: [],
+      nutrition: [],
+      workouts: [],
+      activities: []
+    };
+    
+    const progressData = [
+      {
+        label: "Calories",
+        percentage: Math.min(Math.round((dailyStats.caloriesConsumed / user.dailyCalorieTarget) * 100), 100),
+        color: "#FF5722",
+        value: String(dailyStats.caloriesConsumed),
+        total: String(user.dailyCalorieTarget)
+      },
+      {
+        label: "Steps",
+        percentage: Math.min(Math.round((dailyStats.stepsCount / user.dailyStepTarget) * 100), 100),
+        color: "#3F51B5",
+        value: String(dailyStats.stepsCount),
+        total: String(user.dailyStepTarget)
+      },
+      {
+        label: "Water",
+        percentage: Math.min(Math.round((dailyStats.waterIntake / 3) * 100), 100),
+        color: "#03A9F4",
+        value: String(dailyStats.waterIntake),
+        total: "3L"
+      },
+      {
+        label: "Protein",
+        percentage: Math.min(Math.round((dailyStats.proteinConsumed / user.dailyProteinTarget) * 100), 100),
+        color: "#4CAF50",
+        value: String(dailyStats.proteinConsumed),
+        total: String(user.dailyProteinTarget) + "g"
+      }
+    ];
+    
+    const nutritionData = [
+      {
+        remaining: user.dailyCalorieTarget - dailyStats.caloriesConsumed,
+        consumed: dailyStats.caloriesConsumed,
+        target: user.dailyCalorieTarget
+      }
+    ];
+    
+    const workoutsData = workoutTemplates || [];
+    const activitiesData = activities || [];
+    
+    return {
+      progress: progressData,
+      nutrition: nutritionData,
+      workouts: workoutsData,
+      activities: activitiesData
+    };
+  };
+  
   const handleViewAllActivities = () => {
     setLocation('/workouts');
   };
@@ -83,11 +186,39 @@ const Dashboard = () => {
     setLocation('/workouts');
   };
   
+  const handleAddWidget = (widgetData: Omit<Widget, 'id'>) => {
+    const newWidget: Widget = {
+      ...widgetData,
+      id: uuidv4()
+    };
+    
+    const updatedWidgets = [...widgets, newWidget];
+    setWidgets(updatedWidgets);
+    updateWidgetsMutation.mutate(updatedWidgets);
+  };
+  
+  const handleRemoveWidget = (id: string) => {
+    const updatedWidgets = widgets.filter(widget => widget.id !== id);
+    setWidgets(updatedWidgets);
+    updateWidgetsMutation.mutate(updatedWidgets);
+  };
+  
+  // Initialize user and widgets when data is loaded
   useEffect(() => {
     if (userData) {
       setUser(userData);
     }
   }, [userData]);
+  
+  // Initialize widgets when user widgets are loaded
+  useEffect(() => {
+    if (userWidgets) {
+      setWidgets(userWidgets);
+    } else if (userData?.dashboardWidgets) {
+      // Fall back to user's dashboard widgets if API call fails
+      setWidgets(userData.dashboardWidgets as Widget[]);
+    }
+  }, [userWidgets, userData]);
   
   if (!user || !dailyStats || !activities) {
     return (
@@ -101,14 +232,17 @@ const Dashboard = () => {
     <div className="p-4 space-y-6 bg-gray-900 min-h-screen">
       <GreetingSection username={user.displayName.split(' ')[0]} />
       
-      <ProgressSection 
-        caloriesConsumed={dailyStats.caloriesConsumed}
-        caloriesTarget={user.dailyCalorieTarget}
-        stepsCount={dailyStats.stepsCount}
-        stepsTarget={user.dailyStepTarget}
-        waterIntake={dailyStats.waterIntake}
-        waterTarget={3}
-      />
+      {/* Widget System */}
+      <div className="mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-white">Dashboard</h2>
+        </div>
+        <WidgetSystem 
+          widgets={widgets}
+          onAddWidget={() => setIsAddWidgetDialogOpen(true)}
+          onRemoveWidget={handleRemoveWidget}
+        />
+      </div>
       
       <TodayActivities 
         activities={activities}
@@ -118,6 +252,14 @@ const Dashboard = () => {
       <WeeklyWorkoutPlan 
         workoutPlan={generateWeeklyPlan()}
         onViewAll={handleViewAllWorkouts}
+      />
+      
+      {/* Add Widget Dialog */}
+      <AddWidgetDialog
+        open={isAddWidgetDialogOpen}
+        onOpenChange={setIsAddWidgetDialogOpen}
+        onAddWidget={handleAddWidget}
+        availableData={generateAvailableWidgetData()}
       />
     </div>
   );
