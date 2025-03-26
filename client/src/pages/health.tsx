@@ -199,71 +199,167 @@ export default function HealthPage() {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Health Tracking</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 text-transparent bg-clip-text">Health Center</h1>
+          <p className="text-muted-foreground mt-1">Track, monitor and improve your health metrics</p>
+        </div>
         <Button 
           onClick={() => setAddMetricOpen(true)}
-          className="bg-primary hover:bg-primary/90"
+          className="bg-primary hover:bg-primary/90 flex items-center gap-2"
         >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           Add Measurement
         </Button>
       </div>
       
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
-          <TabsTrigger value="blood-tests">Blood Test Results</TabsTrigger>
-          <TabsTrigger value="medications">Medications</TabsTrigger>
-          <TabsTrigger value="integrations">Health Services</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto p-1 bg-background rounded-lg border">
+          <TabsTrigger value="metrics" className="flex items-center gap-2 py-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 21V3M16 21V3M3 16H21M3 8H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Vital Signs</span>
+          </TabsTrigger>
+          <TabsTrigger value="blood-tests" className="flex items-center gap-2 py-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 3V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 13H15M9 9H15M9 17H13M3 3H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Lab Results</span>
+          </TabsTrigger>
+          <TabsTrigger value="medications" className="flex items-center gap-2 py-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 14L15 8M10 3V3C7.23858 3 5 5.23858 5 8V16C5 18.7614 7.23858 21 10 21V21C12.7614 21 15 18.7614 15 16V8C15 5.23858 12.7614 3 10 3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M17 6V14M14 9H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Medications</span>
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex items-center gap-2 py-2.5">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 13V12M12 13V10M16 13V8M8 21L12 17L16 21M3 4H21M4 4H20V16C20 16.5523 19.5523 17 19 17H5C4.44772 17 4 16.5523 4 16V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span>Devices</span>
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="metrics" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             <Card className="col-span-1">
               <CardHeader>
-                <CardTitle>Metrics</CardTitle>
-                <CardDescription>Choose a health metric to track</CardDescription>
+                <CardTitle>Vital Signs</CardTitle>
+                <CardDescription>Select a metric to view or track</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <div 
-                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_pressure' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'blood_pressure' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
                     onClick={() => setSelectedMetricType('blood_pressure')}
                   >
-                    <h3 className="font-medium">Blood Pressure</h3>
-                    <p className="text-sm text-muted-foreground">Systolic/Diastolic (mmHg)</p>
+                    <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Blood Pressure</h3>
+                      <p className="text-xs text-muted-foreground">Systolic/Diastolic (mmHg)</p>
+                    </div>
                   </div>
                   
                   <div 
-                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'heart_rate' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'heart_rate' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
                     onClick={() => setSelectedMetricType('heart_rate')}
                   >
-                    <h3 className="font-medium">Heart Rate</h3>
-                    <p className="text-sm text-muted-foreground">Beats per minute (BPM)</p>
+                    <div className="bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19.5 13.5L18 12M18 12L16.5 13.5M18 12L16.5 10.5M18 12L19.5 10.5M13.5 6.5H7.5L4.5 12L7.5 17.5H13.5L16.5 12L13.5 6.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Heart Rate</h3>
+                      <p className="text-xs text-muted-foreground">Beats per minute (BPM)</p>
+                    </div>
                   </div>
                   
                   <div 
-                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'weight' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'weight' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
                     onClick={() => setSelectedMetricType('weight')}
                   >
-                    <h3 className="font-medium">Weight</h3>
-                    <p className="text-sm text-muted-foreground">Kilograms (kg)</p>
+                    <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 6L6 7M18 7L21 6M6 7L8 20H16L18 7M6 7H18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Weight</h3>
+                      <p className="text-xs text-muted-foreground">Kilograms (kg)</p>
+                    </div>
                   </div>
                   
                   <div 
-                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'body_fat' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'body_fat' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
                     onClick={() => setSelectedMetricType('body_fat')}
                   >
-                    <h3 className="font-medium">Body Fat</h3>
-                    <p className="text-sm text-muted-foreground">Percentage (%)</p>
+                    <div className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6.8 19H17.2C18.88 19 19.72 19 20.36 18.673C20.9168 18.3854 21.3854 17.9168 21.673 17.36C22 16.72 22 15.88 22 14.2V9.8C22 8.11997 22 7.28075 21.673 6.63995C21.3854 6.08316 20.9168 5.6146 20.36 5.32698C19.72 5 18.88 5 17.2 5H6.8C5.11997 5 4.28075 5 3.63995 5.32698C3.08316 5.6146 2.6146 6.08316 2.32698 6.63995C2 7.28075 2 8.11997 2 9.8V14.2C2 15.88 2 16.72 2.32698 17.36C2.6146 17.9168 3.08316 18.3854 3.63995 18.673C4.28075 19 5.11997 19 6.8 19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Body Fat</h3>
+                      <p className="text-xs text-muted-foreground">Percentage (%)</p>
+                    </div>
                   </div>
                   
                   <div 
-                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_glucose' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'blood_glucose' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
                     onClick={() => setSelectedMetricType('blood_glucose')}
                   >
-                    <h3 className="font-medium">Blood Glucose</h3>
-                    <p className="text-sm text-muted-foreground">mg/dL</p>
+                    <div className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 3V7M16 3V7M7 11H17M5 5H19C20.1046 5 21 5.89543 21 7V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V7C3
+                         5.89543 3.89543 5 5 5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Blood Glucose</h3>
+                      <p className="text-xs text-muted-foreground">mg/dL</p>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'hrv' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
+                    onClick={() => setSelectedMetricType('hrv')}
+                  >
+                    <div className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">HRV</h3>
+                      <p className="text-xs text-muted-foreground">Heart Rate Variability (ms)</p>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer transition-all flex items-center gap-3 ${selectedMetricType === 'oxygen_saturation' ? 'bg-primary/15 border-l-4 border-primary' : 'hover:bg-muted border-l-4 border-transparent'}`}
+                    onClick={() => setSelectedMetricType('oxygen_saturation')}
+                  >
+                    <div className="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 p-2 rounded-full">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 18C17.5228 18 22 15.3137 22 12C22 8.68629 17.5228 6 12 6C6.47715 6 2 8.68629 2 12C2 15.3137 6.47715 18 12 18Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 20V18M12 6V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">SpO2</h3>
+                      <p className="text-xs text-muted-foreground">Oxygen Saturation (%)</p>
+                    </div>
                   </div>
                 </div>
               </CardContent>
