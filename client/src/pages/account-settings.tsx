@@ -31,13 +31,23 @@ const AccountSettings = () => {
   // Update form data when user data is loaded
   useEffect(() => {
     if (userData) {
+      // Type assertion for userData to include our expected properties
+      const user = userData as {
+        displayName?: string;
+        email?: string;
+        phone?: string;
+        twoFactorEnabled?: boolean;
+        emailNotifications?: boolean;
+        marketingEmails?: boolean;
+      };
+      
       setFormData({
-        displayName: userData.displayName || '',
-        email: userData.email || 'user@example.com',
-        phone: userData.phone || '(555) 123-4567',
-        twoFactorEnabled: userData.twoFactorEnabled || false,
-        emailNotifications: userData.emailNotifications !== false,
-        marketingEmails: userData.marketingEmails || false
+        displayName: user.displayName || '',
+        email: user.email || 'user@example.com',
+        phone: user.phone || '(555) 123-4567',
+        twoFactorEnabled: user.twoFactorEnabled || false,
+        emailNotifications: user.emailNotifications !== false,
+        marketingEmails: user.marketingEmails || false
       });
     }
   }, [userData]);
@@ -95,7 +105,10 @@ const AccountSettings = () => {
             <Avatar className="w-20 h-20">
               <AvatarImage src="" alt="Profile Photo" />
               <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {userData?.displayName?.substring(0, 2).toUpperCase() || 'JD'}
+                {userData && 'displayName' in userData 
+                  ? (userData as {displayName: string}).displayName.substring(0, 2).toUpperCase() 
+                  : 'JD'
+                }
               </AvatarFallback>
             </Avatar>
             <Button variant="outline" onClick={handleProfilePhotoUpload} className="flex gap-2">

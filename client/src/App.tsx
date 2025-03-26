@@ -16,6 +16,10 @@ import Water from "@/pages/water";
 import Analytics from "@/pages/analytics";
 import SignIn from "@/pages/sign-in";
 import AuthPage from "@/pages/auth-page";
+import AccountSettings from "@/pages/account-settings";
+import PrivacySettings from "@/pages/privacy-settings";
+import HelpSupport from "@/pages/help-support";
+import Medications from "@/pages/medications";
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -142,6 +146,10 @@ function Router() {
           <ProtectedRoute path="/steps" component={Steps} />
           <ProtectedRoute path="/water" component={Water} />
           <ProtectedRoute path="/analytics" component={Analytics} />
+          <ProtectedRoute path="/medications" component={Medications} />
+          <ProtectedRoute path="/account-settings" component={AccountSettings} />
+          <ProtectedRoute path="/privacy-settings" component={PrivacySettings} />
+          <ProtectedRoute path="/help-support" component={HelpSupport} />
           <Route path="/auth" component={AuthPage} />
           <Route component={NotFound} />
         </Switch>
