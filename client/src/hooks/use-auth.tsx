@@ -57,7 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      const response = await apiRequest('POST', '/api/auth/signin', { email, password });
+      // For demo purposes we're using the username field for emails
+      const response = await apiRequest('POST', '/api/auth/signin', { 
+        email: email, 
+        password: password 
+      });
       
       if (response.success) {
         setUser(response.user);

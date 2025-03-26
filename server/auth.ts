@@ -31,7 +31,9 @@ export async function handleSignIn(req: Request, res: Response) {
     // 3. Generate a JWT token
     // 4. Set session/cookies
     
-    // For demo purposes, we'll check if the user exists by username (email)
+    // For demo purposes, we'll check if the user exists by username 
+    // Note: In the client we're sending email in the 'email' field, but our storage
+    // expects it as 'username', so we're using the email field as username here
     const user = await storage.getUserByUsername(validatedData.email);
     
     if (!user) {
