@@ -201,28 +201,28 @@ const CreateWorkout = () => {
     : [];
   
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 bg-gray-900 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-['Inter',sans-serif] text-2xl font-bold">Create Workout</h2>
+        <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Create Workout</h2>
       </div>
       
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-        <label className="text-gray-500 text-sm block mb-1">Workout Name</label>
+      <div className="bg-gray-800 rounded-xl shadow-md p-4 mb-6 border border-gray-700">
+        <label className="text-gray-300 text-sm block mb-1">Workout Name</label>
         <input 
           type="text" 
           value={workoutName} 
           onChange={(e) => setWorkoutName(e.target.value)}
           placeholder="My Workout Plan"
-          className="bg-[#F5F5F5] border border-[#E0E0E0] rounded-lg p-3 w-full text-lg" 
+          className="bg-gray-700 border border-gray-600 rounded-lg p-3 w-full text-lg text-white placeholder-gray-400" 
         />
       </div>
       
       {selectedExercises.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-4">Selected Exercises</h3>
+        <div className="bg-gray-800 rounded-xl shadow-md p-4 mb-6 border border-gray-700">
+          <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-4 text-white">Selected Exercises</h3>
           <div className="space-y-4">
             {selectedExercises.map((exercise, index) => (
-              <div key={exercise.id} className="bg-[#F5F5F5] rounded-lg p-3">
+              <div key={exercise.id} className="bg-gray-700 rounded-lg p-3 border border-gray-600">
                 <div 
                   className="flex justify-between items-center cursor-pointer"
                   onClick={() => toggleExerciseExpansion(exercise.id)}
@@ -232,16 +232,16 @@ const CreateWorkout = () => {
                       {index + 1}
                     </div>
                     <div>
-                      <h4 className="font-medium">{exercise.name}</h4>
-                      <p className="text-xs text-gray-500">{exercise.muscleGroup}</p>
+                      <h4 className="font-medium text-white">{exercise.name}</h4>
+                      <p className="text-xs text-gray-300">{exercise.muscleGroup}</p>
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <span className="text-sm text-gray-500 mr-2">
+                    <span className="text-sm text-gray-300 mr-2">
                       {exercise.sets} sets · {exercise.repsMin}-{exercise.repsMax} reps
                     </span>
                     <button 
-                      className="text-red-500"
+                      className="text-red-400 hover:text-red-300"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveExercise(exercise.id);
@@ -253,14 +253,14 @@ const CreateWorkout = () => {
                 </div>
                 
                 {exercise.expanded && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="mt-4 pt-4 border-t border-gray-600">
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Sets</label>
+                        <label className="text-xs text-gray-300 mb-1 block">Sets</label>
                         <select 
                           value={exercise.sets}
                           onChange={(e) => updateExerciseConfig(exercise.id, 'sets', parseInt(e.target.value))}
-                          className="bg-white border border-[#E0E0E0] rounded-lg p-2 w-full"
+                          className="bg-gray-800 border border-gray-600 rounded-lg p-2 w-full text-white"
                         >
                           {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
                             <option key={num} value={num}>{num}</option>
@@ -269,11 +269,11 @@ const CreateWorkout = () => {
                       </div>
                       
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Min Reps</label>
+                        <label className="text-xs text-gray-300 mb-1 block">Min Reps</label>
                         <select 
                           value={exercise.repsMin}
                           onChange={(e) => updateExerciseConfig(exercise.id, 'repsMin', parseInt(e.target.value))}
-                          className="bg-white border border-[#E0E0E0] rounded-lg p-2 w-full"
+                          className="bg-gray-800 border border-gray-600 rounded-lg p-2 w-full text-white"
                         >
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15].map(num => (
                             <option key={num} value={num}>{num}</option>
@@ -282,11 +282,11 @@ const CreateWorkout = () => {
                       </div>
                       
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Max Reps</label>
+                        <label className="text-xs text-gray-300 mb-1 block">Max Reps</label>
                         <select 
                           value={exercise.repsMax}
                           onChange={(e) => updateExerciseConfig(exercise.id, 'repsMax', parseInt(e.target.value))}
-                          className="bg-white border border-[#E0E0E0] rounded-lg p-2 w-full"
+                          className="bg-gray-800 border border-gray-600 rounded-lg p-2 w-full text-white"
                         >
                           {[6, 8, 10, 12, 15, 20, 25, 30].map(num => (
                             <option key={num} value={num}>{num}</option>
@@ -302,31 +302,31 @@ const CreateWorkout = () => {
         </div>
       )}
       
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-4">Add Exercises</h3>
+      <div className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700">
+        <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-4 text-white">Add Exercises</h3>
         
         {muscleGroups.map(group => (
           <div key={group} className="mb-4">
-            <h4 className="font-medium text-gray-500 mb-2">{group}</h4>
+            <h4 className="font-medium text-gray-300 mb-2">{group}</h4>
             <div className="space-y-2">
               {exercises && Array.isArray(exercises) ? exercises
                 .filter((e: any) => e.muscleGroup === group)
                 .map((exercise: any) => (
                   <div 
                     key={exercise.id} 
-                    className="flex justify-between items-center bg-[#F5F5F5] rounded-lg p-3 hover:bg-[#EEEEEE] cursor-pointer"
+                    className="flex justify-between items-center bg-gray-700 rounded-lg p-3 border border-gray-600 hover:bg-gray-600 cursor-pointer"
                     onClick={() => handleAddExercise(exercise)}
                   >
                     <div>
-                      <h5 className="font-medium">{exercise.name}</h5>
-                      <p className="text-xs text-gray-500">{exercise.category}</p>
+                      <h5 className="font-medium text-white">{exercise.name}</h5>
+                      <p className="text-xs text-gray-300">{exercise.category}</p>
                     </div>
-                    <button className="bg-primary/10 rounded-full p-1">
+                    <button className="bg-primary/20 hover:bg-primary/30 rounded-full p-1">
                       <AddIcon className="text-primary w-4 h-4" />
                     </button>
                   </div>
                 )) : (
-                  <div className="text-gray-500 text-sm py-2">No exercises found in this category</div>
+                  <div className="text-gray-300 text-sm py-2">No exercises found in this category</div>
                 )}
             </div>
           </div>
@@ -335,7 +335,7 @@ const CreateWorkout = () => {
       
       <div className="flex space-x-3 mt-8">
         <button 
-          className="flex-1 bg-primary text-white py-3 rounded-lg font-medium flex items-center justify-center"
+          className="flex-1 bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-medium flex items-center justify-center"
           onClick={handleCreateWorkout}
           disabled={createWorkoutMutation.isPending}
         >
@@ -349,7 +349,7 @@ const CreateWorkout = () => {
           )}
         </button>
         <button 
-          className="flex-1 bg-[#F5F5F5] border border-[#E0E0E0] py-3 rounded-lg font-medium"
+          className="flex-1 bg-gray-700 hover:bg-gray-600 text-white border border-gray-600 py-3 rounded-lg font-medium"
           onClick={handleCancel}
           disabled={createWorkoutMutation.isPending}
         >
