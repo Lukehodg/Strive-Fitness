@@ -572,9 +572,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let metrics;
       
-      if (metricType) {
+      if (metricType && HealthMetricTypes.includes(metricType as any)) {
         // Get metrics of a specific type
-        metrics = await storage.getHealthMetricsByType(userId, metricType as HealthMetricType, startDate, endDate);
+        metrics = await storage.getHealthMetricsByType(userId, metricType as any, startDate, endDate);
       } else {
         // Get all metrics
         metrics = await storage.getHealthMetrics(userId, startDate, endDate);

@@ -30,11 +30,11 @@ const BottomNavigation = () => {
       </button>
       
       <button
-        onClick={() => setLocation('/exercise/1')}
-        className={`flex flex-col items-center justify-center w-1/5 py-2 ${isActive('/exercise') ? 'text-primary' : 'text-gray-400'}`}
+        onClick={() => setLocation('/health')}
+        className={`flex flex-col items-center justify-center w-1/5 py-2 ${isActive('/health') ? 'text-primary' : 'text-gray-400'}`}
       >
-        <span className="material-icons">analytics</span>
-        <span className="text-xs mt-1">Progress</span>
+        <span className="material-icons">favorite</span>
+        <span className="text-xs mt-1">Health</span>
       </button>
       
       <button

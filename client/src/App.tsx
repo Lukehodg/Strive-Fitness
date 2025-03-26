@@ -10,6 +10,7 @@ import Nutrition from "@/pages/nutrition";
 import Profile from "@/pages/profile";
 import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
+import Health from "@/pages/health";
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { useEffect, useState } from "react";
 
@@ -76,6 +77,7 @@ function Router() {
             {(params) => <Exercise exerciseId={parseInt(params.id, 10)} />}
           </Route>
           <Route path="/nutrition" component={Nutrition} />
+          <Route path="/health" component={Health} />
           <Route path="/profile" component={Profile} />
           <Route component={NotFound} />
         </Switch>

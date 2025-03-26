@@ -859,7 +859,19 @@ export class MemStorage implements IStorage {
 
   async createDailyStats(stats: InsertDailyStats): Promise<DailyStats> {
     const id = this.currentDailyStatsId++;
-    const newStats: DailyStats = { ...stats, id };
+    const newStats: DailyStats = { 
+      id,
+      userId: stats.userId,
+      date: stats.date,
+      caloriesConsumed: stats.caloriesConsumed !== undefined ? stats.caloriesConsumed : 0,
+      caloriesBurned: stats.caloriesBurned !== undefined ? stats.caloriesBurned : 0,
+      proteinConsumed: stats.proteinConsumed !== undefined ? stats.proteinConsumed : 0,
+      carbsConsumed: stats.carbsConsumed !== undefined ? stats.carbsConsumed : 0,
+      fatConsumed: stats.fatConsumed !== undefined ? stats.fatConsumed : 0,
+      stepsCount: stats.stepsCount !== undefined ? stats.stepsCount : 0,
+      waterIntake: stats.waterIntake !== undefined ? stats.waterIntake : 0,
+      weightMeasurement: stats.weightMeasurement !== undefined ? stats.weightMeasurement : null
+    };
     this.dailyStats.set(id, newStats);
     return newStats;
   }
