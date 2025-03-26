@@ -11,26 +11,60 @@ import CalorieSummary from '@/components/nutrition/calorie-summary';
 import TodayMeals from '@/components/nutrition/today-meals';
 import AddFoodForm from '@/components/nutrition/add-food-form';
 
+// Define interfaces for typings
+interface User {
+  displayName: string;
+  dailyCalorieTarget: number;
+  dailyProteinTarget: number;
+  dailyCarbsTarget: number;
+  dailyFatTarget: number;
+  [key: string]: any;
+}
+
+interface DailyStats {
+  caloriesConsumed: number;
+  proteinConsumed: number;
+  carbsConsumed: number;
+  fatConsumed: number;
+  [key: string]: any;
+}
+
+interface Food {
+  name: string;
+}
+
+interface Meal {
+  id: number;
+  name: string;
+  timestamp: string;
+  calories: number;
+  foods: Food[];
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+  userId?: number;
+}
+
 const Nutrition = () => {
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
   const [initialScanMode, setInitialScanMode] = useState(false);
   
   // Fetch user data
-  const { data: userData } = useQuery({
+  const { data: userData } = useQuery<User>({
     queryKey: ['/api/user/1'],
     staleTime: 60000, // 1 minute
   });
   
   // Fetch daily stats
-  const { data: dailyStats } = useQuery({
+  const { data: dailyStats } = useQuery<DailyStats>({
     queryKey: ['/api/users/1/daily-stats'],
     staleTime: 30000, // 30 seconds
   });
   
   // Fetch meals
-  const { data: meals } = useQuery({
+  const { data: meals } = useQuery<Meal[]>({
     queryKey: ['/api/users/1/meals'],
     staleTime: 30000, // 30 seconds
   });
@@ -66,7 +100,7 @@ const Nutrition = () => {
   
   if (!user || !dailyStats || !meals) {
     return (
-      <div className="p-4 flex items-center justify-center h-[90vh]">
+      <div className="p-4 flex items-center justify-center h-[90vh] bg-gray-900 text-white">
         <p>Loading...</p>
       </div>
     );
@@ -86,9 +120,9 @@ const Nutrition = () => {
   const fatPercentage = Math.min(100, Math.round((fatConsumed / fatTarget) * 100));
   
   return (
-    <div className="p-4 space-y-6 pb-20">
+    <div className="p-4 space-y-6 pb-20 bg-gray-900 min-h-screen">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-['Inter',sans-serif] text-2xl font-bold">Nutrition</h2>
+        <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Nutrition</h2>
         <div className="flex gap-2">
           {/* Barcode scan button */}
           <Dialog open={isAddFoodOpen && initialScanMode} onOpenChange={(open) => {

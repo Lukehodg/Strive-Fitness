@@ -26,7 +26,7 @@ interface DailyStats {
 interface DashboardActivity {
   id: number;
   userId: number;
-  type: string;
+  type: "workout" | "nutrition" | "medication";
   title: string;
   description: string;
   [key: string]: any;

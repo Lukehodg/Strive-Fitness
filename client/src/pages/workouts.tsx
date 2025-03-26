@@ -145,16 +145,16 @@ const Workouts = () => {
     
   if (!isDataLoaded) {
     return (
-      <div className="p-4 flex items-center justify-center h-[90vh]">
+      <div className="p-4 flex items-center justify-center h-[90vh] bg-gray-900 text-white">
         <p>Loading workouts...</p>
       </div>
     );
   }
   
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 bg-gray-900 min-h-screen text-white">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-['Inter',sans-serif] text-2xl font-bold">Workouts</h2>
+        <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Workouts</h2>
         <button 
           className="bg-primary text-white rounded-full p-2"
           onClick={handleCreateWorkout}
