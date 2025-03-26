@@ -5,7 +5,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, MessageSquare, Calendar, Trophy, ActivitySquare, PieChart } from 'lucide-react';
+import { 
+  Bell, 
+  MessageSquare, 
+  Calendar, 
+  Trophy, 
+  ActivitySquare, 
+  PieChart, 
+  Pill,
+  Clock,
+  Clock4,
+  Info
+} from 'lucide-react';
 
 interface NotificationSetting {
   id: string;
@@ -46,6 +57,22 @@ const NotificationSettings = () => {
       icon: <PieChart className="h-5 w-5" />,
       category: 'app'
     },
+    {
+      id: 'medication_reminders',
+      name: 'Medication Reminders',
+      description: 'Get reminded when to take your medications',
+      enabled: true,
+      icon: <Pill className="h-5 w-5" />,
+      category: 'app'
+    },
+    {
+      id: 'supplement_reminders',
+      name: 'Supplement Reminders',
+      description: 'Receive reminders for your supplement schedule',
+      enabled: true,
+      icon: <Clock className="h-5 w-5" />,
+      category: 'app'
+    },
     
     // Email Notifications
     {
@@ -64,6 +91,14 @@ const NotificationSettings = () => {
       icon: <Bell className="h-5 w-5" />,
       category: 'email'
     },
+    {
+      id: 'medication_refill',
+      name: 'Medication Refill Reminders',
+      description: 'Get notified when your medications need to be refilled',
+      enabled: true,
+      icon: <Pill className="h-5 w-5" />,
+      category: 'email'
+    },
     
     // SMS Notifications
     {
@@ -80,6 +115,14 @@ const NotificationSettings = () => {
       description: 'Get SMS alerts when you reach significant milestones',
       enabled: false,
       icon: <Trophy className="h-5 w-5" />,
+      category: 'sms'
+    },
+    {
+      id: 'sms_medication',
+      name: 'SMS Medication Reminders',
+      description: 'Receive SMS alerts for medication and supplement times',
+      enabled: false,
+      icon: <Pill className="h-5 w-5" />,
       category: 'sms'
     }
   ]);
@@ -106,6 +149,56 @@ const NotificationSettings = () => {
     toast({
       title: "Settings Saved",
       description: "Your notification preferences have been updated.",
+    });
+  };
+  
+  // Function to simulate medication reminder
+  const testMedicationReminder = () => {
+    if (!notifications.find(n => n.id === 'medication_reminders')?.enabled) {
+      toast({
+        title: "Notifications Disabled",
+        description: "Please enable medication reminders first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Simulate medication reminder
+    setTimeout(() => {
+      toast({
+        title: "Medication Reminder",
+        description: "Time to take your Vitamin D supplement (2000 IU)",
+      });
+    }, 1500);
+    
+    toast({
+      title: "Test Started",
+      description: "You will receive a medication reminder in a moment...",
+    });
+  };
+  
+  // Function to simulate supplement reminder
+  const testSupplementReminder = () => {
+    if (!notifications.find(n => n.id === 'supplement_reminders')?.enabled) {
+      toast({
+        title: "Notifications Disabled",
+        description: "Please enable supplement reminders first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Simulate supplement reminder
+    setTimeout(() => {
+      toast({
+        title: "Supplement Reminder",
+        description: "Time to take your Protein shake (30g)",
+      });
+    }, 1500);
+    
+    toast({
+      title: "Test Started",
+      description: "You will receive a supplement reminder in a moment...",
     });
   };
   
@@ -148,6 +241,34 @@ const NotificationSettings = () => {
                   />
                 </div>
               ))}
+              
+              {/* Test buttons for medication notifications */}
+              <div className="p-4 space-y-4">
+                <div className="flex flex-col space-y-2">
+                  <h3 className="text-sm font-medium">Test Notifications</h3>
+                  <p className="text-xs text-muted-foreground">Try out how notifications will appear on your device</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={testMedicationReminder}
+                    className="flex items-center gap-2"
+                  >
+                    <Pill className="h-4 w-4" />
+                    <span>Test Medication Reminder</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={testSupplementReminder}
+                    className="flex items-center gap-2"
+                  >
+                    <Clock className="h-4 w-4" />
+                    <span>Test Supplement Reminder</span>
+                  </Button>
+                </div>
+              </div>
             </div>
           </TabsContent>
           
