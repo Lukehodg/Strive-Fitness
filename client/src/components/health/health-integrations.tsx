@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { apiRequest } from '@/lib/queryClient';
 
 interface HealthPlatform {
-  id: 'apple_health' | 'garmin' | 'android_health';
+  id: 'apple_health' | 'garmin' | 'android_health' | 'whoop' | 'oura';
   name: string;
   logo: string;
   connected: boolean;
@@ -58,6 +58,20 @@ export default function HealthIntegrations() {
       logo: '🤖',
       connected: connections?.android_health?.connected || false,
       lastSync: connections?.android_health?.last_sync || null
+    },
+    {
+      id: 'whoop',
+      name: 'WHOOP',
+      logo: '🔄',
+      connected: connections?.whoop?.connected || false,
+      lastSync: connections?.whoop?.last_sync || null
+    },
+    {
+      id: 'oura',
+      name: 'Oura Ring',
+      logo: '💍',
+      connected: connections?.oura?.connected || false,
+      lastSync: connections?.oura?.last_sync || null
     }
   ];
   

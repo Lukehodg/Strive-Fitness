@@ -16,7 +16,7 @@ export interface HealthData {
   systolic?: number;
   diastolic?: number;
   notes?: string;
-  source: 'apple_health' | 'garmin' | 'android_health';
+  source: 'apple_health' | 'garmin' | 'android_health' | 'whoop' | 'oura';
 }
 
 /**
@@ -67,10 +67,40 @@ export async function connectAndroidHealth(userId: number, authData: any): Promi
 }
 
 /**
+ * Connect to WHOOP - This would normally use WHOOP's API
+ */
+export async function connectWhoop(userId: number, authData: any): Promise<{ success: boolean, message: string }> {
+  // In a real implementation, this would authenticate with WHOOP's API
+  
+  console.log(`Connecting to WHOOP for user ${userId}`);
+  
+  // Simulate successful connection
+  return {
+    success: true,
+    message: "Successfully connected to WHOOP"
+  };
+}
+
+/**
+ * Connect to Oura Ring - This would normally use Oura's API
+ */
+export async function connectOura(userId: number, authData: any): Promise<{ success: boolean, message: string }> {
+  // In a real implementation, this would authenticate with Oura's API
+  
+  console.log(`Connecting to Oura Ring for user ${userId}`);
+  
+  // Simulate successful connection
+  return {
+    success: true,
+    message: "Successfully connected to Oura Ring"
+  };
+}
+
+/**
  * Pull health data from connected platforms
  * In a real app, this would fetch actual data from the respective APIs
  */
-export async function syncHealthData(userId: number, platform: 'apple_health' | 'garmin' | 'android_health'): Promise<HealthData[]> {
+export async function syncHealthData(userId: number, platform: 'apple_health' | 'garmin' | 'android_health' | 'whoop' | 'oura'): Promise<HealthData[]> {
   console.log(`Syncing health data from ${platform} for user ${userId}`);
   
   // In a real implementation, this would pull live data from the respective platform
@@ -153,6 +183,64 @@ export async function syncHealthData(userId: number, platform: 'apple_health' | 
         source: 'android_health'
       });
       break;
+      
+    case 'whoop':
+      // Heart rate readings
+      data.push({
+        metricType: 'heart_rate',
+        timestamp: new Date(now.setHours(7, 0, 0, 0)),
+        value: 62,
+        notes: "Resting heart rate from WHOOP",
+        source: 'whoop'
+      });
+      
+      // Sleep data (using heart rate as placeholder)
+      data.push({
+        metricType: 'heart_rate',
+        timestamp: new Date(now.setHours(3, 30, 0, 0)),
+        value: 55,
+        notes: "Sleep heart rate from WHOOP",
+        source: 'whoop'
+      });
+      
+      // Respiration rate (using custom metric)
+      data.push({
+        metricType: 'respiration_rate',
+        timestamp: new Date(now.setHours(8, 0, 0, 0)),
+        value: 16,
+        notes: "Morning respiration rate from WHOOP",
+        source: 'whoop'
+      });
+      break;
+      
+    case 'oura':
+      // Body temperature
+      data.push({
+        metricType: 'temperature',
+        timestamp: new Date(now.setHours(4, 0, 0, 0)),
+        value: 36.8,
+        notes: "Night-time body temperature from Oura Ring",
+        source: 'oura'
+      });
+      
+      // Heart rate variability
+      data.push({
+        metricType: 'heart_rate',
+        timestamp: new Date(now.setHours(5, 0, 0, 0)),
+        value: 65,
+        notes: "Sleep heart rate from Oura Ring",
+        source: 'oura'
+      });
+      
+      // Sleep quality metric (using respiration as placeholder)
+      data.push({
+        metricType: 'respiration_rate',
+        timestamp: new Date(now.setHours(3, 0, 0, 0)),
+        value: 14,
+        notes: "Sleep respiration from Oura Ring",
+        source: 'oura'
+      });
+      break;
   }
   
   return data;
@@ -228,6 +316,12 @@ export async function handleConnectHealthPlatform(req: Request, res: Response) {
       case 'android_health':
         result = await connectAndroidHealth(userId, authData);
         break;
+      case 'whoop':
+        result = await connectWhoop(userId, authData);
+        break;
+      case 'oura':
+        result = await connectOura(userId, authData);
+        break;
       default:
         return res.status(400).json({ success: false, message: "Unsupported health platform" });
     }
@@ -251,7 +345,7 @@ export async function handleSyncHealthData(req: Request, res: Response) {
     // Fetch data from health platform
     const healthData = await syncHealthData(
       parseInt(userId as string), 
-      platform as 'apple_health' | 'garmin' | 'android_health'
+      platform as 'apple_health' | 'garmin' | 'android_health' | 'whoop' | 'oura'
     );
     
     // Import data to user's account

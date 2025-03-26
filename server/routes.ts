@@ -757,7 +757,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       apple_health: { connected: true, last_sync: new Date(Date.now() - 3600000).toISOString() },
       garmin: { connected: false, last_sync: null },
-      android_health: { connected: true, last_sync: new Date(Date.now() - 86400000).toISOString() }
+      android_health: { connected: true, last_sync: new Date(Date.now() - 86400000).toISOString() },
+      whoop: { connected: false, last_sync: null },
+      oura: { connected: false, last_sync: null }
     });
   });
 
