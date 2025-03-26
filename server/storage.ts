@@ -53,7 +53,10 @@ export interface IStorage {
 
   // Meals
   getMeals(userId: number, date: Date): Promise<Meal[]>;
+  getMeal(id: number): Promise<Meal | undefined>;
   createMeal(meal: InsertMeal): Promise<Meal>;
+  updateMeal(id: number, data: Partial<Meal>): Promise<Meal | undefined>;
+  deleteMeal(id: number): Promise<boolean>;
 
   // Daily stats
   getDailyStats(userId: number, date: Date): Promise<DailyStats | undefined>;
@@ -570,11 +573,32 @@ export class MemStorage implements IStorage {
     ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
 
+  async getMeal(id: number): Promise<Meal | undefined> {
+    return this.meals.get(id);
+  }
+
   async createMeal(meal: InsertMeal): Promise<Meal> {
     const id = this.currentMealId++;
     const newMeal: Meal = { ...meal, id };
     this.meals.set(id, newMeal);
     return newMeal;
+  }
+  
+  async updateMeal(id: number, data: Partial<Meal>): Promise<Meal | undefined> {
+    const meal = this.meals.get(id);
+    if (!meal) return undefined;
+    
+    const updatedMeal = { ...meal, ...data };
+    this.meals.set(id, updatedMeal);
+    return updatedMeal;
+  }
+  
+  async deleteMeal(id: number): Promise<boolean> {
+    const meal = this.meals.get(id);
+    if (!meal) return false;
+    
+    this.meals.delete(id);
+    return true;
   }
 
   // Daily stats methods

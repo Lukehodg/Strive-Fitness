@@ -330,6 +330,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(meals);
   });
 
+  app.get("/api/meals/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const meal = await storage.getMeal(id);
+      
+      if (!meal) {
+        return res.status(404).json({ message: "Meal not found" });
+      }
+      
+      res.json(meal);
+    } catch (error) {
+      res.status(400).json({ message: "Error fetching meal", error });
+    }
+  });
+
   app.post("/api/meals", async (req: Request, res: Response) => {
     try {
       // Ensure timestamp is a Date object before parsing
@@ -377,6 +392,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating meal:", error);
       res.status(400).json({ message: "Invalid meal data", error });
+    }
+  });
+  
+  app.patch("/api/meals/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const originalMeal = await storage.getMeal(id);
+      
+      if (!originalMeal) {
+        return res.status(404).json({ message: "Meal not found" });
+      }
+      
+      // Prepare data for update with proper date handling
+      const data = { ...req.body };
+      if (data.timestamp && typeof data.timestamp === 'string') {
+        data.timestamp = new Date(data.timestamp);
+      }
+      
+      const updatedMeal = await storage.updateMeal(id, data);
+      
+      // Update daily stats to reflect changes in meal
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const dailyStats = await storage.getDailyStats(originalMeal.userId, today);
+      if (dailyStats) {
+        // Calculate the differences in nutritional values
+        const caloriesDiff = (updatedMeal?.calories || 0) - originalMeal.calories;
+        const proteinDiff = (updatedMeal?.protein || 0) - originalMeal.protein;
+        const carbsDiff = (updatedMeal?.carbs || 0) - originalMeal.carbs;
+        const fatDiff = (updatedMeal?.fat || 0) - originalMeal.fat;
+        
+        // Update daily stats with the differences
+        await storage.updateDailyStats(dailyStats.id, {
+          caloriesConsumed: (dailyStats.caloriesConsumed || 0) + caloriesDiff,
+          proteinConsumed: (dailyStats.proteinConsumed || 0) + proteinDiff,
+          carbsConsumed: (dailyStats.carbsConsumed || 0) + carbsDiff,
+          fatConsumed: (dailyStats.fatConsumed || 0) + fatDiff
+        });
+      }
+      
+      res.json(updatedMeal);
+    } catch (error) {
+      console.error("Error updating meal:", error);
+      res.status(400).json({ message: "Invalid meal data", error });
+    }
+  });
+  
+  app.delete("/api/meals/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const meal = await storage.getMeal(id);
+      
+      if (!meal) {
+        return res.status(404).json({ message: "Meal not found" });
+      }
+      
+      // Delete the meal
+      const deleted = await storage.deleteMeal(id);
+      
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete meal" });
+      }
+      
+      // Update daily stats to remove the meal's nutritional values
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const dailyStats = await storage.getDailyStats(meal.userId, today);
+      if (dailyStats) {
+        await storage.updateDailyStats(dailyStats.id, {
+          caloriesConsumed: Math.max(0, (dailyStats.caloriesConsumed || 0) - meal.calories),
+          proteinConsumed: Math.max(0, (dailyStats.proteinConsumed || 0) - meal.protein),
+          carbsConsumed: Math.max(0, (dailyStats.carbsConsumed || 0) - meal.carbs),
+          fatConsumed: Math.max(0, (dailyStats.fatConsumed || 0) - meal.fat)
+        });
+      }
+      
+      res.status(200).json({ message: "Meal deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting meal:", error);
+      res.status(400).json({ message: "Error deleting meal", error });
     }
   });
 
