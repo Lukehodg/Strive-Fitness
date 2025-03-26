@@ -35,7 +35,7 @@ export function Logo({
       
       {/* Text "Strive" */}
       {withText && (
-        <span className={`font-bold ${textSize} ${textClassName || 'bg-gradient-to-r from-emerald-500 to-blue-600 bg-clip-text text-transparent'}`}>
+        <span className={`font-bold ${textSize} ${textClassName || 'bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent'}`}>
           Strive
         </span>
       )}

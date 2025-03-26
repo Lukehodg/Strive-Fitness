@@ -31,7 +31,7 @@ function Router() {
           </div>
           <h2 className="text-xl font-normal mb-4">Loading...</h2>
           <div className="h-1 w-full bg-gray-200/20 rounded-full mt-1">
-            <div className="h-1 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full animate-pulse" style={{width: '90%'}}></div>
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{width: '90%'}}></div>
           </div>
         </div>
       </div>
@@ -41,7 +41,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-background pb-20 font-['Roboto',sans-serif] text-foreground">
       {user && (
-        <header className="bg-gradient-to-r from-emerald-700 to-blue-700 text-white p-4 shadow-md">
+        <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-4 shadow-md">
           <div className="flex justify-between items-center max-w-lg mx-auto">
             <Logo size="sm" textClassName="text-white" />
             <div className="flex items-center space-x-2">

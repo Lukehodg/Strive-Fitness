@@ -153,7 +153,7 @@ export default function AuthPage() {
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800" disabled={isLoading}>
                       {isLoading ? 'Signing in...' : 'Sign In'}
                     </Button>
                   </form>
@@ -240,7 +240,7 @@ export default function AuthPage() {
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800" disabled={isLoading}>
                       {isLoading ? 'Creating account...' : 'Create Account'}
                     </Button>
                   </form>
@@ -289,7 +289,7 @@ export default function AuthPage() {
       </div>
       
       {/* Right column - Hero */}
-      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-emerald-700 to-blue-700 flex-col justify-center items-center p-8 text-white">
+      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-blue-700 to-indigo-900 flex-col justify-center items-center p-8 text-white">
         <div className="max-w-md mx-auto text-center">
           <h1 className="text-5xl font-bold mb-6">Track. Progress. Conquer.</h1>
           <p className="text-xl mb-8">
