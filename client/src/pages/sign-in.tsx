@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { useLocation } from 'wouter';
+import React, { useState, useEffect } from 'react';
+import { useLocation, Redirect } from 'wouter';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { apiRequest } from '@/lib/queryClient';
 
 import { 
   Card, 
@@ -46,9 +47,16 @@ const signUpSchema = z.object({
 
 export default function SignIn() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user, isLoading, signIn, signUp } = useAuth();
+  
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      setLocation('/');
+    }
+  }, [user, setLocation]);
 
   // Sign In form
   const signInForm = useForm<z.infer<typeof signInSchema>>({
@@ -72,107 +80,43 @@ export default function SignIn() {
 
   // Handle sign in form submission
   const onSignIn = async (values: z.infer<typeof signInSchema>) => {
-    setIsLoading(true);
     try {
-      // In a real implementation, this would authenticate against your API
-      const response = await apiRequest('POST', '/api/auth/signin', values);
-
-      if (response.success) {
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-        setLocation('/dashboard');
-      } else {
-        toast({
-          title: "Sign in failed",
-          description: response.message || "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
-      }
+      await signIn(values.email, values.password);
+      // Navigation is handled by the auth context through useEffect above
     } catch (error) {
-      // For demo purposes, simulate successful login
-      toast({
-        title: "Welcome back!",
-        description: "Signed in successfully (demo mode).",
-      });
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        setLocation('/dashboard');
-      }, 1000);
-    } finally {
-      setIsLoading(false);
+      console.error("Sign in error:", error);
+      // Error toasts are handled by the auth context
     }
   };
 
   // Handle sign up form submission
   const onSignUp = async (values: z.infer<typeof signUpSchema>) => {
-    setIsLoading(true);
     try {
-      // In a real implementation, this would register the user with your API
-      const response = await apiRequest('POST', '/api/auth/signup', {
-        username: values.email,
-        displayName: values.name,
-        password: values.password,
-      });
-
-      if (response.success) {
-        toast({
-          title: "Account created!",
-          description: "You have successfully created an account.",
-        });
-        setLocation('/dashboard');
-      } else {
-        toast({
-          title: "Sign up failed",
-          description: response.message || "There was an error creating your account. Please try again.",
-          variant: "destructive",
-        });
-      }
+      await signUp(values.name, values.email, values.password);
+      // Navigation is handled by the auth context through useEffect above
     } catch (error) {
-      // For demo purposes, simulate successful registration
-      toast({
-        title: "Account created!",
-        description: "Registration successful (demo mode).",
-      });
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        setLocation('/dashboard');
-      }, 1000);
-    } finally {
-      setIsLoading(false);
+      console.error("Sign up error:", error);
+      // Error toasts are handled by the auth context
     }
   };
 
   // Handle social sign in
   const handleSocialSignIn = (provider: 'google' | 'apple') => {
-    setIsLoading(true);
-    try {
-      // In a real implementation, redirect to OAuth provider
-      toast({
-        title: "Redirecting...",
-        description: `Signing in with ${provider === 'google' ? 'Google' : 'Apple'}...`,
-      });
+    toast({
+      title: "Redirecting...",
+      description: `Signing in with ${provider === 'google' ? 'Google' : 'Apple'}...`,
+    });
+    
+    // For demo purposes, simulate successful authentication
+    setTimeout(() => {
+      // For demonstration, we'll sign in with a demo account
+      signIn("demo@strive.com", "password123");
       
-      // For demo purposes, simulate successful authentication
-      setTimeout(() => {
-        toast({
-          title: "Welcome!",
-          description: `Successfully authenticated with ${provider === 'google' ? 'Google' : 'Apple'} (demo mode).`,
-        });
-        setLocation('/dashboard');
-      }, 1500);
-    } catch (error) {
       toast({
-        title: "Authentication failed",
-        description: `Could not authenticate with ${provider === 'google' ? 'Google' : 'Apple'}. Please try again.`,
-        variant: "destructive",
+        title: "Welcome!",
+        description: `Successfully authenticated with ${provider === 'google' ? 'Google' : 'Apple'}.`,
       });
-    } finally {
-      setIsLoading(false);
-    }
+    }, 1500);
   };
 
   return (
@@ -228,8 +172,8 @@ export default function SignIn() {
                     )}
                   />
                   
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing In..." : "Sign In"}
+                  <Button type="submit" className="w-full">
+                    Sign In
                   </Button>
                   
                   <div className="text-center">
@@ -309,8 +253,8 @@ export default function SignIn() {
                     )}
                   />
                   
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Creating Account..." : "Create Account"}
+                  <Button type="submit" className="w-full">
+                    Create Account
                   </Button>
                 </form>
               </Form>
