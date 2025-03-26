@@ -46,6 +46,10 @@ interface MedicationSchedule {
   injectionSite: string | null;
 }
 
+// Define query response types
+type MedicationsResponse = Medication[];
+type SchedulesResponse = MedicationSchedule[];
+
 // Define medication types
 const medicationTypes = [
   "tablet",
@@ -127,7 +131,7 @@ export default function MedicationsPage() {
   });
 
   // Query for medications
-  const { data: medications, isLoading: isMedicationsLoading } = useQuery({
+  const { data: medications = [], isLoading: isMedicationsLoading } = useQuery<MedicationsResponse>({
     queryKey: ['/api/users/1/medications'],
     queryFn: getQueryFn({
       on401: "throw"
@@ -138,7 +142,7 @@ export default function MedicationsPage() {
   const today = new Date();
   const formattedDate = format(today, 'yyyy-MM-dd');
   
-  const { data: schedules, isLoading: isSchedulesLoading } = useQuery({
+  const { data: schedules = [], isLoading: isSchedulesLoading } = useQuery<SchedulesResponse>({
     queryKey: ['/api/users/1/medication-schedules', formattedDate],
     queryFn: getQueryFn({
       on401: "throw"
@@ -148,7 +152,7 @@ export default function MedicationsPage() {
   // Mutation to add a medication
   const addMedicationMutation = useMutation({
     mutationFn: async (data: z.infer<typeof medicationSchema>) => {
-      return await apiRequest('/api/medications', 'POST', {
+      return await apiRequest('POST', '/api/medications', {
         ...data,
         userId: 1
       });
@@ -175,10 +179,7 @@ export default function MedicationsPage() {
   // Mutation to update a medication
   const updateMedicationMutation = useMutation({
     mutationFn: async (data: { id: number; medication: Partial<Medication> }) => {
-      return await apiRequest(`/api/medications/${data.id}`, {
-        method: 'PATCH',
-        body: data.medication
-      });
+      return await apiRequest('PATCH', `/api/medications/${data.id}`, data.medication);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/medications'] });
@@ -202,10 +203,7 @@ export default function MedicationsPage() {
   // Mutation to add a medication schedule
   const addScheduleMutation = useMutation({
     mutationFn: async (data: z.infer<typeof scheduleSchema>) => {
-      return await apiRequest('/api/medication-schedules', {
-        method: 'POST',
-        body: data
-      });
+      return await apiRequest('POST', '/api/medication-schedules', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/medication-schedules'] });
@@ -229,12 +227,9 @@ export default function MedicationsPage() {
   // Mutation to mark a schedule as taken
   const markScheduleTakenMutation = useMutation({
     mutationFn: async (data: { id: number; isTaken: boolean }) => {
-      return await apiRequest(`/api/medication-schedules/${data.id}`, {
-        method: 'PATCH',
-        body: {
-          isTaken: data.isTaken,
-          takenTime: data.isTaken ? new Date() : null
-        }
+      return await apiRequest('PATCH', `/api/medication-schedules/${data.id}`, {
+        isTaken: data.isTaken,
+        takenTime: data.isTaken ? new Date() : null
       });
     },
     onSuccess: () => {
@@ -299,13 +294,13 @@ export default function MedicationsPage() {
   };
 
   // Filter active or all medications
-  const filteredMedications = medications?.filter(med => 
+  const filteredMedications = medications.filter((med: Medication) => 
     activeTab === "active" ? med.isActive !== false : true
   );
 
   // Group schedules by medication
   const groupedSchedules: Record<number, MedicationSchedule[]> = {};
-  schedules?.forEach(schedule => {
+  schedules.forEach((schedule: MedicationSchedule) => {
     if (!groupedSchedules[schedule.medicationId]) {
       groupedSchedules[schedule.medicationId] = [];
     }
@@ -351,7 +346,7 @@ export default function MedicationsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMedications?.length ? (
-                filteredMedications.map(medication => (
+                filteredMedications.map((medication: Medication) => (
                   <MedicationCard 
                     key={medication.id} 
                     medication={medication} 
@@ -380,7 +375,7 @@ export default function MedicationsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {medications?.length ? (
-                medications.map(medication => (
+                medications.map((medication: Medication) => (
                   <MedicationCard 
                     key={medication.id} 
                     medication={medication} 
@@ -412,8 +407,8 @@ export default function MedicationsPage() {
               
               <div className="space-y-4">
                 {schedules?.length ? (
-                  schedules.map(schedule => {
-                    const medication = medications?.find(med => med.id === schedule.medicationId);
+                  schedules.map((schedule: MedicationSchedule) => {
+                    const medication = medications.find((med: Medication) => med.id === schedule.medicationId);
                     return (
                       <ScheduleItem 
                         key={schedule.id}
