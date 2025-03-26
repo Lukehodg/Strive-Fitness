@@ -341,6 +341,10 @@ export class MemStorage implements IStorage {
       { name: "Cable Crossover", category: "Strength", muscleGroup: "Chest", description: "Cable crossover fly" },
       { name: "Push-Up", category: "Bodyweight", muscleGroup: "Chest", description: "Standard push-up" },
       { name: "Decline Press", category: "Strength", muscleGroup: "Chest", description: "Decline barbell press" },
+      { name: "Svend Press", category: "Strength", muscleGroup: "Chest", description: "Plate squeeze press for inner chest" },
+      { name: "Dips", category: "Bodyweight", muscleGroup: "Chest", description: "Chest-focused parallel bar dips" },
+      { name: "Floor Press", category: "Strength", muscleGroup: "Chest", description: "Barbell press performed on the floor" },
+      { name: "Machine Chest Press", category: "Strength", muscleGroup: "Chest", description: "Seated machine chest press" },
       
       // Back
       { name: "Deadlift", category: "Strength", muscleGroup: "Back", description: "Conventional deadlift" },
@@ -349,6 +353,11 @@ export class MemStorage implements IStorage {
       { name: "Barbell Row", category: "Strength", muscleGroup: "Back", description: "Bent over barbell row" },
       { name: "T-Bar Row", category: "Strength", muscleGroup: "Back", description: "T-bar row machine" },
       { name: "Seated Cable Row", category: "Strength", muscleGroup: "Back", description: "Seated cable row" },
+      { name: "Single-Arm DB Row", category: "Strength", muscleGroup: "Back", description: "Dumbbell row with one arm" },
+      { name: "Meadows Row", category: "Strength", muscleGroup: "Back", description: "Landmine single-arm row variation" },
+      { name: "Chin-Up", category: "Bodyweight", muscleGroup: "Back", description: "Underhand grip pull-up" },
+      { name: "Straight-Arm Pulldown", category: "Strength", muscleGroup: "Back", description: "Cable pulldown with straight arms" },
+      { name: "Good Morning", category: "Strength", muscleGroup: "Back", description: "Posterior chain exercise with barbell" },
       
       // Legs
       { name: "Squat", category: "Strength", muscleGroup: "Legs", description: "Barbell back squat" },
@@ -357,6 +366,13 @@ export class MemStorage implements IStorage {
       { name: "Leg Extension", category: "Strength", muscleGroup: "Legs", description: "Machine leg extension" },
       { name: "Leg Curl", category: "Strength", muscleGroup: "Legs", description: "Lying leg curl" },
       { name: "Calf Raise", category: "Strength", muscleGroup: "Legs", description: "Standing calf raise" },
+      { name: "Bulgarian Split Squat", category: "Strength", muscleGroup: "Legs", description: "Single-leg split squat" },
+      { name: "Front Squat", category: "Strength", muscleGroup: "Legs", description: "Barbell front-loaded squat" },
+      { name: "Walking Lunge", category: "Strength", muscleGroup: "Legs", description: "Walking dumbbell lunges" },
+      { name: "Goblet Squat", category: "Strength", muscleGroup: "Legs", description: "Kettlebell or dumbbell front squat" },
+      { name: "Hack Squat", category: "Strength", muscleGroup: "Legs", description: "Machine hack squat" },
+      { name: "Seated Calf Raise", category: "Strength", muscleGroup: "Legs", description: "Seated machine calf raise" },
+      { name: "Box Jump", category: "Functional", muscleGroup: "Legs", description: "Explosive jump onto box" },
       
       // Shoulders
       { name: "Overhead Press", category: "Strength", muscleGroup: "Shoulders", description: "Barbell overhead press" },
@@ -364,6 +380,11 @@ export class MemStorage implements IStorage {
       { name: "Front Raise", category: "Strength", muscleGroup: "Shoulders", description: "Dumbbell front raise" },
       { name: "Face Pull", category: "Strength", muscleGroup: "Shoulders", description: "Cable face pull" },
       { name: "Reverse Fly", category: "Strength", muscleGroup: "Shoulders", description: "Bent over dumbbell reverse fly" },
+      { name: "Arnold Press", category: "Strength", muscleGroup: "Shoulders", description: "Dumbbell rotational shoulder press" },
+      { name: "Upright Row", category: "Strength", muscleGroup: "Shoulders", description: "Barbell upright row" },
+      { name: "Z-Press", category: "Strength", muscleGroup: "Shoulders", description: "Seated floor press" },
+      { name: "Push Press", category: "Strength", muscleGroup: "Shoulders", description: "Explosive overhead press" },
+      { name: "KB Bottoms-Up Press", category: "Strength", muscleGroup: "Shoulders", description: "Kettlebell upside-down press" },
       
       // Arms
       { name: "Bicep Curl", category: "Strength", muscleGroup: "Arms", description: "Dumbbell bicep curl" },
@@ -371,13 +392,50 @@ export class MemStorage implements IStorage {
       { name: "Tricep Extension", category: "Strength", muscleGroup: "Arms", description: "Overhead tricep extension" },
       { name: "Tricep Pushdown", category: "Strength", muscleGroup: "Arms", description: "Cable tricep pushdown" },
       { name: "Skull Crusher", category: "Strength", muscleGroup: "Arms", description: "Lying tricep extension" },
+      { name: "Preacher Curl", category: "Strength", muscleGroup: "Arms", description: "Bicep curl using preacher bench" },
+      { name: "EZ Bar Curl", category: "Strength", muscleGroup: "Arms", description: "Bicep curl with EZ curl bar" },
+      { name: "Spider Curl", category: "Strength", muscleGroup: "Arms", description: "Prone bench bicep curl" },
+      { name: "Close-Grip Bench", category: "Strength", muscleGroup: "Arms", description: "Close grip bench press for triceps" },
+      { name: "Dip Machine", category: "Strength", muscleGroup: "Arms", description: "Machine tricep dips" },
+      { name: "Cross-Body Hammer", category: "Strength", muscleGroup: "Arms", description: "Cross-body hammer curl" },
       
       // Core
       { name: "Plank", category: "Bodyweight", muscleGroup: "Core", description: "Standard plank position" },
       { name: "Crunch", category: "Bodyweight", muscleGroup: "Core", description: "Standard crunch" },
       { name: "Russian Twist", category: "Bodyweight", muscleGroup: "Core", description: "Seated russian twist" },
       { name: "Leg Raise", category: "Bodyweight", muscleGroup: "Core", description: "Lying leg raise" },
-      { name: "Ab Wheel", category: "Strength", muscleGroup: "Core", description: "Ab wheel rollout" }
+      { name: "Ab Wheel", category: "Strength", muscleGroup: "Core", description: "Ab wheel rollout" },
+      { name: "Cable Crunch", category: "Strength", muscleGroup: "Core", description: "Kneeling cable crunch" },
+      { name: "Mountain Climber", category: "Bodyweight", muscleGroup: "Core", description: "Plank position knee drives" },
+      { name: "Hanging Leg Raise", category: "Bodyweight", muscleGroup: "Core", description: "Leg raise from hanging position" },
+      { name: "Dead Bug", category: "Bodyweight", muscleGroup: "Core", description: "Core stability exercise" },
+      { name: "Bird Dog", category: "Bodyweight", muscleGroup: "Core", description: "Quadruped limb extension" },
+      { name: "Pallof Press", category: "Strength", muscleGroup: "Core", description: "Anti-rotation cable press" },
+      { name: "Hollow Hold", category: "Bodyweight", muscleGroup: "Core", description: "Gymnastics core exercise" },
+      
+      // Cardio & Endurance
+      { name: "Running", category: "Cardio", muscleGroup: "Full Body", description: "Distance running", measurementType: "distance_time", isEndurance: true },
+      { name: "Cycling", category: "Cardio", muscleGroup: "Legs", description: "Stationary or road cycling", measurementType: "distance_time", isEndurance: true },
+      { name: "Rowing", category: "Cardio", muscleGroup: "Full Body", description: "Rowing machine", measurementType: "distance_time", isEndurance: true },
+      { name: "Swimming", category: "Cardio", muscleGroup: "Full Body", description: "Lap swimming", measurementType: "laps", isEndurance: true },
+      { name: "Ski Erg", category: "Cardio", muscleGroup: "Full Body", description: "Ski ergometer", measurementType: "calories", isEndurance: true },
+      { name: "Jump Rope", category: "Cardio", muscleGroup: "Full Body", description: "Skipping rope", measurementType: "time_only", isEndurance: true },
+      { name: "Sled Push", category: "Endurance", muscleGroup: "Full Body", description: "Pushing weight sled", measurementType: "distance_only", isEndurance: true },
+      { name: "Assault Bike", category: "Cardio", muscleGroup: "Full Body", description: "Air bike", measurementType: "calories", isEndurance: true },
+      { name: "Burpee", category: "Endurance", muscleGroup: "Full Body", description: "Full body exercise", measurementType: "reps_only", isEndurance: true },
+      { name: "Battle Ropes", category: "Endurance", muscleGroup: "Full Body", description: "Rope wave exercise", measurementType: "time_only", isEndurance: true },
+      
+      // HIIT & Functional
+      { name: "Box Jumps", category: "Functional", muscleGroup: "Legs", description: "Jump onto raised platform", measurementType: "height", isEndurance: true },
+      { name: "Medicine Ball Slam", category: "Functional", muscleGroup: "Full Body", description: "Overhead med ball slam", measurementType: "reps_only" },
+      { name: "Wall Ball", category: "Functional", muscleGroup: "Full Body", description: "Med ball squat and throw", measurementType: "reps_only", isEndurance: true },
+      { name: "Kettlebell Swing", category: "Functional", muscleGroup: "Full Body", description: "Hip-hinge KB swing", measurementType: "reps_only" },
+      { name: "Farmer's Carry", category: "Functional", muscleGroup: "Full Body", description: "Weighted walking", measurementType: "distance_time" },
+      { name: "Sandbag Carry", category: "Functional", muscleGroup: "Full Body", description: "Carrying sandbag", measurementType: "distance_time", isEndurance: true },
+      { name: "Tire Flip", category: "Functional", muscleGroup: "Full Body", description: "Flipping large tire", measurementType: "reps_only" },
+      { name: "TRX Row", category: "Functional", muscleGroup: "Back", description: "Suspension trainer row", measurementType: "reps_only" },
+      { name: "TRX Push-up", category: "Functional", muscleGroup: "Chest", description: "Suspension trainer push-up", measurementType: "reps_only" },
+      { name: "Ladder Drills", category: "Functional", muscleGroup: "Full Body", description: "Agility ladder exercises", measurementType: "time_only", isEndurance: true }
     ];
 
     exercises.forEach(exercise => this.createExercise(exercise));
@@ -387,16 +445,41 @@ export class MemStorage implements IStorage {
       { userId: 1, name: "Upper Body", exerciseCount: 6, duration: 45, color: "#3F51B5", scheduledDay: "Monday", description: "Focus on chest, shoulders, and triceps" },
       { userId: 1, name: "Lower Body", exerciseCount: 5, duration: 50, color: "#FF5722", scheduledDay: "Tuesday", description: "Squats, deadlifts and accessory work" },
       { userId: 1, name: "Push Day", exerciseCount: 7, duration: 60, color: "#4CAF50", scheduledDay: "Thursday", description: "Chest, shoulders, and triceps volume" },
-      { userId: 1, name: "Pull Day", exerciseCount: 6, duration: 55, color: "#9C27B0", scheduledDay: "Friday", description: "Back, biceps, and rear delts" }
+      { userId: 1, name: "Pull Day", exerciseCount: 6, duration: 55, color: "#9C27B0", scheduledDay: "Friday", description: "Back, biceps, and rear delts" },
+      { userId: 1, name: "Cardio Session", exerciseCount: 3, duration: 40, color: "#03A9F4", scheduledDay: "Wednesday", description: "Mixed cardio training", workoutType: "cardio" },
+      { userId: 1, name: "HIIT Circuit", exerciseCount: 4, duration: 30, color: "#F44336", scheduledDay: "Saturday", description: "High intensity interval training", workoutType: "hiit", rounds: 4 },
+      { userId: 1, name: "Hyrox Training", exerciseCount: 8, duration: 60, color: "#009688", scheduledDay: "Sunday", description: "Endurance circuit preparation", workoutType: "endurance", targetTimeInMinutes: 45, isReversed: true }
     ];
 
     templates.forEach(template => this.createWorkoutTemplate(template));
 
     // Create template exercises
     const templateExercises = [
+      // Upper Body workout exercises
       { workoutTemplateId: 1, exerciseId: 1, sets: 3, repsMin: 8, repsMax: 10, restSeconds: 90, order: 1 },
       { workoutTemplateId: 1, exerciseId: 5, sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60, order: 2 },
-      { workoutTemplateId: 1, exerciseId: 6, sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60, order: 3 }
+      { workoutTemplateId: 1, exerciseId: 6, sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60, order: 3 },
+      
+      // Cardio Session workout exercises
+      { workoutTemplateId: 5, exerciseId: 64, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 120, order: 1, targetType: "distance", targetValue: 5000, duration: 1200 }, // Running, 5K
+      { workoutTemplateId: 5, exerciseId: 66, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 120, order: 2, targetType: "calories", targetValue: 200, duration: 900 }, // Rowing, 200 calories
+      { workoutTemplateId: 5, exerciseId: 69, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 0, order: 3, targetType: "time", targetValue: 300, duration: 300 }, // Jump Rope, 5 minutes
+      
+      // HIIT Circuit workout exercises
+      { workoutTemplateId: 6, exerciseId: 70, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 30, order: 1, targetType: "time", targetValue: 40, duration: 40, intervals: 4, workToRestRatio: "40:20" }, // Burpee, 40s work, 20s rest
+      { workoutTemplateId: 6, exerciseId: 74, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 30, order: 2, targetType: "time", targetValue: 40, duration: 40, intervals: 4, workToRestRatio: "40:20" }, // Kettlebell Swing, 40s work, 20s rest
+      { workoutTemplateId: 6, exerciseId: 73, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 30, order: 3, targetType: "time", targetValue: 40, duration: 40, intervals: 4, workToRestRatio: "40:20" }, // Wall Ball, 40s work, 20s rest
+      { workoutTemplateId: 6, exerciseId: 71, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 30, order: 4, targetType: "time", targetValue: 40, duration: 40, intervals: 4, workToRestRatio: "40:20" }, // Box Jumps, 40s work, 20s rest
+      
+      // Hyrox Training workout exercises
+      { workoutTemplateId: 7, exerciseId: 67, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 0, order: 1, targetType: "distance", targetValue: 1000, duration: 300 }, // Ski Erg, 1000m
+      { workoutTemplateId: 7, exerciseId: 65, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 2, targetType: "distance", targetValue: 1000, duration: 240 }, // Cycling, 1000m
+      { workoutTemplateId: 7, exerciseId: 76, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 3, targetType: "distance", targetValue: 200, duration: 180 }, // Sandbag Carry, 200m
+      { workoutTemplateId: 7, exerciseId: 68, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 4, targetType: "distance", targetValue: 100, duration: 120 }, // Sled Push, 100m
+      { workoutTemplateId: 7, exerciseId: 75, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 5, targetType: "distance", targetValue: 100, duration: 120 }, // Farmer's Carry, 100m
+      { workoutTemplateId: 7, exerciseId: 64, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 6, targetType: "distance", targetValue: 1000, duration: 300 }, // Running, 1000m
+      { workoutTemplateId: 7, exerciseId: 66, sets: 1, repsMin: 0, repsMax: 0, restSeconds: 60, order: 7, targetType: "distance", targetValue: 500, duration: 180 }, // Rowing, 500m
+      { workoutTemplateId: 7, exerciseId: 73, sets: 1, repsMin: 30, repsMax: 30, restSeconds: 0, order: 8, targetType: "reps", targetValue: 30, duration: 120 }, // Wall Ball, 30 reps
     ];
 
     templateExercises.forEach(te => this.createWorkoutTemplateExercise(te));
@@ -754,6 +837,25 @@ export class MemStorage implements IStorage {
       isCompleted: false 
     };
     this.completedWorkouts.set(id, completedWorkout);
+    
+    // Create a completed endurance workout
+    const twoDaysAgoDate = new Date(todayDate);
+    twoDaysAgoDate.setDate(twoDaysAgoDate.getDate() - 2);
+    
+    const enduranceWorkout = {
+      userId: 1,
+      workoutTemplateId: 5, // Cardio Session
+      startTime: new Date(twoDaysAgoDate.setHours(7, 0, 0, 0)),
+      endTime: new Date(twoDaysAgoDate.setHours(7, 40, 0, 0)),
+      isCompleted: true
+    };
+    
+    const enduranceId = this.currentCompletedWorkoutId++;
+    const completedEnduranceWorkout: CompletedWorkout = { 
+      ...enduranceWorkout, 
+      id: enduranceId
+    };
+    this.completedWorkouts.set(enduranceId, completedEnduranceWorkout);
 
     // Add some sets - create them directly for initialization
     const setId1 = this.currentWorkoutSetId++;
@@ -836,6 +938,85 @@ export class MemStorage implements IStorage {
       metricValue: null
     };
     this.workoutSets.set(setId3, set3);
+    
+    // Add endurance workout sets
+    const enduranceSetId1 = this.currentWorkoutSetId++;
+    const endSet1: WorkoutSet = {
+      id: enduranceSetId1,
+      completedWorkoutId: completedEnduranceWorkout.id,
+      exerciseId: 64, // Running
+      weight: null,
+      reps: null,
+      rpe: null,
+      setNumber: 1,
+      setType: "working",
+      isCompleted: true,
+      timestamp: new Date(twoDaysAgoDate.setHours(7, 0, 0, 0)),
+      measurementType: "distance_time",
+      duration: 1200, // 20 minutes
+      distance: 4800, // 4.8 km
+      pace: 4.0, // 4 min/km pace
+      calories: 240,
+      heartRate: 165,
+      laps: null,
+      notes: "Felt strong, maintained consistent pace",
+      perceivedEffort: 7,
+      elevationGain: 45,
+      metricValue: null
+    };
+    this.workoutSets.set(enduranceSetId1, endSet1);
+    
+    const enduranceSetId2 = this.currentWorkoutSetId++;
+    const endSet2: WorkoutSet = {
+      id: enduranceSetId2,
+      completedWorkoutId: completedEnduranceWorkout.id,
+      exerciseId: 66, // Rowing
+      weight: null,
+      reps: null,
+      rpe: null,
+      setNumber: 2,
+      setType: "working",
+      isCompleted: true,
+      timestamp: new Date(twoDaysAgoDate.setHours(7, 20, 0, 0)),
+      measurementType: "calories",
+      duration: 600, // 10 minutes
+      distance: 2000, // 2 km
+      pace: null,
+      calories: 150,
+      heartRate: 172,
+      laps: null,
+      notes: "Focused on powerful pulls, kept stroke rate at 28",
+      perceivedEffort: 8,
+      elevationGain: null,
+      metricValue: { caloriesPerMinute: 15, strokeRate: 28 }
+    };
+    this.workoutSets.set(enduranceSetId2, endSet2);
+    
+    const enduranceSetId3 = this.currentWorkoutSetId++;
+    const endSet3: WorkoutSet = {
+      id: enduranceSetId3,
+      completedWorkoutId: completedEnduranceWorkout.id,
+      exerciseId: 69, // Jump Rope
+      weight: null,
+      reps: null,
+      rpe: null,
+      setNumber: 3,
+      setType: "working",
+      isCompleted: true,
+      timestamp: new Date(twoDaysAgoDate.setHours(7, 30, 0, 0)),
+      measurementType: "time_only",
+      duration: 300, // 5 minutes
+      distance: null,
+      pace: null,
+      calories: 80,
+      heartRate: 168,
+      laps: null,
+      notes: "Double unders for 30 seconds, regular for 30 seconds x5",
+      perceivedEffort: 9,
+      elevationGain: null,
+      metricValue: { jumpRate: 120 }
+    };
+    this.workoutSets.set(enduranceSetId3, endSet3);
   }
 
   // User methods
