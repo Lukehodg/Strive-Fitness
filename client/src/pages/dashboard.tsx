@@ -127,6 +127,15 @@ const Dashboard = () => {
     
     const progressData = [
       {
+        label: "Analytics",
+        percentage: 100,
+        color: "#8884d8",
+        value: "View",
+        total: "Progress",
+        icon: "analytics",
+        route: "/analytics" // Link to analytics page
+      },
+      {
         label: "Calories",
         percentage: Math.min(Math.round((dailyStats.caloriesConsumed / user.dailyCalorieTarget) * 100), 100),
         color: "#FF5722",
