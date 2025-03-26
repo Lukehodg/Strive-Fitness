@@ -4,6 +4,7 @@ import { ChevronRightIcon, MoreVerticalIcon } from '@/lib/icons';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { Play, Clock, Calendar } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +47,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showStartWorkoutDialog, setShowStartWorkoutDialog] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     description: '',
@@ -169,7 +172,20 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
       return;
     }
     
-    startWorkoutMutation.mutate(templateId);
+    // Find the template and show the start workout confirmation dialog
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplate(template);
+      setShowStartWorkoutDialog(true);
+    }
+  };
+  
+  const handleStartWorkout = () => {
+    if (!selectedTemplate) return;
+    
+    // Start the workout
+    startWorkoutMutation.mutate(selectedTemplate.id);
+    setShowStartWorkoutDialog(false);
   };
   
   const handleEditClick = (template: WorkoutTemplate, e: React.MouseEvent<Element>) => {
@@ -333,6 +349,79 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
               disabled={deleteWorkoutMutation.isPending}
             >
               {deleteWorkoutMutation.isPending ? "Deleting..." : "Delete Workout"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Start Workout Confirmation Dialog */}
+      <Dialog open={showStartWorkoutDialog} onOpenChange={setShowStartWorkoutDialog}>
+        <DialogContent className="bg-gray-800 text-white border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Start Workout</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Ready to start your workout? The timer will begin once you click Start.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTemplate && (
+            <div className="py-4">
+              <div className="flex items-center mb-4">
+                <div 
+                  className={`p-2 rounded-lg mr-4`} 
+                  style={{ backgroundColor: `${selectedTemplate.color}30` }}
+                >
+                  <span className="material-icons text-2xl" style={{ color: selectedTemplate.color }}>fitness_center</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-white">{selectedTemplate.name}</h3>
+                  {selectedTemplate.description && (
+                    <p className="text-sm text-gray-400 mt-1">{selectedTemplate.description}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 bg-gray-900 rounded-lg p-4 border border-gray-700">
+                <div className="flex items-center">
+                  <Clock className="text-primary mr-2" size={18} />
+                  <div>
+                    <p className="text-xs text-gray-400">Estimated Duration</p>
+                    <p className="text-sm font-medium text-white">{selectedTemplate.duration} minutes</p>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <div className="text-primary mr-2">
+                    <span className="material-icons" style={{ fontSize: '18px' }}>fitness_center</span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Exercises</p>
+                    <p className="text-sm font-medium text-white">{selectedTemplate.exerciseCount} total</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowStartWorkoutDialog(false)}
+              className="bg-gray-700 hover:bg-gray-600 border-gray-600"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleStartWorkout}
+              disabled={startWorkoutMutation.isPending}
+              className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800"
+            >
+              {startWorkoutMutation.isPending ? 
+                "Starting..." : 
+                <div className="flex items-center">
+                  <Play size={16} className="mr-1" />
+                  Start Workout
+                </div>
+              }
             </Button>
           </DialogFooter>
         </DialogContent>
