@@ -36,6 +36,8 @@ const foodSchema = z.object({
   carbs: z.coerce.number().min(0, "Carbs must be a positive number"),
   fat: z.coerce.number().min(0, "Fat must be a positive number"),
   quantity: z.coerce.number().min(0.1, "Quantity must be greater than 0"),
+  actualAmount: z.coerce.number().min(0.1, "Amount must be greater than 0").optional(),
+  standardAmount: z.coerce.number().optional(),
   mealName: z.string().min(1, "Meal name is required"),
 });
 
@@ -63,6 +65,8 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
   const [selectedTab, setSelectedTab] = useState<string>(initialTab);
   const [isScannerOpen, setIsScannerOpen] = useState(initialTab === 'scan');
   const [servingUnit, setServingUnit] = useState<string>('g');
+  const [standardAmount, setStandardAmount] = useState<number | null>(null);
+  const [useActualAmount, setUseActualAmount] = useState(false);
   
   // Auto-open scanner when scan tab is selected
   useEffect(() => {
@@ -80,6 +84,8 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
       carbs: 0,
       fat: 0,
       quantity: 1,
+      actualAmount: undefined,
+      standardAmount: undefined,
       mealName: defaultMealName,
     },
   });
@@ -201,6 +207,11 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     form.setValue('carbs', food.nf_total_carbohydrate);
     form.setValue('fat', food.nf_total_fat);
     form.setValue('quantity', food.serving_qty || 1);
+    
+    // Store the standard amount for this food item
+    const stdAmount = food.serving_qty || 1;
+    setStandardAmount(stdAmount);
+    form.setValue('standardAmount', stdAmount);
     
     // Store the serving unit in a ref to display in the quantity field
     if (food.serving_unit) {
