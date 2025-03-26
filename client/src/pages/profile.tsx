@@ -13,7 +13,8 @@ import {
   Settings as SettingsIcon, 
   LogOut, 
   Network,
-  Loader2
+  Loader2,
+  CreditCard
 } from 'lucide-react';
 
 import ProfileHeader from '@/components/profile/profile-header';
@@ -168,7 +169,7 @@ const Profile = () => {
       />
       
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 mb-6">
+        <TabsList className="w-full grid grid-cols-4 mb-6">
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="h-4 w-4" />
             <span>Settings</span>
@@ -180,6 +181,10 @@ const Profile = () => {
           <TabsTrigger value="integrations" className="flex items-center gap-2">
             <Network className="h-4 w-4" />
             <span>Integrations</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscription" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            <span>Subscription</span>
           </TabsTrigger>
         </TabsList>
         
@@ -193,6 +198,10 @@ const Profile = () => {
         
         <TabsContent value="integrations" className="mt-0">
           <Integrations />
+        </TabsContent>
+
+        <TabsContent value="subscription" className="mt-0">
+          <SubscriptionManagement />
         </TabsContent>
       </Tabs>
       
