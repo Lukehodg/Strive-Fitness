@@ -180,16 +180,30 @@ const Workouts = () => {
         startTime: new Date().toISOString()
       });
       const data = await response.json();
+      console.log("Response data from creating workout:", data);
       return data;
     },
     onSuccess: (data) => {
+      console.log("Success data:", data);
       toast({
         title: "Workout Started",
         description: "Your workout has been started",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
-      // Navigate to the active workout page
-      setLocation(`/workouts/active/${data.id}`);
+      
+      // Make sure we have a valid ID
+      if (data && data.id) {
+        // Navigate to the active workout page
+        console.log("Navigating to workout:", data.id);
+        setLocation(`/workouts/active/${data.id}`);
+      } else {
+        console.error("Missing workout ID in the response data:", data);
+        toast({
+          title: "Error",
+          description: "Could not navigate to the workout page - missing data",
+          variant: "destructive"
+        });
+      }
     },
     onError: (error) => {
       toast({

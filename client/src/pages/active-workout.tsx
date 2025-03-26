@@ -34,7 +34,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   const { data: workout, isLoading: isLoadingWorkout } = useQuery({
     queryKey: ['/api/completed-workouts', workoutId],
     queryFn: async () => {
-      const data = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
+      console.log("Fetching workout with ID:", workoutId);
+      const response = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
+      const data = await response.json();
+      console.log("Workout data:", data);
       return data;
     },
     staleTime: 60000, // 1 minute
@@ -45,7 +48,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
     queryKey: ['/api/workout-templates', workout?.workoutTemplateId],
     queryFn: async () => {
       if (!workout?.workoutTemplateId) return null;
-      const data = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}`);
+      console.log("Fetching workout template with ID:", workout.workoutTemplateId);
+      const response = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}`);
+      const data = await response.json();
+      console.log("Workout template data:", data);
       return data;
     },
     staleTime: 60000, // 1 minute
@@ -57,7 +63,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
     queryKey: ['/api/workout-templates', workout?.workoutTemplateId, 'exercises'],
     queryFn: async () => {
       if (!workout?.workoutTemplateId) return null;
-      const data = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}/exercises`);
+      console.log("Fetching exercises for template ID:", workout.workoutTemplateId);
+      const response = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}/exercises`);
+      const data = await response.json();
+      console.log("Template exercises:", data);
       return data;
     },
     staleTime: 60000, // 1 minute
@@ -68,7 +77,10 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   const { data: exercises } = useQuery({
     queryKey: ['/api/exercises'],
     queryFn: async () => {
-      const data = await apiRequest('GET', '/api/exercises');
+      console.log("Fetching all exercises");
+      const response = await apiRequest('GET', '/api/exercises');
+      const data = await response.json();
+      console.log("All exercises:", data);
       return data;
     },
     staleTime: 60000, // 1 minute
@@ -165,7 +177,9 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
       };
       
       console.log("Sending workout set data:", payload);
-      return await apiRequest('POST', '/api/workout-sets', payload);
+      const response = await apiRequest('POST', '/api/workout-sets', payload);
+      const responseData = await response.json();
+      return responseData;
     },
     onSuccess: (data) => {
       console.log("Set created successfully:", data);
@@ -184,10 +198,12 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
   // Update workout completion mutation
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('PATCH', `/api/completed-workouts/${workoutId}`, {
+      const response = await apiRequest('PATCH', `/api/completed-workouts/${workoutId}`, {
         endTime: new Date().toISOString(),
         isCompleted: true
       });
+      const responseData = await response.json();
+      return responseData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
@@ -327,8 +343,9 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
         `/api/workout-sets`, 
         setData
       )
-      .then(response => {
-        console.log("Set saved successfully:", response);
+      .then(async response => {
+        const data = await response.json();
+        console.log("Set saved successfully:", data);
         
         // Mark as completed locally
         updateSetValue(exerciseId, setIndex, 'isCompleted', true);
