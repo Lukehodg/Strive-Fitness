@@ -11,7 +11,7 @@ import Profile from "@/pages/profile";
 import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
 import Health from "@/pages/health";
-import Medications from "@/pages/medications";
+// Medications tab is now integrated into the Health page
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { useEffect, useState } from "react";
 
@@ -79,7 +79,6 @@ function Router() {
           </Route>
           <Route path="/nutrition" component={Nutrition} />
           <Route path="/health" component={Health} />
-          <Route path="/medications" component={Medications} />
           <Route path="/profile" component={Profile} />
           <Route component={NotFound} />
         </Switch>

@@ -574,6 +574,10 @@ export default function HealthPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="medications" className="mt-6">
+          <MedicationsTab />
+        </TabsContent>
+        
         <TabsContent value="integrations" className="mt-6 space-y-8">
           <HealthIntegrations />
           <PlatformMetrics />
