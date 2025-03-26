@@ -204,9 +204,10 @@ export default function HealthPage() {
       </div>
       
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
           <TabsTrigger value="blood-tests">Blood Test Results</TabsTrigger>
+          <TabsTrigger value="integrations">Health Services</TabsTrigger>
         </TabsList>
         
         <TabsContent value="metrics" className="mt-6">
@@ -486,6 +487,10 @@ export default function HealthPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="integrations" className="mt-6">
+          <HealthIntegrations />
         </TabsContent>
       </Tabs>
       
