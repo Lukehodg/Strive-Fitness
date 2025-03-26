@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Scan, Camera } from 'lucide-react';
 import BarcodeScanner from './barcode-scanner';
 
@@ -54,6 +55,7 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
   const [isSearching, setIsSearching] = useState(false);
   const [selectedTab, setSelectedTab] = useState<string>(initialTab);
   const [isScannerOpen, setIsScannerOpen] = useState(initialTab === 'scan');
+  const [servingUnit, setServingUnit] = useState<string>('g');
   
   // Auto-open scanner when scan tab is selected
   useEffect(() => {
@@ -190,7 +192,13 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     form.setValue('protein', food.nf_protein);
     form.setValue('carbs', food.nf_total_carbohydrate);
     form.setValue('fat', food.nf_total_fat);
-    form.setValue('quantity', 1);
+    form.setValue('quantity', food.serving_qty || 1);
+    
+    // Store the serving unit in a ref to display in the quantity field
+    if (food.serving_unit) {
+      setServingUnit(food.serving_unit);
+    }
+    
     setSelectedTab('manual');
     
     // Show a success toast with nutrition info summary
@@ -330,36 +338,87 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
+                    <FormLabel>Quantity ({servingUnit})</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" {...field} />
+                      <div className="relative">
+                        <Input type="number" step="0.1" {...field} />
+                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-sm">{servingUnit}</span>
+                        </div>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="mealName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meal</FormLabel>
-                    <FormControl>
-                      <select 
-                        className="w-full bg-[#F5F5F5] border border-[#E0E0E0] rounded-lg p-2"
-                        {...field}
+              <div className="space-y-2">
+                <FormLabel>Meal Type</FormLabel>
+                <div className="grid grid-cols-2 gap-2">
+                  <RadioGroup
+                    value={form.watch('mealName')}
+                    onValueChange={(value) => form.setValue('mealName', value)}
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <div 
+                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
+                          form.watch('mealName') === 'Breakfast' 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => form.setValue('mealName', 'Breakfast')}
                       >
-                        <option value="Breakfast">Breakfast</option>
-                        <option value="Lunch">Lunch</option>
-                        <option value="Dinner">Dinner</option>
-                        <option value="Snack">Snack</option>
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        <div className="text-center">
+                          <div className="text-xl mb-1">🍳</div>
+                          <div className="text-sm font-medium">Breakfast</div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
+                          form.watch('mealName') === 'Lunch' 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => form.setValue('mealName', 'Lunch')}
+                      >
+                        <div className="text-center">
+                          <div className="text-xl mb-1">🥪</div>
+                          <div className="text-sm font-medium">Lunch</div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
+                          form.watch('mealName') === 'Dinner' 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => form.setValue('mealName', 'Dinner')}
+                      >
+                        <div className="text-center">
+                          <div className="text-xl mb-1">🍽️</div>
+                          <div className="text-sm font-medium">Dinner</div>
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
+                          form.watch('mealName') === 'Snack' 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => form.setValue('mealName', 'Snack')}
+                      >
+                        <div className="text-center">
+                          <div className="text-xl mb-1">🍎</div>
+                          <div className="text-sm font-medium">Snack</div>
+                        </div>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </div>
               
               <div className="bg-[#F5F5F5] p-3 rounded-lg">
                 <div className="text-sm text-gray-500 mb-1">Calculated Calories</div>

@@ -59,6 +59,28 @@ export async function getProductByBarcode(barcode: string): Promise<FoodData | n
       if (qtyMatch && qtyMatch.length >= 3) {
         quantity = parseFloat(qtyMatch[1]);
         packageUnit = qtyMatch[2].toLowerCase();
+        
+        // Normalize units
+        if (['ml', 'milliliter', 'millilitre'].includes(packageUnit)) {
+          packageUnit = 'ml';
+        } else if (['l', 'liter', 'litre'].includes(packageUnit)) {
+          quantity = quantity * 1000;
+          packageUnit = 'ml';
+        } else if (['g', 'gram', 'gramme'].includes(packageUnit)) {
+          packageUnit = 'g';
+        } else if (['kg', 'kilogram', 'kilogramme'].includes(packageUnit)) {
+          quantity = quantity * 1000;
+          packageUnit = 'g';
+        } else if (['mg', 'milligram', 'milligramme'].includes(packageUnit)) {
+          quantity = quantity / 1000;
+          packageUnit = 'g';
+        } else {
+          // For other units, try to determine if it's a drink (use ml) or food (use g)
+          const isDrink = product.product_name 
+            ? /juice|water|beverage|drink|soda|beer|wine|coffee|tea/i.test(product.product_name)
+            : false;
+          packageUnit = isDrink ? 'ml' : 'g';
+        }
       }
     }
     
