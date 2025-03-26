@@ -174,14 +174,30 @@ const Workouts = () => {
   const startWorkoutMutation = useMutation({
     mutationFn: async (templateId: number) => {
       console.log("Starting workout with template ID:", templateId);
-      const response = await apiRequest('POST', '/api/completed-workouts', {
-        userId: 1, // In a real app, we would get this from auth
-        workoutTemplateId: templateId,
-        startTime: new Date().toISOString()
-      });
-      const data = await response.json();
-      console.log("Response data from creating workout:", data);
-      return data;
+      
+      try {
+        const payload = {
+          userId: 1, // In a real app, we would get this from auth
+          workoutTemplateId: templateId,
+          startTime: new Date().toISOString()
+        };
+        console.log("Sending payload:", payload);
+        
+        const response = await apiRequest('POST', '/api/completed-workouts', payload);
+        console.log("Raw response:", response);
+        
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log("Response data from creating workout:", data);
+        console.log("Workout ID from response:", data?.id, "Type:", typeof data?.id);
+        return data;
+      } catch (error) {
+        console.error("Error in mutation:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       console.log("Success data:", data);
@@ -192,15 +208,28 @@ const Workouts = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
       
       // Make sure we have a valid ID
-      if (data && data.id) {
+      if (data && data.id && !isNaN(data.id)) {
         // Navigate to the active workout page
         console.log("Navigating to workout:", data.id);
-        setLocation(`/workouts/active/${data.id}`);
+        // Force numeric conversion and ensure it's a valid integer
+        const numericId = Math.floor(Number(data.id));
+        
+        if (numericId > 0) {
+          console.log(`Navigating to /workouts/active/${numericId}`);
+          setLocation(`/workouts/active/${numericId}`);
+        } else {
+          console.error("Invalid workout ID (not positive):", numericId);
+          toast({
+            title: "Error",
+            description: "Could not navigate to the workout page - invalid ID",
+            variant: "destructive"
+          });
+        }
       } else {
-        console.error("Missing workout ID in the response data:", data);
+        console.error("Missing or invalid workout ID in the response data:", data);
         toast({
           title: "Error",
-          description: "Could not navigate to the workout page - missing data",
+          description: "Could not navigate to the workout page - missing or invalid ID",
           variant: "destructive"
         });
       }

@@ -135,10 +135,33 @@ function Router() {
           <ProtectedRoute path="/workouts" component={Workouts} />
           <ProtectedRoute path="/workouts/create" component={CreateWorkout} />
           <Route path="/workouts/active/:id">
-            {(params) => user ? <ActiveWorkout workoutId={parseInt(params.id, 10)} /> : <Redirect to="/auth" />}
+            {(params) => {
+              if (!user) return <Redirect to="/auth" />;
+              // Validate that we have a proper numeric ID
+              const id = params.id;
+              const numericId = parseInt(id, 10);
+              
+              if (isNaN(numericId)) {
+                console.error(`Invalid workout ID: ${id}`);
+                return <Redirect to="/workouts" />;
+              }
+              
+              return <ActiveWorkout workoutId={numericId} />;
+            }}
           </Route>
           <Route path="/exercise/:id">
-            {(params) => user ? <Exercise exerciseId={parseInt(params.id, 10)} /> : <Redirect to="/auth" />}
+            {(params) => {
+              if (!user) return <Redirect to="/auth" />;
+              const id = params.id;
+              const numericId = parseInt(id, 10);
+              
+              if (isNaN(numericId)) {
+                console.error(`Invalid exercise ID: ${id}`);
+                return <Redirect to="/workouts" />;
+              }
+              
+              return <Exercise exerciseId={numericId} />;
+            }}
           </Route>
           <ProtectedRoute path="/nutrition" component={Nutrition} />
           <ProtectedRoute path="/health" component={Health} />

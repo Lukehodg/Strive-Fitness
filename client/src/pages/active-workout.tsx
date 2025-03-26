@@ -15,10 +15,12 @@ import {
 } from 'lucide-react';
 
 interface ActiveWorkoutProps {
-  workoutId: number;
+  workoutId: number | string;
 }
 
-const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId }) => {
+const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }) => {
+  // Make sure the workout ID is a number
+  const workoutId = typeof rawWorkoutId === 'string' ? parseInt(rawWorkoutId, 10) : rawWorkoutId;
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const [timer, setTimer] = useState<number>(0);
