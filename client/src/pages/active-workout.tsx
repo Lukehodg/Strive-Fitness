@@ -313,14 +313,73 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
   const addSet = (exerciseId: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const newSetNumber = currentSets.length + 1;
+    const exerciseDetails = exercises?.find((e: any) => e.id === exerciseId);
+    const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
+                              exerciseDetails?.category === 'endurance' ||
+                              workoutTemplate?.workoutType === 'cardio' ||
+                              workoutTemplate?.workoutType === 'endurance';
     
-    const newSet = {
-      setNumber: newSetNumber,
-      weight: currentSets.length > 0 ? currentSets[currentSets.length - 1].weight : 0,
-      reps: currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0,
-      type: 'working',
-      isCompleted: false
-    };
+    let newSet: any;
+    
+    if (isEnduranceExercise && currentSets.length > 0 && currentSets[0].measurementType) {
+      // Create endurance-specific set by copying values from previous set
+      const prevSet = currentSets[currentSets.length - 1];
+      const measurementType = prevSet.measurementType;
+      
+      newSet = {
+        setNumber: newSetNumber,
+        measurementType,
+        distance: prevSet.distance || 0,
+        duration: prevSet.duration || 0,
+        laps: prevSet.laps || 0,
+        calories: prevSet.calories || 0,
+        heartRate: prevSet.heartRate || 0,
+        perceivedEffort: prevSet.perceivedEffort || 0,
+        pace: prevSet.pace || '',
+        notes: '',
+        isCompleted: false
+      };
+    } else if (isEnduranceExercise) {
+      // Create a new endurance set with default measurement type
+      let measurementType = 'time_only'; // default
+      
+      if (exerciseDetails?.measurementType) {
+        measurementType = exerciseDetails.measurementType;
+      } else {
+        // Default endurance measurement type based on exercise name/category
+        if (exerciseDetails?.name?.includes('Running') || 
+            exerciseDetails?.name?.includes('Cycling') ||
+            exerciseDetails?.name?.includes('Swimming')) {
+          measurementType = 'distance_time';
+        } else if (exerciseDetails?.name?.includes('Rowing') ||
+                  exerciseDetails?.name?.includes('Ski Erg')) {
+          measurementType = 'calories';
+        }
+      }
+      
+      newSet = {
+        setNumber: newSetNumber,
+        measurementType,
+        distance: 0,
+        duration: 0,
+        laps: 0,
+        calories: 0,
+        heartRate: 0,
+        perceivedEffort: 0,
+        pace: '',
+        notes: '',
+        isCompleted: false
+      };
+    } else {
+      // Create standard strength training set
+      newSet = {
+        setNumber: newSetNumber,
+        weight: currentSets.length > 0 ? currentSets[currentSets.length - 1].weight : 0,
+        reps: currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0,
+        type: 'working',
+        isCompleted: false
+      };
+    }
     
     const updatedSets = [...currentSets, newSet];
     const newSetsMap = new Map(exerciseSets);
@@ -386,29 +445,113 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
   const saveSet = (exerciseId: number, setIndex: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const set = currentSets[setIndex];
+    const exerciseDetails = exercises?.find((e: any) => e.id === exerciseId);
+    const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
+                              exerciseDetails?.category === 'endurance' ||
+                              workoutTemplate?.workoutType === 'cardio' ||
+                              workoutTemplate?.workoutType === 'endurance';
     
-    if (!set.weight || !set.reps) {
-      toast({
-        title: "Missing Data",
-        description: "Please enter weight and reps",
-        variant: "destructive"
-      });
-      return;
+    // Validate required fields based on measurement type
+    if (isEnduranceExercise) {
+      // For endurance exercises, validate based on measurement type
+      if (set.measurementType === 'distance_time' && (!set.distance || !set.duration)) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter both distance and time",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'time_only' && !set.duration) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter time/duration",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'distance_only' && !set.distance) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter distance",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'calories' && !set.calories) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter calories",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'laps' && (!set.laps || !set.duration)) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter both laps and time",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'height' && (!set.height || !set.reps)) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter both height and reps",
+          variant: "destructive"
+        });
+        return;
+      } else if (set.measurementType === 'reps_only' && !set.reps) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter reps",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      // For strength training, validate weight and reps
+      if (!set.weight || !set.reps) {
+        toast({
+          title: "Missing Data",
+          description: "Please enter weight and reps",
+          variant: "destructive"
+        });
+        return;
+      }
     }
     
     try {
       // Format the workout set data according to the schema required by the API
-      const setData = {
+      let setData: any = {
         completedWorkoutId: workoutId,
         exerciseId,
-        weight: parseFloat(String(set.weight)),
-        reps: parseInt(String(set.reps)),
-        rpe: 7, // Default RPE
         setNumber: set.setNumber,
-        setType: set.type || 'working',
         isCompleted: true,
         timestamp: new Date().toISOString()
       };
+      
+      // Add fields based on the type of exercise
+      if (isEnduranceExercise) {
+        // Endurance exercise fields
+        setData = {
+          ...setData,
+          measurementType: set.measurementType,
+          distance: set.distance || null,
+          duration: set.duration || null,
+          laps: set.laps || null,
+          calories: set.calories || null,
+          heartRate: set.heartRate || null,
+          perceivedEffort: set.perceivedEffort || null,
+          pace: set.pace || null,
+          elevationGain: set.elevationGain || null,
+          notes: set.notes || null
+        };
+      } else {
+        // Standard strength training fields
+        setData = {
+          ...setData,
+          weight: parseFloat(String(set.weight)),
+          reps: parseInt(String(set.reps)),
+          rpe: 7, // Default RPE
+          setType: set.type || 'working'
+        };
+      }
       
       console.log("Sending workout set data:", setData);
       
@@ -425,10 +568,33 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         // Mark as completed locally
         updateSetValue(exerciseId, setIndex, 'isCompleted', true);
         
-        toast({
-          title: "Set Saved",
-          description: `${set.weight}kg x ${set.reps} reps`,
-        });
+        // Show different toast based on exercise type
+        if (isEnduranceExercise) {
+          let description = '';
+          if (set.measurementType === 'distance_time') {
+            description = `${set.distance}m in ${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, '0')}`;
+          } else if (set.measurementType === 'time_only') {
+            description = `${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, '0')}`;
+          } else if (set.measurementType === 'distance_only') {
+            description = `${set.distance}m`;
+          } else if (set.measurementType === 'calories') {
+            description = `${set.calories} kcal`;
+          } else if (set.measurementType === 'laps') {
+            description = `${set.laps} laps`;
+          } else if (set.measurementType === 'reps_only') {
+            description = `${set.reps} reps`;
+          }
+          
+          toast({
+            title: "Set Saved",
+            description,
+          });
+        } else {
+          toast({
+            title: "Set Saved",
+            description: `${set.weight}kg x ${set.reps} reps`,
+          });
+        }
         
         // Start a rest timer if not the last set
         if (setIndex < currentSets.length - 1) {
@@ -664,113 +830,140 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
           </div>
           
           <div className="space-y-4">
-            {currentSets.map((set, setIndex) => (
-              <div 
-                key={setIndex}
-                className={`border rounded-lg p-3 ${
-                  set.isCompleted 
-                    ? 'border-green-700 bg-green-900/30' 
-                    : 'border-gray-700 bg-gray-700'
-                } ${
-                  set.type === 'warmup'
-                    ? 'border-yellow-700 bg-yellow-900/30'
-                    : ''
-                }`}
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <h5 className="font-medium text-white">Set {set.setNumber}</h5>
-                  <button 
-                    className={`text-xs px-2 py-1 rounded transition-colors ${
-                      set.type === 'warmup'
-                        ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-800' 
-                        : 'bg-blue-900/50 text-blue-400 border border-blue-800'
-                    }`}
-                    onClick={() => toggleSetType(currentTemplateExercise.exerciseId, setIndex)}
-                    disabled={set.isCompleted}
-                  >
-                    {set.type === 'warmup' ? 'Warm-up' : 'Working'}
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Weight (kg)</label>
-                    <input 
-                      type="number" 
-                      value={set.weight || ''} 
-                      onChange={(e) => updateSetValue(
-                        currentTemplateExercise.exerciseId, 
-                        setIndex, 
-                        'weight', 
-                        e.target.value
-                      )}
+            {currentSets.map((set, setIndex) => {
+              // Check if this is an endurance exercise
+              const exerciseDetails = exercises?.find((e: any) => e.id === currentTemplateExercise.exerciseId);
+              const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
+                                         exerciseDetails?.category === 'endurance' ||
+                                         workoutTemplate?.workoutType === 'cardio' ||
+                                         workoutTemplate?.workoutType === 'endurance';
+              
+              // Render endurance workout set component if this is an endurance exercise
+              if (isEnduranceExercise && set.measurementType) {
+                return (
+                  <EnduranceWorkoutSet
+                    key={setIndex}
+                    set={set}
+                    exerciseId={currentTemplateExercise.exerciseId}
+                    setIndex={setIndex}
+                    isCompleted={set.isCompleted}
+                    measurementType={set.measurementType}
+                    exercise={exerciseDetails}
+                    onUpdateValue={updateSetValue}
+                    onSave={saveSet}
+                  />
+                );
+              }
+              
+              // Otherwise render standard strength training set
+              return (
+                <div 
+                  key={setIndex}
+                  className={`border rounded-lg p-3 ${
+                    set.isCompleted 
+                      ? 'border-green-700 bg-green-900/30' 
+                      : 'border-gray-700 bg-gray-700'
+                  } ${
+                    set.type === 'warmup'
+                      ? 'border-yellow-700 bg-yellow-900/30'
+                      : ''
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <h5 className="font-medium text-white">Set {set.setNumber}</h5>
+                    <button 
+                      className={`text-xs px-2 py-1 rounded transition-colors ${
+                        set.type === 'warmup'
+                          ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-800' 
+                          : 'bg-blue-900/50 text-blue-400 border border-blue-800'
+                      }`}
+                      onClick={() => toggleSetType(currentTemplateExercise.exerciseId, setIndex)}
                       disabled={set.isCompleted}
-                      className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
-                    />
+                    >
+                      {set.type === 'warmup' ? 'Warm-up' : 'Working'}
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Reps</label>
-                    <input 
-                      type="number" 
-                      value={set.reps || ''} 
-                      onChange={(e) => updateSetValue(
-                        currentTemplateExercise.exerciseId, 
-                        setIndex, 
-                        'reps', 
-                        e.target.value
+                  
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Weight (kg)</label>
+                      <input 
+                        type="number" 
+                        value={set.weight || ''} 
+                        onChange={(e) => updateSetValue(
+                          currentTemplateExercise.exerciseId, 
+                          setIndex, 
+                          'weight', 
+                          e.target.value
+                        )}
+                        disabled={set.isCompleted}
+                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Reps</label>
+                      <input 
+                        type="number" 
+                        value={set.reps || ''} 
+                        onChange={(e) => updateSetValue(
+                          currentTemplateExercise.exerciseId, 
+                          setIndex, 
+                          'reps', 
+                          e.target.value
+                        )}
+                        disabled={set.isCompleted}
+                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-400 mb-1 block">Action</label>
+                      {!set.isCompleted ? (
+                        <button 
+                          className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white w-full py-2 rounded-lg text-sm transition-colors"
+                          onClick={() => saveSet(currentTemplateExercise.exerciseId, setIndex)}
+                        >
+                          Save
+                        </button>
+                      ) : (
+                        <button 
+                          className="bg-gradient-to-r from-green-600 to-green-700 text-white w-full py-2 rounded-lg text-sm"
+                          disabled
+                        >
+                          Completed
+                        </button>
                       )}
-                      disabled={set.isCompleted}
-                      className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 mb-1 block">Action</label>
-                    {!set.isCompleted ? (
-                      <button 
-                        className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white w-full py-2 rounded-lg text-sm transition-colors"
-                        onClick={() => saveSet(currentTemplateExercise.exerciseId, setIndex)}
-                      >
-                        Save
-                      </button>
-                    ) : (
-                      <button 
-                        className="bg-gradient-to-r from-green-600 to-green-700 text-white w-full py-2 rounded-lg text-sm"
-                        disabled
-                      >
-                        Completed
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Manual rest timer buttons */}
-                {set.isCompleted && setIndex < currentSets.length - 1 && !currentSets[setIndex + 1].isCompleted && (
-                  <div className="flex justify-between items-center">
-                    <div className="text-xs text-gray-400">Need a break before next set?</div>
-                    <div className="flex gap-2">
-                      <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                        onClick={() => startRestTimer(30)}
-                      >
-                        <TimerIcon size={12} /> 30s
-                      </button>
-                      <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                        onClick={() => startRestTimer(60)}
-                      >
-                        <TimerIcon size={12} /> 60s
-                      </button>
-                      <button 
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                        onClick={() => startRestTimer(90)}
-                      >
-                        <TimerIcon size={12} /> 90s
-                      </button>
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
+                  
+                  {/* Manual rest timer buttons */}
+                  {set.isCompleted && setIndex < currentSets.length - 1 && !currentSets[setIndex + 1].isCompleted && (
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs text-gray-400">Need a break before next set?</div>
+                      <div className="flex gap-2">
+                        <button 
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                          onClick={() => startRestTimer(30)}
+                        >
+                          <TimerIcon size={12} /> 30s
+                        </button>
+                        <button 
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                          onClick={() => startRestTimer(60)}
+                        >
+                          <TimerIcon size={12} /> 60s
+                        </button>
+                        <button 
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                          onClick={() => startRestTimer(90)}
+                        >
+                          <TimerIcon size={12} /> 90s
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         
