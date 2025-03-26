@@ -71,12 +71,20 @@ const Workouts = () => {
   // Fetch workout templates
   const { data: workoutTemplates } = useQuery<WorkoutTemplate[]>({
     queryKey: ['/api/users/1/workout-templates'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/users/1/workout-templates');
+      return await response.json();
+    },
     staleTime: 60000, // 1 minute
   });
   
   // Fetch completed workouts
   const { data: completedWorkouts } = useQuery<CompletedWorkout[]>({
     queryKey: ['/api/users/1/completed-workouts'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/users/1/completed-workouts');
+      return await response.json();
+    },
     staleTime: 60000, // 1 minute
   });
   
@@ -90,7 +98,8 @@ const Workouts = () => {
     queryKey: ['/api/workout-templates', currentWorkout?.workoutTemplateId, 'exercises'],
     queryFn: async () => {
       if (!currentWorkout?.workoutTemplateId) return [];
-      return await apiRequest('GET', `/api/workout-templates/${currentWorkout.workoutTemplateId}/exercises`);
+      const response = await apiRequest('GET', `/api/workout-templates/${currentWorkout.workoutTemplateId}/exercises`);
+      return await response.json();
     },
     staleTime: 60000, // 1 minute
     enabled: !!currentWorkout?.workoutTemplateId,
@@ -101,7 +110,8 @@ const Workouts = () => {
     queryKey: ['/api/completed-workouts', currentWorkout?.id, 'sets'],
     queryFn: async () => {
       if (!currentWorkout?.id) return [];
-      return await apiRequest('GET', `/api/completed-workouts/${currentWorkout.id}/sets`);
+      const response = await apiRequest('GET', `/api/completed-workouts/${currentWorkout.id}/sets`);
+      return await response.json();
     },
     staleTime: 60000, // 1 minute
     enabled: !!currentWorkout?.id,
@@ -110,6 +120,10 @@ const Workouts = () => {
   // Fetch exercises data
   const { data: exercises } = useQuery<Exercise[]>({
     queryKey: ['/api/exercises'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/exercises');
+      return await response.json();
+    },
     staleTime: 60000, // 1 minute
   });
   
@@ -159,12 +173,14 @@ const Workouts = () => {
   // Mutation for starting a new workout
   const startWorkoutMutation = useMutation({
     mutationFn: async (templateId: number) => {
-      const startedWorkout = await apiRequest('POST', '/api/completed-workouts', {
+      console.log("Starting workout with template ID:", templateId);
+      const response = await apiRequest('POST', '/api/completed-workouts', {
         userId: 1, // In a real app, we would get this from auth
         workoutTemplateId: templateId,
         startTime: new Date().toISOString()
       });
-      return startedWorkout;
+      const data = await response.json();
+      return data;
     },
     onSuccess: (data) => {
       toast({
