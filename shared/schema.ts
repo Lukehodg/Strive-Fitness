@@ -4,10 +4,9 @@ import { z } from "zod";
 
 // Define subscription plan types for validation
 export const SubscriptionPlanTypes = [
-  'free',
   'basic',
-  'premium',
-  'elite'
+  'advanced',
+  'trial' // 7-day trial of advanced features
 ] as const;
 
 // Define health metric types for validation

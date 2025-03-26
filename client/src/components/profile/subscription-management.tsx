@@ -22,7 +22,7 @@ import { Loader2, Check, Crown, AlertTriangle } from 'lucide-react';
 interface SubscriptionPlan {
   id: number;
   name: string;
-  planType: 'free' | 'basic' | 'premium' | 'elite';
+  planType: 'basic' | 'advanced' | 'trial';
   description: string;
   price: number;
   billingCycle: string;
@@ -79,10 +79,10 @@ const getGradientColor = (planType: string): string => {
   switch (planType) {
     case 'basic':
       return 'from-blue-500 to-blue-700';
-    case 'premium':
+    case 'advanced':
       return 'from-purple-500 to-purple-800';
-    case 'elite':
-      return 'from-amber-400 to-amber-700';
+    case 'trial':
+      return 'from-green-500 to-green-700';
     default:
       return 'from-gray-500 to-gray-700';
   }
@@ -150,8 +150,8 @@ export default function SubscriptionManagement() {
   });
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
-    if (plan.planType === 'free') {
-      // Free plan doesn't need payment
+    if (plan.price === 0) {
+      // Free plans don't need payment
       updateSubscriptionMutation.mutate({ planType: plan.planType });
       return;
     }

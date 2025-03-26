@@ -185,44 +185,26 @@ export class MemStorage implements IStorage {
     // Create subscription plans
     const subscriptionPlans = [
       {
-        name: "Free",
-        description: "Basic fitness tracking with limited features",
+        name: "Basic",
+        description: "Essential fitness tracking features",
         price: 0,
         billingCycle: "monthly",
-        features: ["Basic workout tracking", "Food logging", "Step counter"],
+        features: [
+          "Basic workout tracking",
+          "Food logging",
+          "Step counter"
+        ],
         isActive: true,
         maxWorkoutTemplates: 2,
-        maxHealthMetrics: 3,
-        maxMedications: 2,
+        maxHealthMetrics: 2,
+        maxMedications: 0,
         allowsAnalytics: false,
         allowsHealthIntegrations: false,
         allowsCustomWorkouts: false,
         allowsPdfUpload: false
       },
       {
-        name: "Basic",
-        description: "Essential fitness tracking and planning",
-        price: 4.99,
-        billingCycle: "monthly",
-        features: [
-          "Advanced workout tracking",
-          "Detailed nutrition analysis",
-          "Health metrics tracking",
-          "Workout plans",
-          "Goal setting"
-        ],
-        stripePriceId: "price_basic_monthly",
-        isActive: true,
-        maxWorkoutTemplates: 5,
-        maxHealthMetrics: 8,
-        maxMedications: 5,
-        allowsAnalytics: true,
-        allowsHealthIntegrations: false,
-        allowsCustomWorkouts: true,
-        allowsPdfUpload: false
-      },
-      {
-        name: "Premium",
+        name: "Advanced",
         description: "Complete fitness and health tracking solution",
         price: 9.99,
         billingCycle: "monthly",
@@ -247,23 +229,23 @@ export class MemStorage implements IStorage {
         allowsPdfUpload: true
       },
       {
-        name: "Elite",
-        description: "Ultimate fitness tracking suite with premium features",
-        price: 19.99,
-        billingCycle: "monthly",
+        name: "Trial",
+        description: "7-day trial of advanced features",
+        price: 0,
+        billingCycle: "once",
         features: [
-          "All Premium features",
-          "Priority support",
-          "Unlimited everything",
-          "AI workout recommendations",
-          "Advanced health insights",
-          "Personalized meal plans"
+          "All Advanced features for 7 days",
+          "Advanced workout tracking",
+          "Detailed nutrition analysis",
+          "Comprehensive health metrics",
+          "Unlimited workout plans",
+          "Advanced analytics",
+          "Health platform integrations"
         ],
-        stripePriceId: "price_elite_monthly",
         isActive: true,
-        maxWorkoutTemplates: null,
-        maxHealthMetrics: null,
-        maxMedications: null,
+        maxWorkoutTemplates: 20,
+        maxHealthMetrics: 20,
+        maxMedications: 20,
         allowsAnalytics: true,
         allowsHealthIntegrations: true,
         allowsCustomWorkouts: true,
