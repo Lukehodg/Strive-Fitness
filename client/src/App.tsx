@@ -12,6 +12,7 @@ import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
 import Health from "@/pages/health";
 import SignIn from "@/pages/sign-in";
+import AuthPage from "@/pages/auth-page";
 import BottomNavigation from "@/components/ui/bottom-navigation";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -63,7 +64,7 @@ function Router() {
           <ProtectedRoute path="/nutrition" component={Nutrition} />
           <ProtectedRoute path="/health" component={Health} />
           <ProtectedRoute path="/profile" component={Profile} />
-          <Route path="/auth" component={SignIn} />
+          <Route path="/auth" component={AuthPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

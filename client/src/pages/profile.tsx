@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { useLocation } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
 import ProfileHeader from '@/components/profile/profile-header';
 import ProfileStats from '@/components/profile/profile-stats';
@@ -10,6 +13,8 @@ import Integrations from '@/components/profile/integrations';
 
 const Profile = () => {
   const { toast } = useToast();
+  const { signOut } = useAuth();
+  const [, setLocation] = useLocation();
   const [user, setUser] = useState<any>(null);
   
   // Fetch user data
@@ -32,6 +37,16 @@ const Profile = () => {
       title: setting,
       description: "This feature is coming soon!",
     });
+  };
+  
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setLocation('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
   
   useEffect(() => {
@@ -90,6 +105,22 @@ const Profile = () => {
         bmi={calculateBMI(user.height, user.weight)}
         bodyFat={user.bodyFat}
       />
+      
+      {/* Sign Out Button */}
+      <div className="flex justify-end">
+        <Button 
+          variant="destructive" 
+          onClick={handleSignOut}
+          className="flex items-center gap-2"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>Sign Out</span>
+        </Button>
+      </div>
       
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full grid grid-cols-2 mb-6">
