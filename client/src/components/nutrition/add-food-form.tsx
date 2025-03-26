@@ -19,6 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Scan, Camera } from 'lucide-react';
 import BarcodeScanner from './barcode-scanner';
 
@@ -80,26 +87,27 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
   const { formState, handleSubmit } = form;
   const { isSubmitting } = formState;
 
-  // Calculate calories based on macros
-  const calculateCalories = (protein: number, carbs: number, fat: number): number => {
-    return protein * 4 + carbs * 4 + fat * 9;
+  // Calculate calories based on macros and quantity
+  const calculateCalories = (protein: number, carbs: number, fat: number, quantity: number = 1): number => {
+    const caloriesPerUnit = protein * 4 + carbs * 4 + fat * 9;
+    return caloriesPerUnit * quantity;
   };
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof foodSchema>) => {
     try {
-      // Calculate total calories
-      const calories = calculateCalories(data.protein, data.carbs, data.fat);
+      // Calculate total calories with quantity
+      const calories = calculateCalories(data.protein, data.carbs, data.fat, data.quantity);
       
       const meal = {
         userId: 1, // In a real app, this would come from user context
         name: data.mealName,
         timestamp: new Date(), // Send the actual Date object, not a string
         calories: Math.round(calories),
-        protein: data.protein,
-        carbs: data.carbs,
-        fat: data.fat,
-        foods: [data.name],
+        protein: data.protein * data.quantity,
+        carbs: data.carbs * data.quantity,
+        fat: data.fat * data.quantity,
+        foods: [`${data.name} (${data.quantity} ${servingUnit})`],
       };
       
       await apiRequest('POST', '/api/meals', meal);
@@ -352,73 +360,53 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                 )}
               />
               
-              <div className="space-y-2">
-                <FormLabel>Meal Type</FormLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <RadioGroup
-                    value={form.watch('mealName')}
-                    onValueChange={(value) => form.setValue('mealName', value)}
-                  >
-                    <div className="grid grid-cols-2 gap-2">
-                      <div 
-                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
-                          form.watch('mealName') === 'Breakfast' 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => form.setValue('mealName', 'Breakfast')}
-                      >
-                        <div className="text-center">
-                          <div className="text-xl mb-1">🍳</div>
-                          <div className="text-sm font-medium">Breakfast</div>
-                        </div>
-                      </div>
-                      
-                      <div 
-                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
-                          form.watch('mealName') === 'Lunch' 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => form.setValue('mealName', 'Lunch')}
-                      >
-                        <div className="text-center">
-                          <div className="text-xl mb-1">🥪</div>
-                          <div className="text-sm font-medium">Lunch</div>
-                        </div>
-                      </div>
-                      
-                      <div 
-                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
-                          form.watch('mealName') === 'Dinner' 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => form.setValue('mealName', 'Dinner')}
-                      >
-                        <div className="text-center">
-                          <div className="text-xl mb-1">🍽️</div>
-                          <div className="text-sm font-medium">Dinner</div>
-                        </div>
-                      </div>
-                      
-                      <div 
-                        className={`flex items-center justify-center rounded-md border-2 p-3 cursor-pointer ${
-                          form.watch('mealName') === 'Snack' 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => form.setValue('mealName', 'Snack')}
-                      >
-                        <div className="text-center">
-                          <div className="text-xl mb-1">🍎</div>
-                          <div className="text-sm font-medium">Snack</div>
-                        </div>
-                      </div>
-                    </div>
-                  </RadioGroup>
-                </div>
-              </div>
+              <FormField
+                control={form.control}
+                name="mealName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meal Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a meal" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Breakfast">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🍳</span>
+                            <span>Breakfast</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Lunch">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🥪</span>
+                            <span>Lunch</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Dinner">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🍽️</span>
+                            <span>Dinner</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Snack">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🍎</span>
+                            <span>Snack</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <div className="bg-[#F5F5F5] p-3 rounded-lg">
                 <div className="text-sm text-gray-500 mb-1">Calculated Calories</div>
@@ -426,7 +414,8 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                   {calculateCalories(
                     form.watch('protein') || 0,
                     form.watch('carbs') || 0,
-                    form.watch('fat') || 0
+                    form.watch('fat') || 0,
+                    form.watch('quantity') || 1
                   )} cal
                 </div>
               </div>
