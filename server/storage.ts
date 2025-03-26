@@ -7,7 +7,8 @@ import {
   workoutSets, WorkoutSet, InsertWorkoutSet,
   activities, Activity, InsertActivity,
   meals, Meal, InsertMeal,
-  dailyStats, DailyStats, InsertDailyStats
+  dailyStats, DailyStats, InsertDailyStats,
+  healthMetrics, HealthMetric, InsertHealthMetric, HealthMetricType
 } from "@shared/schema";
 
 // Storage interface with CRUD methods
@@ -66,6 +67,14 @@ export interface IStorage {
   getDailyStats(userId: number, date: Date): Promise<DailyStats | undefined>;
   updateDailyStats(id: number, data: Partial<DailyStats>): Promise<DailyStats | undefined>;
   createDailyStats(stats: InsertDailyStats): Promise<DailyStats>;
+  
+  // Health metrics
+  getHealthMetrics(userId: number, startDate: Date, endDate: Date): Promise<HealthMetric[]>;
+  getHealthMetricsByType(userId: number, metricType: HealthMetricType, startDate: Date, endDate: Date): Promise<HealthMetric[]>;
+  getHealthMetric(id: number): Promise<HealthMetric | undefined>;
+  createHealthMetric(metric: InsertHealthMetric): Promise<HealthMetric>;
+  updateHealthMetric(id: number, data: Partial<HealthMetric>): Promise<HealthMetric | undefined>;
+  deleteHealthMetric(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {

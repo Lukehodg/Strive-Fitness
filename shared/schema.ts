@@ -2,6 +2,19 @@ import { pgTable, text, serial, integer, boolean, timestamp, json, real } from "
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define health metric types for validation
+export const HealthMetricTypes = [
+  'blood_pressure',
+  'heart_rate',
+  'blood_glucose',
+  'weight',
+  'body_fat',
+  'sleep',
+  'oxygen_saturation',
+  'temperature',
+  'cholesterol'
+] as const;
+
 // User model
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -155,6 +168,23 @@ export const insertDailyStatsSchema = createInsertSchema(dailyStats).omit({
   id: true,
 });
 
+// Health metrics model
+export const healthMetrics = pgTable("health_metrics", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  metricType: text("metric_type").notNull(), // blood_pressure, heart_rate, blood_glucose, etc.
+  value: real("value"), // For numeric values like heart rate
+  systolic: integer("systolic"), // For blood pressure - top number
+  diastolic: integer("diastolic"), // For blood pressure - bottom number
+  notes: text("notes"),
+  tags: json("tags"), // For storing additional metadata or tags
+});
+
+export const insertHealthMetricSchema = createInsertSchema(healthMetrics).omit({
+  id: true,
+});
+
 // Define types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -182,3 +212,7 @@ export type InsertMeal = z.infer<typeof insertMealSchema>;
 
 export type DailyStats = typeof dailyStats.$inferSelect;
 export type InsertDailyStats = z.infer<typeof insertDailyStatsSchema>;
+
+export type HealthMetric = typeof healthMetrics.$inferSelect;
+export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
+export type HealthMetricType = typeof HealthMetricTypes[number];
