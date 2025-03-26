@@ -150,7 +150,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
     setEditFormData({
       name: template.name,
       description: template.description || '',
-      scheduledDay: template.scheduledDay || '',
+      scheduledDay: template.scheduledDay || 'none',
       duration: template.duration,
       color: template.color
     });
@@ -170,7 +170,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
       id: selectedTemplate.id,
       name: editFormData.name,
       description: editFormData.description,
-      scheduledDay: editFormData.scheduledDay,
+      scheduledDay: editFormData.scheduledDay === 'none' ? '' : editFormData.scheduledDay,
       duration: editFormData.duration,
       color: editFormData.color
     });
@@ -230,7 +230,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
                   <SelectValue placeholder="Select a day" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="Monday">Monday</SelectItem>
                   <SelectItem value="Tuesday">Tuesday</SelectItem>
                   <SelectItem value="Wednesday">Wednesday</SelectItem>
