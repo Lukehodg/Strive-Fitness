@@ -61,25 +61,25 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+    <div className="bg-gray-800 rounded-xl shadow-sm p-4 mb-6 border border-gray-700">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="font-['Inter',sans-serif] text-lg font-semibold">My Workouts</h3>
+        <h3 className="font-['Inter',sans-serif] text-lg font-semibold text-white">My Workouts</h3>
         <span className="text-primary text-sm cursor-pointer" onClick={onEdit}>Edit</span>
       </div>
       
-      {templates.map((template) => (
+      {Array.isArray(templates) && templates.map((template) => (
         <div 
           key={template.id}
-          className="bg-[#F5F5F5] rounded-lg p-3 mb-3 last:mb-0 flex items-center justify-between cursor-pointer"
+          className="bg-gray-900 rounded-lg p-3 mb-3 last:mb-0 flex items-center justify-between cursor-pointer border border-gray-700"
           onClick={() => handleTemplateClick(template.id)}
         >
           <div className="flex items-center">
-            <div className={`bg-opacity-10 rounded-lg p-2 mr-3`} style={{ backgroundColor: `${template.color}20` }}>
+            <div className={`bg-opacity-20 rounded-lg p-2 mr-3`} style={{ backgroundColor: `${template.color}30` }}>
               <span className="material-icons" style={{ color: template.color }}>fitness_center</span>
             </div>
             <div>
-              <h4 className="font-medium">{template.name}</h4>
-              <p className="text-xs text-gray-500">{template.exerciseCount} Exercises · {template.duration} min</p>
+              <h4 className="font-medium text-white">{template.name}</h4>
+              <p className="text-xs text-gray-400">{template.exerciseCount} Exercises · {template.duration} min</p>
             </div>
           </div>
           <ChevronRightIcon className="text-gray-400 w-5 h-5" />

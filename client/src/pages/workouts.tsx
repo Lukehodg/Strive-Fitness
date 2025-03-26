@@ -9,29 +9,78 @@ import WorkoutStats from '@/components/workouts/workout-stats';
 import WorkoutTemplates from '@/components/workouts/workout-templates';
 import CurrentWorkout from '@/components/workouts/current-workout';
 
+// Define interfaces
+interface WorkoutTemplate {
+  id: number;
+  userId: number;
+  name: string;
+  description?: string;
+  exerciseCount: number;
+  duration: number;
+  color: string;
+  [key: string]: any;
+}
+
+interface CompletedWorkout {
+  id: number;
+  userId: number;
+  workoutTemplateId: number;
+  startTime: string;
+  endTime?: string;
+  isCompleted: boolean;
+  [key: string]: any;
+}
+
+interface TemplateExercise {
+  id: number;
+  workoutTemplateId: number;
+  exerciseId: number;
+  sets: number;
+  repsMin: number;
+  repsMax: number;
+  [key: string]: any;
+}
+
+interface Exercise {
+  id: number;
+  name: string;
+  category: string;
+  [key: string]: any;
+}
+
+interface WorkoutSet {
+  id: number;
+  completedWorkoutId: number;
+  exerciseId: number;
+  setNumber: number;
+  weight: number;
+  reps: number;
+  [key: string]: any;
+}
+
 const Workouts = () => {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   
   // Fetch workout templates
-  const { data: workoutTemplates } = useQuery({
+  const { data: workoutTemplates } = useQuery<WorkoutTemplate[]>({
     queryKey: ['/api/users/1/workout-templates'],
     staleTime: 60000, // 1 minute
   });
   
   // Fetch completed workouts
-  const { data: completedWorkouts } = useQuery({
+  const { data: completedWorkouts } = useQuery<CompletedWorkout[]>({
     queryKey: ['/api/users/1/completed-workouts'],
     staleTime: 60000, // 1 minute
   });
   
   // Find current workout (last incomplete workout)
-  const currentWorkout = completedWorkouts && completedWorkouts.length > 0
-    ? completedWorkouts.find(workout => !workout.isCompleted)
+  const currentWorkout = (Array.isArray(completedWorkouts) && completedWorkouts.length > 0)
+    ? completedWorkouts.find((workout: CompletedWorkout) => !workout.isCompleted)
     : null;
   
   // Fetch template exercises for current workout
-  const { data: templateExercises } = useQuery({
+  const { data: templateExercises } = useQuery<TemplateExercise[]>({
     queryKey: ['/api/workout-templates', currentWorkout?.workoutTemplateId, 'exercises'],
     queryFn: async () => {
       if (!currentWorkout?.workoutTemplateId) return [];
@@ -42,7 +91,7 @@ const Workouts = () => {
   });
   
   // Fetch workout sets for current workout
-  const { data: workoutSets } = useQuery({
+  const { data: workoutSets } = useQuery<WorkoutSet[]>({
     queryKey: ['/api/completed-workouts', currentWorkout?.id, 'sets'],
     queryFn: async () => {
       if (!currentWorkout?.id) return [];
@@ -53,7 +102,7 @@ const Workouts = () => {
   });
   
   // Fetch exercises data
-  const { data: exercises } = useQuery({
+  const { data: exercises } = useQuery<Exercise[]>({
     queryKey: ['/api/exercises'],
     staleTime: 60000, // 1 minute
   });
@@ -72,9 +121,16 @@ const Workouts = () => {
   const handleContinueWorkout = () => {
     if (currentWorkout) {
       setLocation(`/workouts/active/${currentWorkout.id}`);
-    } else {
+    } else if (workoutTemplates && workoutTemplates.length > 0) {
       // If no current workout, create one from the first template
-      startWorkoutMutation.mutate(workoutTemplates[0]?.id || 1);
+      startWorkoutMutation.mutate(workoutTemplates[0].id);
+    } else {
+      // Handle the case where no templates are available
+      toast({
+        title: "No Workout Templates",
+        description: "Please create a workout template first.",
+        variant: "destructive"
+      });
     }
   };
   
