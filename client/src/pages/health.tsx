@@ -33,7 +33,17 @@ function formatChartDate(date: Date | string): string {
 
 // Main Health Page Component
 export default function HealthPage() {
-  const [activeTab, setActiveTab] = useState("metrics");
+  // Check if there's a stored tab preference in sessionStorage
+  const initialTab = typeof window !== 'undefined' ? 
+    sessionStorage.getItem('healthTab') || "metrics" : 
+    "metrics";
+  
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  // Clear the stored tab preference when component mounts
+  useEffect(() => {
+    sessionStorage.removeItem('healthTab');
+  }, []);
   const [selectedMetricType, setSelectedMetricType] = useState("blood_pressure");
   const [timeRange, setTimeRange] = useState("30");
   const [addMetricOpen, setAddMetricOpen] = useState(false);

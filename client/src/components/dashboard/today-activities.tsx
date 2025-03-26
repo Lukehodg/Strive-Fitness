@@ -52,6 +52,8 @@ const TodayActivities: React.FC<TodayActivitiesProps> = ({ activities, onViewAll
         setLocation('/nutrition');
         break;
       case 'medication':
+        // Store the tab in sessionStorage to activate the medications tab when loaded
+        sessionStorage.setItem('healthTab', 'medications');
         setLocation('/health');
         break;
       default:

@@ -88,8 +88,9 @@ export default function MedicationsTab() {
   const { data: medications = [], isLoading: isMedicationsLoading } = useQuery<MedicationsResponse>({
     queryKey: ['/api/users/1/medications'],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/users/${userId}/medications`);
-      return response;
+      const response = await fetch(`/api/users/${userId}/medications`);
+      if (!response.ok) throw new Error('Failed to fetch medications');
+      return await response.json();
     }
   });
   
@@ -97,8 +98,9 @@ export default function MedicationsTab() {
   const { data: activeMedications = [] } = useQuery<MedicationsResponse>({
     queryKey: ['/api/users/1/medications/active'],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/users/${userId}/medications/active`);
-      return response;
+      const response = await fetch(`/api/users/${userId}/medications/active`);
+      if (!response.ok) throw new Error('Failed to fetch active medications');
+      return await response.json();
     }
   });
   
@@ -113,8 +115,9 @@ export default function MedicationsTab() {
       const todayEnd = new Date(today);
       todayEnd.setHours(23, 59, 59, 999);
       
-      const response = await apiRequest("GET", `/api/users/${userId}/medication-schedules?startDate=${todayStart.toISOString()}&endDate=${todayEnd.toISOString()}`);
-      return response;
+      const response = await fetch(`/api/users/${userId}/medication-schedules?startDate=${todayStart.toISOString()}&endDate=${todayEnd.toISOString()}`);
+      if (!response.ok) throw new Error('Failed to fetch medication schedules');
+      return await response.json();
     }
   });
   
