@@ -41,12 +41,14 @@ function Router() {
   return (
     <div className="min-h-screen bg-background pb-20 font-['Roboto',sans-serif] text-foreground">
       {user && (
-        <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-4 shadow-md">
+        <header className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white p-4 shadow-lg border-b border-indigo-700/50">
           <div className="flex justify-between items-center max-w-lg mx-auto">
-            <Logo size="sm" textClassName="text-white" />
-            <div className="flex items-center space-x-2">
-              <span className="material-icons">notifications</span>
-              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+            <Logo size="sm" textClassName="text-white font-semibold" />
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-blue-700/30 flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer">
+                <span className="material-icons text-sm">notifications</span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-blue-700/30 flex items-center justify-center hover:bg-blue-600/30 transition-colors cursor-pointer">
                 <span className="material-icons text-sm">person</span>
               </div>
             </div>
