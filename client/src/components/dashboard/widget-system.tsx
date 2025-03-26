@@ -79,18 +79,9 @@ const WidgetRenderer: React.FC<{
     }
   };
 
-  const handleWidgetClick = () => {
-    if (widget.route) {
-      setLocation(widget.route);
-    }
-  };
-
   return (
-    <div 
-      className={`relative dark-card p-4 ${widget.route ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
-      onClick={widget.route ? handleWidgetClick : undefined}
-    >
-      <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+    <div className="relative dark-card p-4">
+      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
         <Button
           variant="ghost"
           size="sm"
@@ -141,15 +132,44 @@ const AddWidgetPlaceholder: React.FC<{
 };
 
 const WidgetSystem: React.FC<WidgetSystemProps> = ({ widgets, onRemoveWidget }) => {
+  const [_, navigate] = useLocation();
+  
+  // Direct click handler at the parent level
+  const handleWidgetClick = (route?: string) => {
+    if (route) {
+      console.log("Navigating to:", route);
+      navigate(route);
+    }
+  };
+  
   return (
     <div className="grid grid-cols-3 gap-4 mb-6">
-      {widgets.map((widget) => (
-        <WidgetRenderer 
-          key={widget.id} 
-          widget={widget} 
-          onRemove={onRemoveWidget} 
-        />
-      ))}
+      {widgets.map((widget) => {
+        // Add a wrapper div to handle click events more reliably
+        const hasRoute = Boolean(widget.route);
+        
+        return (
+          <div 
+            key={widget.id}
+            className={`${hasRoute ? 'cursor-pointer hover:opacity-90 transition-opacity relative overflow-hidden group' : ''}`}
+            onClick={hasRoute ? () => handleWidgetClick(widget.route) : undefined}
+          >
+            {hasRoute && (
+              <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center z-10">
+                <div className="bg-blue-500/20 rounded-full p-1">
+                  <span className="material-icons text-white text-lg">
+                    arrow_forward
+                  </span>
+                </div>
+              </div>
+            )}
+            <WidgetRenderer 
+              widget={widget} 
+              onRemove={onRemoveWidget} 
+            />
+          </div>
+        );
+      })}
       
       {/* Show empty state when no widgets */}
       {widgets.length === 0 && (
