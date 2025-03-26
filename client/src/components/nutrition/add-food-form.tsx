@@ -48,6 +48,15 @@ interface AddFoodFormProps {
   onSuccess: () => void;
   defaultMealName?: string;
   initialTab?: 'manual' | 'search' | 'scan';
+  editMode?: boolean;
+  mealId?: number;
+  initialValues?: {
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    foodName?: string;
+  };
 }
 
 type FoodResult = {
@@ -60,7 +69,14 @@ type FoodResult = {
   image?: string;
 };
 
-const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = "Breakfast", initialTab = 'manual' }) => {
+const AddFoodForm: React.FC<AddFoodFormProps> = ({ 
+  onSuccess, 
+  defaultMealName = "Breakfast", 
+  initialTab = 'manual',
+  editMode = false,
+  mealId,
+  initialValues
+}) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<FoodResult[]>([]);
@@ -78,14 +94,32 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     }
   }, [selectedTab]);
 
+  // Set initial values with edit mode data if available
+  useEffect(() => {
+    if (editMode && initialValues) {
+      if (initialValues.foodName) {
+        form.setValue('name', initialValues.foodName);
+      }
+      if (initialValues.protein) {
+        form.setValue('protein', initialValues.protein);
+      }
+      if (initialValues.carbs) {
+        form.setValue('carbs', initialValues.carbs);
+      }
+      if (initialValues.fat) {
+        form.setValue('fat', initialValues.fat);
+      }
+    }
+  }, [editMode, initialValues, form]);
+
   // Initialize the form
   const form = useForm<z.infer<typeof foodSchema>>({
     resolver: zodResolver(foodSchema),
     defaultValues: {
-      name: '',
-      protein: 0,
-      carbs: 0,
-      fat: 0,
+      name: initialValues?.foodName || '',
+      protein: initialValues?.protein || 0,
+      carbs: initialValues?.carbs || 0,
+      fat: initialValues?.fat || 0,
       quantity: 1,
       actualAmount: undefined,
       standardAmount: undefined,
