@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import Logo from '@/components/ui/logo';
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -106,7 +107,7 @@ export default function AuthPage() {
       {/* Left column - Auth Form */}
       <div className="flex flex-col justify-center w-full md:w-1/2 p-6">
         <div className="max-w-md mx-auto">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Strive</h1>
+          <Logo size="lg" className="mb-2" />
           <p className="text-muted-foreground mb-8">Your personal fitness companion</p>
           
           <Tabs defaultValue="login" className="w-full">
