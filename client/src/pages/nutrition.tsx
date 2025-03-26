@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AddIcon } from '@/lib/icons';
 import { Scan } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 import CalorieSummary from '@/components/nutrition/calorie-summary';
 import TodayMeals from '@/components/nutrition/today-meals';
@@ -69,6 +70,34 @@ const Nutrition = () => {
     staleTime: 30000, // 30 seconds
   });
   
+  // Update user nutrition goals
+  const updateUserMutation = useMutation({
+    mutationFn: async (userData: Partial<User>) => {
+      const response = await apiRequest('PATCH', `/api/user/1`, userData);
+      return await response.json();
+    },
+    onSuccess: (updatedUser) => {
+      // Update the cache with the new user data
+      queryClient.setQueryData(['/api/user/1'], updatedUser);
+      
+      toast({
+        title: "Nutrition Goals Updated",
+        description: "Your nutrition goals have been successfully updated.",
+      });
+      
+      // Update the local state
+      setUser(updatedUser);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update nutrition goals. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Error updating nutrition goals:", error);
+    }
+  });
+  
   const handleAddMeal = () => {
     setInitialScanMode(false);
     setIsAddFoodOpen(true);
@@ -77,6 +106,23 @@ const Nutrition = () => {
   const handleScanBarcode = () => {
     setInitialScanMode(true);
     setIsAddFoodOpen(true);
+  };
+  
+  // Handle nutrition goals update
+  const handleGoalsUpdated = (newGoals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    if (user) {
+      updateUserMutation.mutate({
+        dailyCalorieTarget: newGoals.calories,
+        dailyProteinTarget: newGoals.protein,
+        dailyCarbsTarget: newGoals.carbs,
+        dailyFatTarget: newGoals.fat
+      });
+    }
   };
   
   // Format meals data
@@ -187,6 +233,7 @@ const Nutrition = () => {
           target: fatTarget,
           percentage: fatPercentage
         }}
+        onGoalsUpdated={handleGoalsUpdated}
       />
       
       <TodayMeals 

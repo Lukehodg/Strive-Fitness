@@ -1,4 +1,5 @@
 import React from 'react';
+import EditNutritionGoals from './edit-nutrition-goals';
 
 interface NutrientProgress {
   current: number;
@@ -12,6 +13,12 @@ interface CalorieSummaryProps {
   protein: NutrientProgress;
   carbs: NutrientProgress;
   fat: NutrientProgress;
+  onGoalsUpdated?: (goals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => void;
 }
 
 const CalorieSummary: React.FC<CalorieSummaryProps> = ({
@@ -19,13 +26,38 @@ const CalorieSummary: React.FC<CalorieSummaryProps> = ({
   caloriesTarget,
   protein,
   carbs,
-  fat
+  fat,
+  onGoalsUpdated
 }) => {
   const caloriesRemaining = caloriesTarget - caloriesConsumed;
 
+  const handleGoalsUpdate = (newGoals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    if (onGoalsUpdated) {
+      onGoalsUpdated(newGoals);
+    }
+  };
+
   return (
     <div className="bg-gray-800 rounded-xl shadow-sm p-4 mb-6 border border-gray-700">
-      <h3 className="font-['Inter',sans-serif] text-lg font-semibold mb-3 text-white">Today's Summary</h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="font-['Inter',sans-serif] text-lg font-semibold text-white">Today's Summary</h3>
+        {onGoalsUpdated && (
+          <EditNutritionGoals
+            currentGoals={{
+              calories: caloriesTarget,
+              protein: protein.target,
+              carbs: carbs.target,
+              fat: fat.target
+            }}
+            onSave={handleGoalsUpdate}
+          />
+        )}
+      </div>
       <div className="flex justify-between items-center mb-4">
         <div>
           <span className="text-gray-400 text-sm">Calories Remaining</span>
