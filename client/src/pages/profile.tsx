@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
+  Bell,
   Settings as SettingsIcon, 
   LogOut, 
   Network,
@@ -19,6 +20,7 @@ import ProfileHeader from '@/components/profile/profile-header';
 import ProfileStats from '@/components/profile/profile-stats';
 import Settings from '@/components/profile/settings';
 import Integrations from '@/components/profile/integrations';
+import NotificationSettings from '@/components/profile/notification-settings';
 
 const Profile = () => {
   const { toast } = useToast();
@@ -76,11 +78,6 @@ const Profile = () => {
   // Define settings items
   const settingsItems = [
     {
-      icon: 'notifications',
-      label: 'Notifications',
-      action: () => handleSettingsAction('Notifications')
-    },
-    {
       icon: 'fitness_center',
       label: 'Workout Settings',
       action: () => handleSettingsAction('Workout Settings')
@@ -91,9 +88,19 @@ const Profile = () => {
       action: () => handleSettingsAction('Nutrition Settings')
     },
     {
+      icon: 'health_and_safety',
+      label: 'Health Settings',
+      action: () => handleSettingsAction('Health Settings')
+    },
+    {
       icon: 'account_circle',
       label: 'Account',
       action: () => handleSettingsAction('Account')
+    },
+    {
+      icon: 'lock',
+      label: 'Privacy Settings',
+      action: () => handleSettingsAction('Privacy Settings')
     },
     {
       icon: 'help',
@@ -160,10 +167,14 @@ const Profile = () => {
       />
       
       <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 mb-6">
+        <TabsList className="w-full grid grid-cols-3 mb-6">
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="h-4 w-4" />
             <span>Settings</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            <span>Notifications</span>
           </TabsTrigger>
           <TabsTrigger value="integrations" className="flex items-center gap-2">
             <Network className="h-4 w-4" />
@@ -173,6 +184,10 @@ const Profile = () => {
         
         <TabsContent value="settings" className="mt-0">
           <Settings settings={settingsItems} />
+        </TabsContent>
+        
+        <TabsContent value="notifications" className="mt-0">
+          <NotificationSettings />
         </TabsContent>
         
         <TabsContent value="integrations" className="mt-0">
