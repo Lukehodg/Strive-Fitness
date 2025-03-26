@@ -994,6 +994,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Authentication routes
+  app.post("/api/auth/signin", handleSignIn);
+  app.post("/api/auth/signup", handleSignUp);
+  app.get("/api/auth/social/:provider", handleSocialAuth);
+
   // Return server
   const httpServer = createServer(app);
   return httpServer;

@@ -75,10 +75,7 @@ export default function SignIn() {
     setIsLoading(true);
     try {
       // In a real implementation, this would authenticate against your API
-      const response = await apiRequest('/api/auth/signin', {
-        method: 'POST',
-        body: JSON.stringify(values),
-      });
+      const response = await apiRequest('POST', '/api/auth/signin', values);
 
       if (response.success) {
         toast({
@@ -114,14 +111,10 @@ export default function SignIn() {
     setIsLoading(true);
     try {
       // In a real implementation, this would register the user with your API
-      const response = await apiRequest('/api/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: values.email,
-          displayName: values.name,
-          email: values.email,
-          password: values.password,
-        }),
+      const response = await apiRequest('POST', '/api/auth/signup', {
+        username: values.email,
+        displayName: values.name,
+        password: values.password,
       });
 
       if (response.success) {

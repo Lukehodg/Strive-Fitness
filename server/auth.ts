@@ -98,7 +98,6 @@ export async function handleSignUp(req: Request, res: Response) {
       username: validatedData.username,
       displayName: validatedData.displayName,
       password: validatedData.password, // In real app this would be hashed
-      email: validatedData.email,
       profileType: 'standard',
       height: 180, // Default values
       weight: 80,
