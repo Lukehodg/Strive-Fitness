@@ -11,6 +11,8 @@ import {
   insertWorkoutSetSchema,
   insertWorkoutTemplateExerciseSchema,
   insertWorkoutTemplateSchema,
+  insertMedicationSchema,
+  insertMedicationScheduleSchema,
   HealthMetricTypes
 } from "@shared/schema";
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
@@ -761,6 +763,234 @@ export async function registerRoutes(app: Express): Promise<Server> {
       whoop: { connected: false, last_sync: null },
       oura: { connected: false, last_sync: null }
     });
+  });
+  
+  // Medication and Supplement routes
+  
+  // Route to get all medications for a user
+  app.get("/api/users/:userId/medications", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      const medications = await storage.getMedications(userId);
+      res.json(medications);
+    } catch (error) {
+      console.error('Error getting medications:', error);
+      res.status(500).json({ message: 'Failed to get medications' });
+    }
+  });
+  
+  // Route to get active medications for a user
+  app.get("/api/users/:userId/medications/active", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      const medications = await storage.getActiveMedications(userId);
+      res.json(medications);
+    } catch (error) {
+      console.error('Error getting active medications:', error);
+      res.status(500).json({ message: 'Failed to get active medications' });
+    }
+  });
+  
+  // Route to get a specific medication
+  app.get("/api/medications/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const medication = await storage.getMedication(id);
+      
+      if (!medication) {
+        return res.status(404).json({ message: 'Medication not found' });
+      }
+      
+      res.json(medication);
+    } catch (error) {
+      console.error('Error getting medication:', error);
+      res.status(500).json({ message: 'Failed to get medication' });
+    }
+  });
+  
+  // Route to create a new medication
+  app.post("/api/medications", async (req: Request, res: Response) => {
+    try {
+      // Handle date conversion
+      const data = { ...req.body };
+      if (data.startDate && typeof data.startDate === 'string') {
+        data.startDate = new Date(data.startDate);
+      }
+      if (data.endDate && typeof data.endDate === 'string') {
+        data.endDate = new Date(data.endDate);
+      }
+      
+      const result = insertMedicationSchema.safeParse(data);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: 'Invalid medication data', 
+          error: result.error 
+        });
+      }
+      
+      const medication = await storage.createMedication(result.data);
+      res.status(201).json(medication);
+    } catch (error) {
+      console.error('Error creating medication:', error);
+      res.status(500).json({ message: 'Failed to create medication' });
+    }
+  });
+  
+  // Route to update a medication
+  app.patch("/api/medications/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const medication = await storage.getMedication(id);
+      
+      if (!medication) {
+        return res.status(404).json({ message: 'Medication not found' });
+      }
+      
+      // Handle date conversion
+      const data = { ...req.body };
+      if (data.startDate && typeof data.startDate === 'string') {
+        data.startDate = new Date(data.startDate);
+      }
+      if (data.endDate && typeof data.endDate === 'string') {
+        data.endDate = new Date(data.endDate);
+      }
+      
+      const updatedMedication = await storage.updateMedication(id, data);
+      res.json(updatedMedication);
+    } catch (error) {
+      console.error('Error updating medication:', error);
+      res.status(500).json({ message: 'Failed to update medication' });
+    }
+  });
+  
+  // Route to delete a medication
+  app.delete("/api/medications/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const result = await storage.deleteMedication(id);
+      
+      if (!result) {
+        return res.status(404).json({ message: 'Medication not found' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting medication:', error);
+      res.status(500).json({ message: 'Failed to delete medication' });
+    }
+  });
+  
+  // Route to get medication schedules for a specific medication
+  app.get("/api/medications/:medicationId/schedules", async (req: Request, res: Response) => {
+    try {
+      const medicationId = parseInt(req.params.medicationId, 10);
+      const schedules = await storage.getMedicationSchedules(medicationId);
+      res.json(schedules);
+    } catch (error) {
+      console.error('Error getting medication schedules:', error);
+      res.status(500).json({ message: 'Failed to get medication schedules' });
+    }
+  });
+  
+  // Route to get medication schedules for a user within a date range
+  app.get("/api/users/:userId/medication-schedules", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.params.userId, 10);
+      let startDate: Date;
+      let endDate: Date;
+      
+      if (req.query.startDate && req.query.endDate) {
+        startDate = new Date(req.query.startDate as string);
+        endDate = new Date(req.query.endDate as string);
+      } else {
+        // Default to today if no dates provided
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+      }
+      
+      const schedules = await storage.getMedicationSchedulesByDateRange(userId, startDate, endDate);
+      res.json(schedules);
+    } catch (error) {
+      console.error('Error getting medication schedules:', error);
+      res.status(500).json({ message: 'Failed to get medication schedules' });
+    }
+  });
+  
+  // Route to create a new medication schedule
+  app.post("/api/medication-schedules", async (req: Request, res: Response) => {
+    try {
+      // Handle date conversion
+      const data = { ...req.body };
+      if (data.scheduledTime && typeof data.scheduledTime === 'string') {
+        data.scheduledTime = new Date(data.scheduledTime);
+      }
+      if (data.takenTime && typeof data.takenTime === 'string') {
+        data.takenTime = new Date(data.takenTime);
+      }
+      
+      const result = insertMedicationScheduleSchema.safeParse(data);
+      
+      if (!result.success) {
+        return res.status(400).json({ 
+          message: 'Invalid medication schedule data', 
+          error: result.error 
+        });
+      }
+      
+      const schedule = await storage.createMedicationSchedule(result.data);
+      res.status(201).json(schedule);
+    } catch (error) {
+      console.error('Error creating medication schedule:', error);
+      res.status(500).json({ message: 'Failed to create medication schedule' });
+    }
+  });
+  
+  // Route to update a medication schedule
+  app.patch("/api/medication-schedules/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const schedule = await storage.getMedicationSchedule(id);
+      
+      if (!schedule) {
+        return res.status(404).json({ message: 'Medication schedule not found' });
+      }
+      
+      // Handle date conversion
+      const data = { ...req.body };
+      if (data.scheduledTime && typeof data.scheduledTime === 'string') {
+        data.scheduledTime = new Date(data.scheduledTime);
+      }
+      if (data.takenTime && typeof data.takenTime === 'string') {
+        data.takenTime = new Date(data.takenTime);
+      }
+      
+      const updatedSchedule = await storage.updateMedicationSchedule(id, data);
+      res.json(updatedSchedule);
+    } catch (error) {
+      console.error('Error updating medication schedule:', error);
+      res.status(500).json({ message: 'Failed to update medication schedule' });
+    }
+  });
+  
+  // Route to delete a medication schedule
+  app.delete("/api/medication-schedules/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const result = await storage.deleteMedicationSchedule(id);
+      
+      if (!result) {
+        return res.status(404).json({ message: 'Medication schedule not found' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting medication schedule:', error);
+      res.status(500).json({ message: 'Failed to delete medication schedule' });
+    }
   });
 
   // Return server
