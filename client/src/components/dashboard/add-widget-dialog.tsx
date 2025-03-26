@@ -49,28 +49,32 @@ const AddWidgetDialog: React.FC<AddWidgetDialogProps> = ({
         widgetData = {
           type: 'progress',
           title: selectedItem.label,
-          data: selectedItem
+          data: selectedItem,
+          route: selectedItem.route // Preserve route if it exists
         };
         break;
       case 'nutrition':
         widgetData = {
           type: 'nutrition',
           title: 'Nutrition Summary',
-          data: selectedItem
+          data: selectedItem,
+          route: selectedItem.route // Preserve route if it exists
         };
         break;
       case 'workouts':
         widgetData = {
           type: 'workout',
           title: 'Next Workout',
-          data: selectedItem
+          data: selectedItem,
+          route: selectedItem.route // Preserve route if it exists
         };
         break;
       case 'activities':
         widgetData = {
           type: 'activity',
           title: 'Activity',
-          data: selectedItem
+          data: selectedItem,
+          route: selectedItem.route // Preserve route if it exists
         };
         break;
       default:
