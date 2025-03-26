@@ -257,8 +257,21 @@ export class MemStorage implements IStorage {
     subscriptionPlans.forEach(plan => {
       const id = this.currentSubscriptionPlanId++;
       this.subscriptionPlans.set(id, { 
-        ...plan, 
-        id 
+        id,
+        name: plan.name,
+        description: plan.description,
+        price: plan.price,
+        billingCycle: plan.billingCycle,
+        isActive: plan.isActive === true ? true : null,
+        features: plan.features,
+        stripePriceId: plan.stripePriceId || null,
+        maxWorkoutTemplates: plan.maxWorkoutTemplates || null,
+        maxHealthMetrics: plan.maxHealthMetrics || null,
+        maxMedications: plan.maxMedications || null,
+        allowsAnalytics: plan.allowsAnalytics || null,
+        allowsHealthIntegrations: plan.allowsHealthIntegrations || null,
+        allowsCustomWorkouts: plan.allowsCustomWorkouts || null,
+        allowsPdfUpload: plan.allowsPdfUpload || null
       });
     });
     
