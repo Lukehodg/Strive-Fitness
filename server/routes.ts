@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { handleSignIn, handleSignUp, handleSocialAuth } from "./auth";
 import { z } from "zod";
 import { 
   insertActivitySchema, 
@@ -18,7 +19,6 @@ import {
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
 import { getProductByBarcode } from "./openFoodFactsApi";
 import { handleConnectHealthPlatform, handleSyncHealthData } from "./healthIntegrations";
-import { handleSignIn, handleSignUp, handleSocialAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
