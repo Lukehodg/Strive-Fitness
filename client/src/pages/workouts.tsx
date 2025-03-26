@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, apiRequest } from '@/lib/queryClient';
-import { AddIcon } from '@/lib/icons';
+import { AddIcon, ProgressIcon } from '@/lib/icons';
 import { useToast } from '@/hooks/use-toast';
 
 import WorkoutStats from '@/components/workouts/workout-stats';
 import WorkoutTemplates from '@/components/workouts/workout-templates';
 import CurrentWorkout from '@/components/workouts/current-workout';
+import ExerciseProgressList from '@/components/workouts/exercise-progress-list';
 
 // Define interfaces
 interface WorkoutTemplate {
@@ -61,6 +62,7 @@ interface WorkoutSet {
 const Workouts = () => {
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
+  const [showProgressList, setShowProgressList] = useState(false);
   
   // Fetch workout templates
   const { data: workoutTemplates } = useQuery<WorkoutTemplate[]>({
@@ -132,6 +134,14 @@ const Workouts = () => {
         variant: "destructive"
       });
     }
+  };
+  
+  const handleViewProgress = () => {
+    setShowProgressList(true);
+  };
+  
+  const handleCloseProgress = () => {
+    setShowProgressList(false);
   };
   
   // Mutation for starting a new workout
@@ -211,12 +221,22 @@ const Workouts = () => {
     <div className="p-4 space-y-6 bg-gray-900 min-h-screen text-white">
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Workouts</h2>
-        <button 
-          className="bg-primary text-white rounded-full p-2"
-          onClick={handleCreateWorkout}
-        >
-          <AddIcon className="w-6 h-6" />
-        </button>
+        <div className="flex gap-2">
+          <button 
+            className="bg-gray-800 hover:bg-gray-700 text-white rounded-full p-2 transition-colors"
+            onClick={handleViewProgress}
+            title="View Exercise Progress"
+          >
+            <ProgressIcon className="w-6 h-6" />
+          </button>
+          <button 
+            className="bg-primary hover:bg-primary/90 text-white rounded-full p-2 transition-colors"
+            onClick={handleCreateWorkout}
+            title="Create New Workout"
+          >
+            <AddIcon className="w-6 h-6" />
+          </button>
+        </div>
       </div>
       
       <WorkoutStats 
@@ -237,6 +257,13 @@ const Workouts = () => {
           exercises={prepareCurrentWorkoutData()}
           onContinueWorkout={handleContinueWorkout}
         />
+      )}
+      
+      {/* Progress Panel (Full Screen Overlay) */}
+      {showProgressList && (
+        <div className="fixed inset-0 z-50 bg-gray-900 overflow-y-auto">
+          <ExerciseProgressList onClose={handleCloseProgress} />
+        </div>
       )}
     </div>
   );
