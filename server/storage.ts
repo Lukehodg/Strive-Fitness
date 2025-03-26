@@ -17,6 +17,10 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, userData: Partial<User>): Promise<User | undefined>;
+  
+  // Dashboard widgets
+  getUserWidgets(userId: number): Promise<any[] | undefined>;
+  updateUserWidgets(userId: number, widgets: any[]): Promise<any[] | undefined>;
 
   // Exercises
   getExercises(): Promise<Exercise[]>;
@@ -124,7 +128,45 @@ export class MemStorage implements IStorage {
       dailyProteinTarget: 180,
       dailyCarbsTarget: 250,
       dailyFatTarget: 65,
-      profileType: "premium"
+      profileType: "premium",
+      dashboardWidgets: [
+        {
+          id: "widget1",
+          type: "progress",
+          title: "Calories",
+          data: {
+            percentage: 65,
+            color: "#FF5722",
+            label: "Calories",
+            value: "1625",
+            total: "2500"
+          }
+        },
+        {
+          id: "widget2",
+          type: "progress",
+          title: "Steps",
+          data: {
+            percentage: 43,
+            color: "#3F51B5",
+            label: "Steps",
+            value: "4286",
+            total: "10000"
+          }
+        },
+        {
+          id: "widget3",
+          type: "progress",
+          title: "Water",
+          data: {
+            percentage: 80,
+            color: "#03A9F4",
+            label: "Water",
+            value: "2.4",
+            total: "3L"
+          }
+        }
+      ]
     };
     this.createUser(sampleUser);
 
@@ -374,6 +416,23 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...userData };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  // Dashboard widget methods
+  async getUserWidgets(userId: number): Promise<any[] | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    return user.dashboardWidgets as any[] || [];
+  }
+
+  async updateUserWidgets(userId: number, widgets: any[]): Promise<any[] | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, dashboardWidgets: widgets };
+    this.users.set(userId, updatedUser);
+    return widgets;
   }
 
   // Exercise methods

@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   dailyCarbsTarget: integer("daily_carbs_target"),
   dailyFatTarget: integer("daily_fat_target"),
   profileType: text("profile_type").default("standard"),
+  dashboardWidgets: json("dashboard_widgets"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
