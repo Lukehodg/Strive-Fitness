@@ -1329,6 +1329,120 @@ export class MemStorage implements IStorage {
     
     return this.medicationSchedules.delete(id);
   }
+
+  // Subscription plan methods
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values()).filter(
+      (plan) => plan.isActive
+    );
+  }
+
+  async getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined> {
+    return this.subscriptionPlans.get(id);
+  }
+
+  async getSubscriptionPlanByName(planType: SubscriptionPlanType): Promise<SubscriptionPlan | undefined> {
+    return Array.from(this.subscriptionPlans.values()).find(
+      (plan) => plan.name.toLowerCase() === planType.toLowerCase()
+    );
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const id = this.currentSubscriptionPlanId++;
+    const newPlan: SubscriptionPlan = { 
+      ...plan, 
+      id 
+    };
+    this.subscriptionPlans.set(id, newPlan);
+    return newPlan;
+  }
+
+  async updateSubscriptionPlan(id: number, data: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined> {
+    const plan = this.subscriptionPlans.get(id);
+    if (!plan) return undefined;
+
+    const updatedPlan = { ...plan, ...data };
+    this.subscriptionPlans.set(id, updatedPlan);
+    return updatedPlan;
+  }
+
+  // Subscription transactions methods
+  async getUserSubscriptionTransactions(userId: number): Promise<SubscriptionTransaction[]> {
+    return Array.from(this.subscriptionTransactions.values()).filter(
+      (transaction) => transaction.userId === userId
+    );
+  }
+
+  async getSubscriptionTransaction(id: number): Promise<SubscriptionTransaction | undefined> {
+    return this.subscriptionTransactions.get(id);
+  }
+
+  async createSubscriptionTransaction(transaction: InsertSubscriptionTransaction): Promise<SubscriptionTransaction> {
+    const id = this.currentSubscriptionTransactionId++;
+    const newTransaction: SubscriptionTransaction = { 
+      ...transaction, 
+      id 
+    };
+    this.subscriptionTransactions.set(id, newTransaction);
+    return newTransaction;
+  }
+
+  // User subscription management
+  async updateUserSubscription(userId: number, planType: SubscriptionPlanType, expiryDate: Date): Promise<User | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+
+    const updatedUser = { 
+      ...user, 
+      subscriptionPlan: planType,
+      subscriptionExpiry: expiryDate
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async getUserSubscriptionDetails(userId: number): Promise<{plan: SubscriptionPlan, expiryDate: Date | null} | undefined> {
+    const user = await this.getUser(userId);
+    if (!user) return undefined;
+
+    const plan = await this.getSubscriptionPlanByName(user.subscriptionPlan || 'free');
+    if (!plan) return undefined;
+
+    return {
+      plan,
+      expiryDate: user.subscriptionExpiry || null
+    };
+  }
+
+  async checkUserSubscriptionAccess(userId: number, featureName: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) return false;
+
+    // Check if subscription has expired
+    if (user.subscriptionExpiry && new Date(user.subscriptionExpiry) < new Date()) {
+      // Subscription expired, downgrade to free
+      await this.updateUserSubscription(userId, 'free', new Date());
+      return this.checkFeatureAccessByPlan('free', featureName);
+    }
+
+    return this.checkFeatureAccessByPlan(user.subscriptionPlan || 'free', featureName);
+  }
+
+  // Helper method to check feature access by plan name
+  private checkFeatureAccessByPlan(planType: string, featureName: string): boolean {
+    switch (featureName) {
+      case 'analytics':
+        return ['basic', 'premium', 'elite'].includes(planType.toLowerCase());
+      case 'health_integrations':
+        return ['premium', 'elite'].includes(planType.toLowerCase());
+      case 'custom_workouts':
+        return ['basic', 'premium', 'elite'].includes(planType.toLowerCase());
+      case 'pdf_upload':
+        return ['premium', 'elite'].includes(planType.toLowerCase());
+      default:
+        return true; // Default access for unspecified features
+    }
+  }
 }
 
 export const storage = new MemStorage();
