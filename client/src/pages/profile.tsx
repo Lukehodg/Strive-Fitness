@@ -145,23 +145,11 @@ const Profile = () => {
   
   return (
     <div className="p-4 space-y-6 pb-24 max-w-3xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col">
         <ProfileHeader 
           name={user.displayName}
           profileType={user.profileType}
         />
-        
-        {/* Sign Out Button - moved to top on larger screens */}
-        <div className="hidden md:block">
-          <Button 
-            variant="destructive" 
-            onClick={handleSignOut}
-            className="flex items-center gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
-          </Button>
-        </div>
       </div>
       
       <ProfileStats 
@@ -170,18 +158,6 @@ const Profile = () => {
         bmi={calculateBMI(user.height, user.weight)}
         bodyFat={user.bodyFat}
       />
-      
-      {/* Sign Out Button - visible on mobile */}
-      <div className="md:hidden flex justify-end">
-        <Button 
-          variant="destructive" 
-          onClick={handleSignOut}
-          className="flex items-center gap-2"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
-        </Button>
-      </div>
       
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full grid grid-cols-2 mb-6">
@@ -206,7 +182,20 @@ const Profile = () => {
       
       <Separator className="my-6" />
       
-      <div className="text-center">
+      {/* Sign Out Button - moved to bottom */}
+      <div className="flex justify-center">
+        <Button 
+          variant="destructive" 
+          onClick={handleSignOut}
+          className="flex items-center gap-2 w-full max-w-xs"
+          size="lg"
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Sign Out</span>
+        </Button>
+      </div>
+      
+      <div className="text-center mt-6">
         <p className="text-sm text-muted-foreground">Strive Fitness v1.0.0</p>
         <p className="text-xs text-muted-foreground mt-1">© {new Date().getFullYear()} Strive. All rights reserved.</p>
       </div>
