@@ -16,6 +16,7 @@ interface WorkoutTemplate {
   userId: number;
   name: string;
   description?: string;
+  scheduledDay?: string;
   exerciseCount: number;
   duration: number;
   color: string;
