@@ -131,9 +131,32 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
           </div>
           <div className="flex flex-wrap gap-2">
             {meal.foods.map((food, index) => (
-              <span key={index} className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
-                {food.name}
-              </span>
+              <div key={index} className="relative group">
+                <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-gray-300 transition-colors">
+                  {food.name}
+                </span>
+                <div className="absolute hidden group-hover:flex bg-white shadow-md rounded-md p-1 -top-8 right-0 z-10">
+                  <button 
+                    className="text-blue-600 hover:text-blue-800 px-2"
+                    onClick={() => {
+                      setSelectedMeal(meal);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <div className="w-px bg-gray-300"></div>
+                  <button 
+                    className="text-red-600 hover:text-red-800 px-2"
+                    onClick={() => {
+                      setSelectedMeal(meal);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
           {meal.protein && meal.carbs && meal.fat && (
