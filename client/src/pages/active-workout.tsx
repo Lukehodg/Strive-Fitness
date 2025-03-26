@@ -11,8 +11,10 @@ import {
   Flame as FireIcon,
   Dumbbell,
   ChevronDown, 
-  ChevronUp
+  ChevronUp,
+  Bike
 } from 'lucide-react';
+import EnduranceWorkoutSet from '@/components/workouts/endurance-workout-set';
 
 interface ActiveWorkoutProps {
   workoutId: number | string;
@@ -139,24 +141,68 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
   
   // Initialize exercise sets when template exercises load
   useEffect(() => {
-    if (templateExercises && templateExercises.length > 0) {
+    if (templateExercises && templateExercises.length > 0 && exercises) {
       const setsMap = new Map<number, any[]>();
       
       templateExercises.forEach((exercise: any) => {
-        const sets = Array(exercise.sets).fill(null).map((_, index) => ({
-          setNumber: index + 1,
-          weight: 0,
-          reps: 0,
-          type: index === 0 ? 'warmup' : 'working',
-          isCompleted: false
-        }));
+        const exerciseDetails = exercises.find((e: any) => e.id === exercise.exerciseId);
+        const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
+                                    exerciseDetails?.category === 'endurance' ||
+                                    workoutTemplate?.workoutType === 'cardio' ||
+                                    workoutTemplate?.workoutType === 'endurance';
+        
+        // Determine measurement type
+        let measurementType = 'weight_reps'; // default
+        if (exerciseDetails?.measurementType) {
+          measurementType = exerciseDetails.measurementType;
+        } else if (isEnduranceExercise) {
+          // Default endurance measurement type based on exercise name/category
+          if (exerciseDetails?.name?.includes('Running') || 
+              exerciseDetails?.name?.includes('Cycling') ||
+              exerciseDetails?.name?.includes('Swimming')) {
+            measurementType = 'distance_time';
+          } else if (exerciseDetails?.name?.includes('Rowing') ||
+                    exerciseDetails?.name?.includes('Ski Erg')) {
+            measurementType = 'calories';
+          } else {
+            measurementType = 'time_only';
+          }
+        }
+        
+        const sets = Array(exercise.sets).fill(null).map((_, index) => {
+          if (isEnduranceExercise) {
+            // Create endurance-specific set
+            return {
+              setNumber: index + 1,
+              measurementType,
+              distance: 0,
+              duration: 0, // in seconds
+              laps: 0,
+              calories: 0,
+              heartRate: 0,
+              perceivedEffort: 0,
+              pace: '',
+              notes: '',
+              isCompleted: false
+            };
+          } else {
+            // Create standard strength training set
+            return {
+              setNumber: index + 1,
+              weight: 0,
+              reps: 0,
+              type: index === 0 ? 'warmup' : 'working',
+              isCompleted: false
+            };
+          }
+        });
         
         setsMap.set(exercise.exerciseId, sets);
       });
       
       setExerciseSets(setsMap);
     }
-  }, [templateExercises]);
+  }, [templateExercises, exercises, workoutTemplate]);
   
   // Rest timer effect
   useEffect(() => {
