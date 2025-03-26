@@ -18,6 +18,7 @@ import {
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
 import { getProductByBarcode } from "./openFoodFactsApi";
 import { handleConnectHealthPlatform, handleSyncHealthData } from "./healthIntegrations";
+import { handleSignIn, handleSignUp, handleSocialAuth } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
