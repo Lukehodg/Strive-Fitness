@@ -9,11 +9,15 @@ export const HealthMetricTypes = [
   'blood_glucose',
   'weight',
   'body_fat',
-  'sleep',
+  'sleep_duration',
+  'sleep_quality',
   'oxygen_saturation',
   'temperature',
   'cholesterol',
-  'respiration_rate'
+  'respiration_rate',
+  'hrv',
+  'stress_level',
+  'steps'
 ] as const;
 
 // User model

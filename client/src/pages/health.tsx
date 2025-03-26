@@ -334,6 +334,13 @@ export default function HealthPage() {
                               selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
                               selectedMetricType === 'respiration_rate' ? 'Respiration Rate (BPM)' :
                               selectedMetricType === 'temperature' ? 'Body Temperature (°C)' :
+                              selectedMetricType === 'oxygen_saturation' ? 'Oxygen Saturation (%)' :
+                              selectedMetricType === 'hrv' ? 'Heart Rate Variability (ms)' :
+                              selectedMetricType === 'sleep_duration' ? 'Sleep Duration (hours)' :
+                              selectedMetricType === 'sleep_quality' ? 'Sleep Quality (1-10)' :
+                              selectedMetricType === 'stress_level' ? 'Stress Level (1-10)' :
+                              selectedMetricType === 'steps' ? 'Step Count' :
+                              selectedMetricType === 'cholesterol' ? 'Cholesterol (mg/dL)' :
                               'Value'
                             }
                           />
@@ -368,6 +375,15 @@ export default function HealthPage() {
                             selectedMetricType === 'weight' ? 'Weight (kg)' :
                             selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
                             selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
+                            selectedMetricType === 'respiration_rate' ? 'Respiration Rate (BPM)' :
+                            selectedMetricType === 'temperature' ? 'Body Temperature (°C)' :
+                            selectedMetricType === 'oxygen_saturation' ? 'Oxygen Saturation (%)' :
+                            selectedMetricType === 'hrv' ? 'Heart Rate Variability (ms)' :
+                            selectedMetricType === 'sleep_duration' ? 'Sleep Duration (hours)' :
+                            selectedMetricType === 'sleep_quality' ? 'Sleep Quality (1-10)' :
+                            selectedMetricType === 'stress_level' ? 'Stress Level (1-10)' :
+                            selectedMetricType === 'steps' ? 'Step Count' :
+                            selectedMetricType === 'cholesterol' ? 'Cholesterol (mg/dL)' :
                             'Value'}
                           </th>
                         )}
@@ -392,6 +408,13 @@ export default function HealthPage() {
                               selectedMetricType === 'blood_glucose' ? ' mg/dL' :
                               selectedMetricType === 'respiration_rate' ? ' BPM' :
                               selectedMetricType === 'temperature' ? ' °C' :
+                              selectedMetricType === 'oxygen_saturation' ? '%' :
+                              selectedMetricType === 'hrv' ? ' ms' :
+                              selectedMetricType === 'sleep_duration' ? ' hours' :
+                              selectedMetricType === 'sleep_quality' ? '/10' :
+                              selectedMetricType === 'stress_level' ? '/10' :
+                              selectedMetricType === 'steps' ? ' steps' :
+                              selectedMetricType === 'cholesterol' ? ' mg/dL' :
                               ''}
                             </td>
                           )}
@@ -529,6 +552,13 @@ export default function HealthPage() {
                     <SelectItem value="blood_glucose">Blood Glucose</SelectItem>
                     <SelectItem value="respiration_rate">Respiration Rate</SelectItem>
                     <SelectItem value="temperature">Body Temperature</SelectItem>
+                    <SelectItem value="oxygen_saturation">Oxygen Saturation (SpO2)</SelectItem>
+                    <SelectItem value="hrv">Heart Rate Variability</SelectItem>
+                    <SelectItem value="sleep_duration">Sleep Duration</SelectItem>
+                    <SelectItem value="sleep_quality">Sleep Quality</SelectItem>
+                    <SelectItem value="stress_level">Stress Level</SelectItem>
+                    <SelectItem value="steps">Steps</SelectItem>
+                    <SelectItem value="cholesterol">Cholesterol</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -565,12 +595,22 @@ export default function HealthPage() {
                     newMetric.metricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
                     newMetric.metricType === 'respiration_rate' ? 'Respiration Rate (BPM)' :
                     newMetric.metricType === 'temperature' ? 'Body Temperature (°C)' :
+                    newMetric.metricType === 'oxygen_saturation' ? 'Oxygen Saturation (%)' :
+                    newMetric.metricType === 'hrv' ? 'Heart Rate Variability (ms)' :
+                    newMetric.metricType === 'sleep_duration' ? 'Sleep Duration (hours)' :
+                    newMetric.metricType === 'sleep_quality' ? 'Sleep Quality (1-10)' :
+                    newMetric.metricType === 'stress_level' ? 'Stress Level (1-10)' :
+                    newMetric.metricType === 'steps' ? 'Step Count' :
+                    newMetric.metricType === 'cholesterol' ? 'Cholesterol (mg/dL)' :
                     'Value'}
                   </Label>
                   <Input 
                     id="value" 
                     type="number"
-                    step={newMetric.metricType === 'body_fat' ? "0.1" : "1"}
+                    step={newMetric.metricType === 'body_fat' || 
+                          newMetric.metricType === 'temperature' || 
+                          newMetric.metricType === 'sleep_duration' || 
+                          newMetric.metricType === 'hrv' ? "0.1" : "1"}
                     value={newMetric.value}
                     onChange={(e) => setNewMetric({...newMetric, value: e.target.value})}
                     required
