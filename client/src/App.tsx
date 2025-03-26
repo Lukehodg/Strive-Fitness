@@ -13,6 +13,7 @@ import ActiveWorkout from "@/pages/active-workout";
 import Health from "@/pages/health";
 import Steps from "@/pages/steps";
 import Water from "@/pages/water";
+import Analytics from "@/pages/analytics";
 import SignIn from "@/pages/sign-in";
 import AuthPage from "@/pages/auth-page";
 import BottomNavigation from "@/components/ui/bottom-navigation";
@@ -74,6 +75,7 @@ function Router() {
           <ProtectedRoute path="/profile" component={Profile} />
           <ProtectedRoute path="/steps" component={Steps} />
           <ProtectedRoute path="/water" component={Water} />
+          <ProtectedRoute path="/analytics" component={Analytics} />
           <Route path="/auth" component={AuthPage} />
           <Route component={NotFound} />
         </Switch>
