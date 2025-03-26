@@ -41,7 +41,7 @@ const BottomNavigation = () => {
         onClick={() => setLocation('/nutrition')}
         className={`flex flex-col items-center justify-center w-1/5 py-1.5 transition-colors duration-200 ease-in-out ${isActive('/nutrition') ? 'text-primary font-medium' : 'text-gray-400 hover:text-gray-300'}`}
       >
-        <span className="material-icons">restaurant</span>
+        <span className={`material-icons ${isActive('/nutrition') ? 'bg-indigo-500/10 p-1 rounded-full' : ''}`}>restaurant</span>
         <span className="text-xs mt-1">Nutrition</span>
       </button>
       
@@ -49,7 +49,7 @@ const BottomNavigation = () => {
         onClick={() => setLocation('/profile')}
         className={`flex flex-col items-center justify-center w-1/5 py-1.5 transition-colors duration-200 ease-in-out ${isActive('/profile') ? 'text-primary font-medium' : 'text-gray-400 hover:text-gray-300'}`}
       >
-        <span className="material-icons">person</span>
+        <span className={`material-icons ${isActive('/profile') ? 'bg-indigo-500/10 p-1 rounded-full' : ''}`}>person</span>
         <span className="text-xs mt-1">Profile</span>
       </button>
     </nav>
