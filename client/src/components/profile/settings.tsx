@@ -1,5 +1,17 @@
 import React from 'react';
-import { ChevronRight, Bell, Dumbbell, Utensils, UserCog, HelpCircle } from 'lucide-react';
+import { 
+  ChevronRight, 
+  Bell, 
+  Dumbbell, 
+  Utensils, 
+  UserCog, 
+  HelpCircle, 
+  ActivitySquare, 
+  Droplets, 
+  FootprintsIcon, 
+  PillIcon, 
+  ShieldAlert 
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SettingItem {
@@ -18,7 +30,13 @@ const iconMap: Record<string, React.ReactNode> = {
   'fitness_center': <Dumbbell className="h-5 w-5" />,
   'restaurant': <Utensils className="h-5 w-5" />,
   'account_circle': <UserCog className="h-5 w-5" />,
-  'help': <HelpCircle className="h-5 w-5" />
+  'help': <HelpCircle className="h-5 w-5" />,
+  'health_and_safety': <PillIcon className="h-5 w-5" />,
+  'monitoring_health': <ActivitySquare className="h-5 w-5" />,
+  'water_drop': <Droplets className="h-5 w-5" />,
+  'directions_walk': <FootprintsIcon className="h-5 w-5" />,
+  'medication': <PillIcon className="h-5 w-5" />,
+  'lock': <ShieldAlert className="h-5 w-5" />
 };
 
 const Settings: React.FC<SettingsProps> = ({ settings }) => {

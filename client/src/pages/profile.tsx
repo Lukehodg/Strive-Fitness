@@ -44,7 +44,12 @@ const Profile = () => {
     return weight / (heightInMeters * heightInMeters);
   };
   
-  // Handle settings actions
+  // Handle settings actions and navigation
+  const handleSettingsNavigation = (path: string) => {
+    setLocation(path);
+  };
+  
+  // Handle settings actions for features not yet implemented
   const handleSettingsAction = (setting: string) => {
     toast({
       title: setting,
@@ -82,22 +87,42 @@ const Profile = () => {
     {
       icon: 'fitness_center',
       label: 'Workout Settings',
-      action: () => handleSettingsAction('Workout Settings')
+      action: () => handleSettingsNavigation('/workouts')
     },
     {
       icon: 'restaurant',
       label: 'Nutrition Settings',
-      action: () => handleSettingsAction('Nutrition Settings')
+      action: () => handleSettingsNavigation('/nutrition')
     },
     {
       icon: 'health_and_safety',
       label: 'Health Settings',
-      action: () => handleSettingsAction('Health Settings')
+      action: () => handleSettingsNavigation('/health')
+    },
+    {
+      icon: 'monitoring_health',
+      label: 'Analytics',
+      action: () => handleSettingsNavigation('/analytics')
+    },
+    {
+      icon: 'water_drop',
+      label: 'Water Tracking',
+      action: () => handleSettingsNavigation('/water')
+    },
+    {
+      icon: 'directions_walk',
+      label: 'Steps Tracking',
+      action: () => handleSettingsNavigation('/steps')
+    },
+    {
+      icon: 'medication',
+      label: 'Medications',
+      action: () => handleSettingsNavigation('/medications')
     },
     {
       icon: 'account_circle',
       label: 'Account',
-      action: () => handleSettingsAction('Account')
+      action: () => handleSettingsAction('Account Settings')
     },
     {
       icon: 'lock',
