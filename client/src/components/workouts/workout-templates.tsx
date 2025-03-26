@@ -69,12 +69,13 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
         startTime: currentTime.toISOString()
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "Workout Started",
         description: "Your workout has been started",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
+      // Cast data to any to access id property
       setLocation(`/workouts/active/${data.id}`);
     },
     onError: (error) => {
@@ -143,7 +144,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
     startWorkoutMutation.mutate(templateId);
   };
   
-  const handleEditClick = (template: WorkoutTemplate, e: React.MouseEvent<HTMLDivElement>) => {
+  const handleEditClick = (template: WorkoutTemplate, e: React.MouseEvent<Element>) => {
     e.stopPropagation();
     setSelectedTemplate(template);
     setEditFormData({
@@ -156,7 +157,7 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
     setShowEditDialog(true);
   };
   
-  const handleDeleteClick = (template: WorkoutTemplate, e: React.MouseEvent<HTMLDivElement>) => {
+  const handleDeleteClick = (template: WorkoutTemplate, e: React.MouseEvent<Element>) => {
     e.stopPropagation();
     setSelectedTemplate(template);
     setShowDeleteDialog(true);
@@ -341,13 +342,13 @@ const WorkoutTemplates: React.FC<WorkoutTemplatesProps> = ({ templates, onEdit }
               <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
                 <DropdownMenuItem 
                   className="text-white hover:bg-gray-700 cursor-pointer"
-                  onClick={(e) => handleEditClick(template, e as React.MouseEvent)}
+                  onClick={(e) => handleEditClick(template, e as unknown as React.MouseEvent<Element>)}
                 >
                   Edit Workout
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-red-500 hover:bg-gray-700 cursor-pointer"
-                  onClick={(e) => handleDeleteClick(template, e as React.MouseEvent)}
+                  onClick={(e) => handleDeleteClick(template, e as unknown as React.MouseEvent<Element>)}
                 >
                   Delete Workout
                 </DropdownMenuItem>
