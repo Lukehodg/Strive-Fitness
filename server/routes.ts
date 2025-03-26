@@ -15,6 +15,7 @@ import {
 } from "@shared/schema";
 import { searchFoods, getFallbackFoods } from "./nutritionApi";
 import { getProductByBarcode } from "./openFoodFactsApi";
+import { handleConnectHealthPlatform, handleSyncHealthData } from "./healthIntegrations";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // User routes
@@ -733,6 +734,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('X-Using-Fallback', 'true');
       res.status(200).json(fallbackFoods);
     }
+  });
+
+  // Health Integrations routes
+  
+  // Route to connect to a health platform (Apple Health, Garmin, Android Health)
+  app.post("/api/health-integrations/connect", handleConnectHealthPlatform);
+  
+  // Route to sync data from a connected health platform
+  app.get("/api/users/:userId/health-integrations/sync", handleSyncHealthData);
+  
+  // Route to get status of connected health platforms
+  app.get("/api/users/:userId/health-integrations", async (req: Request, res: Response) => {
+    const userId = parseInt(req.params.userId, 10);
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+    
+    // In a real app, we would check the database for connected platforms
+    // For this prototype, we'll return mock connection statuses
+    res.json({
+      apple_health: { connected: true, last_sync: new Date(Date.now() - 3600000).toISOString() },
+      garmin: { connected: false, last_sync: null },
+      android_health: { connected: true, last_sync: new Date(Date.now() - 86400000).toISOString() }
+    });
   });
 
   // Return server
