@@ -15,7 +15,7 @@ type AuthContextType = {
   error: Error | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -122,14 +122,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = () => {
-    setUser(null);
-    localStorage.removeItem("isAuthenticated");
-    
-    toast({
-      title: "Signed out",
-      description: "You have been successfully signed out.",
-    });
+  const signOut = async () => {
+    try {
+      // Call the server signout endpoint
+      await apiRequest('POST', '/api/auth/signout');
+      
+      // Clear user data from state
+      setUser(null);
+      localStorage.removeItem("isAuthenticated");
+      
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (err) {
+      console.error("Sign out error:", err);
+      
+      // Even if the server request fails, clear the local session
+      setUser(null);
+      localStorage.removeItem("isAuthenticated");
+      
+      toast({
+        title: "Sign out issue",
+        description: "Your session has been ended but there was an issue with the server.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

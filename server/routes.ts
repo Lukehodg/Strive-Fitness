@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { handleSignIn, handleSignUp, handleSocialAuth } from "./auth";
+import { handleSignIn, handleSignUp, handleSocialAuth, handleSignOut } from "./auth";
 import { z } from "zod";
 import { 
   insertActivitySchema, 
@@ -997,6 +997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/signin", handleSignIn);
   app.post("/api/auth/signup", handleSignUp);
+  app.post("/api/auth/signout", handleSignOut);
   app.get("/api/auth/social/:provider", handleSocialAuth);
 
   // Return server

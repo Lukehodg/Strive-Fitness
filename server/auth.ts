@@ -158,3 +158,25 @@ export async function handleSocialAuth(req: Request, res: Response) {
     });
   }
 }
+
+/**
+ * Handle user sign out
+ */
+export async function handleSignOut(req: Request, res: Response) {
+  try {
+    // In a real application, we would:
+    // 1. Invalidate the JWT token
+    // 2. Clear session/cookies
+    
+    // For demo purposes, just return success
+    return res.status(200).json({
+      success: true,
+      message: 'Successfully signed out',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to sign out',
+    });
+  }
+}
