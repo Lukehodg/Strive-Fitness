@@ -4,7 +4,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocation } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  Settings as SettingsIcon, 
+  LogOut, 
+  Network,
+  Loader2
+} from 'lucide-react';
 
 import ProfileHeader from '@/components/profile/profile-header';
 import ProfileStats from '@/components/profile/profile-stats';
@@ -18,7 +27,7 @@ const Profile = () => {
   const [user, setUser] = useState<any>(null);
   
   // Fetch user data
-  const { data: userData } = useQuery({
+  const { data: userData, isLoading } = useQuery({
     queryKey: ['/api/user/1'],
     staleTime: 60000, // 1 minute
   });
@@ -44,8 +53,17 @@ const Profile = () => {
     try {
       await signOut();
       setLocation('/auth');
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account",
+      });
     } catch (error) {
       console.error('Error signing out:', error);
+      toast({
+        title: "Error signing out",
+        description: "There was a problem signing you out. Please try again.",
+        variant: "destructive"
+      });
     }
   };
   
@@ -54,14 +72,6 @@ const Profile = () => {
       setUser(userData);
     }
   }, [userData]);
-  
-  if (!user) {
-    return (
-      <div className="p-4 flex items-center justify-center h-[90vh]">
-        <p>Loading...</p>
-      </div>
-    );
-  }
   
   // Define settings items
   const settingsItems = [
@@ -92,12 +102,67 @@ const Profile = () => {
     }
   ];
   
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-6">
+        <div className="flex items-center space-x-4 mb-6">
+          <Skeleton className="w-20 h-20 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-5 w-24" />
+          </div>
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex justify-end">
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Card>
+          <CardContent className="p-6">
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center h-[80vh] space-y-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading your profile...</p>
+      </div>
+    );
+  }
+  
   return (
-    <div className="p-4 space-y-6">
-      <ProfileHeader 
-        name={user.displayName}
-        profileType={user.profileType}
-      />
+    <div className="p-4 space-y-6 pb-24 max-w-3xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <ProfileHeader 
+          name={user.displayName}
+          profileType={user.profileType}
+        />
+        
+        {/* Sign Out Button - moved to top on larger screens */}
+        <div className="hidden md:block">
+          <Button 
+            variant="destructive" 
+            onClick={handleSignOut}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign Out</span>
+          </Button>
+        </div>
+      </div>
       
       <ProfileStats 
         height={user.height}
@@ -106,18 +171,14 @@ const Profile = () => {
         bodyFat={user.bodyFat}
       />
       
-      {/* Sign Out Button */}
-      <div className="flex justify-end">
+      {/* Sign Out Button - visible on mobile */}
+      <div className="md:hidden flex justify-end">
         <Button 
           variant="destructive" 
           onClick={handleSignOut}
           className="flex items-center gap-2"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M16 17l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </Button>
       </div>
@@ -125,28 +186,30 @@ const Profile = () => {
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full grid grid-cols-2 mb-6">
           <TabsTrigger value="settings" className="flex items-center gap-2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <SettingsIcon className="h-4 w-4" />
             <span>Settings</span>
           </TabsTrigger>
           <TabsTrigger value="integrations" className="flex items-center gap-2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 13V12M12 13V10M16 13V8M8 21L12 17L16 21M3 4H21M4 4H20V16C20 16.5523 19.5523 17 19 17H5C4.44772 17 4 16.5523 4 16V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <Network className="h-4 w-4" />
             <span>Integrations</span>
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="settings">
+        <TabsContent value="settings" className="mt-0">
           <Settings settings={settingsItems} />
         </TabsContent>
         
-        <TabsContent value="integrations">
+        <TabsContent value="integrations" className="mt-0">
           <Integrations />
         </TabsContent>
       </Tabs>
+      
+      <Separator className="my-6" />
+      
+      <div className="text-center">
+        <p className="text-sm text-muted-foreground">Strive Fitness v1.0.0</p>
+        <p className="text-xs text-muted-foreground mt-1">© {new Date().getFullYear()} Strive. All rights reserved.</p>
+      </div>
     </div>
   );
 };
