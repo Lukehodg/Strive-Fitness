@@ -1064,7 +1064,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subscriptionPlanId: plan.id,
           amount: plan.price,
           status: 'completed',
-          transactionDate: new Date(),
           paymentMethod: 'card',
           stripePaymentIntentId: null,
           receiptUrl: null,
