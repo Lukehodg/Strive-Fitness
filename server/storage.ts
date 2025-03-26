@@ -908,10 +908,39 @@ export class MemStorage implements IStorage {
       userId: template.userId,
       exerciseCount: template.exerciseCount,
       duration: template.duration,
-      color: template.color !== undefined ? template.color : null
+      color: template.color !== undefined ? template.color : null,
+      scheduledDay: template.scheduledDay || null,
+      description: template.description || null
     };
     this.workoutTemplates.set(id, newTemplate);
     return newTemplate;
+  }
+  
+  async updateWorkoutTemplate(id: number, data: Partial<WorkoutTemplate>): Promise<WorkoutTemplate | undefined> {
+    const template = await this.getWorkoutTemplate(id);
+    if (!template) return undefined;
+    
+    const updatedTemplate = { ...template, ...data };
+    this.workoutTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+  
+  async deleteWorkoutTemplate(id: number): Promise<boolean> {
+    const exists = this.workoutTemplates.has(id);
+    if (exists) {
+      this.workoutTemplates.delete(id);
+      
+      // Also delete all related exercises for this template
+      const allTemplateExercises = Array.from(this.workoutTemplateExercises.values());
+      const relatedExercises = allTemplateExercises.filter(te => te.workoutTemplateId === id);
+      
+      for (const exercise of relatedExercises) {
+        this.workoutTemplateExercises.delete(exercise.id);
+      }
+      
+      return true;
+    }
+    return false;
   }
 
   // Workout template exercises methods

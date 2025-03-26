@@ -100,6 +100,8 @@ export const workoutTemplates = pgTable("workout_templates", {
   exerciseCount: integer("exercise_count").notNull(),
   duration: integer("duration").notNull(),
   color: text("color").default("#3F51B5"),
+  scheduledDay: text("scheduled_day"), // Monday, Tuesday, etc.
+  description: text("description"),
 });
 
 export const insertWorkoutTemplateSchema = createInsertSchema(workoutTemplates).omit({
