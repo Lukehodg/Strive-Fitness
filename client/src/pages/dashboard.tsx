@@ -36,6 +36,7 @@ interface DashboardActivity {
   type: "workout" | "nutrition" | "medication";
   title: string;
   description: string;
+  date?: string;
   [key: string]: any;
 }
 
@@ -52,6 +53,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAddWidgetDialogOpen, setIsAddWidgetDialogOpen] = useState(false);
   const [widgets, setWidgets] = useState<Widget[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
   const queryClient = useQueryClient();
   
@@ -209,6 +211,12 @@ const Dashboard = () => {
     setLocation('/workouts');
   };
   
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    // In a real app, we would fetch data for the selected date
+    // For now, we'll just update the state
+  };
+  
   const handleAddWidget = (widgetData: Omit<Widget, 'id'>) => {
     const newWidget: Widget = {
       ...widgetData,
@@ -279,11 +287,14 @@ const Dashboard = () => {
       <TodayActivities 
         activities={activities}
         onViewAll={handleViewAllActivities}
+        selectedDate={selectedDate}
       />
       
       <WeeklyWorkoutPlan 
         workoutPlan={generateWeeklyPlan()}
         onViewAll={handleViewAllWorkouts}
+        onDateSelect={handleDateSelect}
+        selectedDate={selectedDate}
       />
       
       {/* Add Widget Dialog */}
