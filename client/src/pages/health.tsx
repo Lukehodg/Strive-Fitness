@@ -16,8 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import HealthIntegrations from "@/components/health/health-integrations";
-import PlatformMetrics from "@/components/health/platform-metrics";
 // Import MedicationsTab directly with a relative path
 import MedicationsTab from "../components/health/medications-tab";
 
@@ -236,12 +234,6 @@ export default function HealthPage() {
               <path d="M17 6V14M14 9H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <span>Medications</span>
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-2 py-2.5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 13V12M12 13V10M16 13V8M8 21L12 17L16 21M3 4H21M4 4H20V16C20 16.5523 19.5523 17 19 17H5C4.44772 17 4 16.5523 4 16V4Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span>Devices</span>
           </TabsTrigger>
         </TabsList>
         
@@ -675,10 +667,7 @@ export default function HealthPage() {
           <MedicationsTab />
         </TabsContent>
         
-        <TabsContent value="integrations" className="mt-6 space-y-8">
-          <HealthIntegrations />
-          <PlatformMetrics />
-        </TabsContent>
+
       </Tabs>
       
       <Dialog open={addMetricOpen} onOpenChange={setAddMetricOpen}>
