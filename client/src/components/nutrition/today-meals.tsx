@@ -135,7 +135,7 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
                 </span>
                 <div className="absolute hidden group-hover:flex bg-gray-800 shadow-md rounded-md p-1 -top-8 right-0 z-10">
                   <button 
-                    className="text-blue-600 hover:text-blue-800 px-2"
+                    className="text-blue-400 hover:text-blue-300 px-2"
                     onClick={() => {
                       setSelectedMeal(meal);
                       setIsEditDialogOpen(true);
@@ -143,9 +143,9 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
                   >
                     Edit
                   </button>
-                  <div className="w-px bg-gray-300"></div>
+                  <div className="w-px bg-gray-600"></div>
                   <button 
-                    className="text-red-600 hover:text-red-800 px-2"
+                    className="text-red-400 hover:text-red-300 px-2"
                     onClick={() => {
                       setSelectedMeal(meal);
                       setIsDeleteDialogOpen(true);
@@ -159,9 +159,9 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
           </div>
           {meal.protein && meal.carbs && meal.fat && (
             <div className="flex mt-2 gap-2 text-xs">
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">P: {meal.protein}g</span>
-              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">C: {meal.carbs}g</span>
-              <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full">F: {meal.fat}g</span>
+              <span className="bg-blue-900 text-blue-300 px-2 py-1 rounded-full">P: {meal.protein}g</span>
+              <span className="bg-green-900 text-green-300 px-2 py-1 rounded-full">C: {meal.carbs}g</span>
+              <span className="bg-red-900 text-red-300 px-2 py-1 rounded-full">F: {meal.fat}g</span>
             </div>
           )}
         </div>
