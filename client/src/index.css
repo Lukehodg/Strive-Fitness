@@ -4,28 +4,44 @@
 @tailwind utilities;
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.6rem;
 }
 
 body {
-  @apply bg-gray-50 dark:bg-gray-900 min-h-screen;
+  @apply bg-[#1E1E1E] min-h-screen;
 }
 
 .glass-card {
-  @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700;
+  @apply bg-[#2A2A2A]/90 backdrop-blur-sm border border-gray-800 shadow-md;
 }
 
 .section-header {
-  @apply text-2xl font-bold text-gray-900 dark:text-white mb-6;
+  @apply text-2xl font-bold text-white mb-6;
 }
 
 .stats-card {
   @apply glass-card rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.dark-card {
+  @apply bg-[#2A2A2A] border border-gray-800 rounded-lg shadow-md;
+}
+
+.dark-input {
+  @apply bg-[#333333] border border-gray-700 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary;
+}
+
+.dark-button {
+  @apply bg-[#333333] text-white hover:bg-[#444444] transition-colors rounded-md px-4 py-2;
+}
+
+.dark-button-primary {
+  @apply bg-primary text-white hover:bg-primary/90 transition-colors rounded-md px-4 py-2;
+}
+
+.macronutrient-tag {
+  @apply inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full;
+}
 
 @keyframes scan {
   0% {
@@ -51,6 +67,6 @@ body {
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased text-foreground;
   }
 }
