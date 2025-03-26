@@ -289,7 +289,7 @@ export default function AuthPage() {
       </div>
       
       {/* Right column - Hero */}
-      <div className="hidden md:flex md:w-1/2 bg-gradient-to-b from-blue-600 to-purple-700 flex-col justify-center items-center p-8 text-white">
+      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-emerald-700 to-blue-700 flex-col justify-center items-center p-8 text-white">
         <div className="max-w-md mx-auto text-center">
           <h1 className="text-5xl font-bold mb-6">Track. Progress. Conquer.</h1>
           <p className="text-xl mb-8">
