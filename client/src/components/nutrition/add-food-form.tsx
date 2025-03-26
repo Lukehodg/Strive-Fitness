@@ -14,7 +14,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -102,18 +105,30 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof foodSchema>) => {
     try {
+      let quantityDisplay: string;
+      let actualQuantity = data.quantity;
+      
+      // If using actual amount, display that instead of servings
+      if (useActualAmount && data.actualAmount) {
+        quantityDisplay = `${data.actualAmount} ${servingUnit}`;
+      } else {
+        quantityDisplay = data.quantity > 1 
+          ? `${data.quantity} servings (${data.quantity * (standardAmount || 1)} ${servingUnit})`
+          : `${data.quantity} serving (${standardAmount} ${servingUnit})`;
+      }
+      
       // Calculate total calories with quantity
-      const calories = calculateCalories(data.protein, data.carbs, data.fat, data.quantity);
+      const calories = calculateCalories(data.protein, data.carbs, data.fat, actualQuantity);
       
       const meal = {
         userId: 1, // In a real app, this would come from user context
         name: data.mealName,
         timestamp: new Date(), // Send the actual Date object, not a string
         calories: Math.round(calories),
-        protein: data.protein * data.quantity,
-        carbs: data.carbs * data.quantity,
-        fat: data.fat * data.quantity,
-        foods: [`${data.name} (${data.quantity} ${servingUnit})`],
+        protein: data.protein * actualQuantity,
+        carbs: data.carbs * actualQuantity,
+        fat: data.fat * actualQuantity,
+        foods: [`${data.name} (${quantityDisplay})`],
       };
       
       await apiRequest('POST', '/api/meals', meal);
@@ -216,6 +231,15 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
     // Store the serving unit in a ref to display in the quantity field
     if (food.serving_unit) {
       setServingUnit(food.serving_unit);
+      
+      // Automatically enable actual amount entry for common volume-based units
+      const volumeUnits = ['ml', 'l', 'cup', 'oz', 'fl oz', 'tbsp', 'tsp'];
+      if (volumeUnits.some(unit => food.serving_unit.toLowerCase().includes(unit))) {
+        setUseActualAmount(true);
+        
+        // Set default actual amount same as standard amount
+        form.setValue('actualAmount', food.serving_qty || 1);
+      }
     }
     
     setSelectedTab('manual');
@@ -352,24 +376,94 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                 />
               </div>
               
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantity ({servingUnit})</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input type="number" step="0.1" {...field} />
-                        <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-sm">{servingUnit}</span>
-                        </div>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <Switch
+                    id="useActualAmount"
+                    checked={useActualAmount}
+                    onCheckedChange={setUseActualAmount}
+                    className="mr-2"
+                  />
+                  <Label htmlFor="useActualAmount" className="cursor-pointer text-sm text-gray-600">
+                    Use actual amount instead of servings
+                  </Label>
+                </div>
+                
+                {useActualAmount ? (
+                  <FormField
+                    control={form.control}
+                    name="actualAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount consumed ({servingUnit})</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input 
+                              type="number" 
+                              step="0.1" 
+                              {...field} 
+                              value={field.value ?? ""}
+                              onChange={(e) => {
+                                field.onChange(e.target.valueAsNumber);
+                                // Calculate the equivalent number of servings
+                                if (standardAmount && e.target.valueAsNumber) {
+                                  const servings = e.target.valueAsNumber / standardAmount;
+                                  form.setValue('quantity', servings);
+                                  
+                                  // Automatic unit conversion for common units
+                                  // Convert liters to milliliters
+                                  if (servingUnit === 'l' && e.target.valueAsNumber < 1) {
+                                    setServingUnit('ml');
+                                    form.setValue('actualAmount', e.target.valueAsNumber * 1000);
+                                  }
+                                  // Convert milliliters to liters
+                                  else if (servingUnit === 'ml' && e.target.valueAsNumber >= 1000) {
+                                    setServingUnit('l');
+                                    form.setValue('actualAmount', e.target.valueAsNumber / 1000);
+                                  }
+                                  // Convert kg to g
+                                  else if (servingUnit === 'kg' && e.target.valueAsNumber < 1) {
+                                    setServingUnit('g');
+                                    form.setValue('actualAmount', e.target.valueAsNumber * 1000);
+                                  }
+                                  // Convert g to kg
+                                  else if (servingUnit === 'g' && e.target.valueAsNumber >= 1000) {
+                                    setServingUnit('kg');
+                                    form.setValue('actualAmount', e.target.valueAsNumber / 1000);
+                                  }
+                                }
+                              }}
+                            />
+                            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-sm">{servingUnit}</span>
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Enter the exact amount consumed (e.g., 500ml or 250g)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Number of servings ({standardAmount} {servingUnit} each)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input type="number" step="0.1" {...field} />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </div>
               
               <FormField
                 control={form.control}
@@ -423,12 +517,18 @@ const AddFoodForm: React.FC<AddFoodFormProps> = ({ onSuccess, defaultMealName = 
                 <div className="text-sm text-gray-500 mb-1">Calculated Calories</div>
                 <div className="text-xl font-bold">
                   {calculateCalories(
-                    form.watch('protein') || 0,
-                    form.watch('carbs') || 0,
-                    form.watch('fat') || 0,
-                    form.watch('quantity') || 1
+                    Number(form.watch('protein') || 0),
+                    Number(form.watch('carbs') || 0),
+                    Number(form.watch('fat') || 0),
+                    Number(form.watch('quantity') || 1)
                   )} cal
                 </div>
+                {useActualAmount && standardAmount && form.watch('actualAmount') && (
+                  <div className="text-sm text-gray-500 mt-1">
+                    For {form.watch('actualAmount')} {servingUnit} 
+                    ({((Number(form.watch('actualAmount')) || 0) / standardAmount).toFixed(1)} servings)
+                  </div>
+                )}
               </div>
               
               <Button 
