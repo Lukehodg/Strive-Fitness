@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "wouter";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Helper functions for date manipulation and formatting
@@ -29,10 +30,13 @@ function formatChartDate(date: Date | string): string {
 
 // Main Health Page Component
 export default function HealthPage() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("metrics");
   const [selectedMetricType, setSelectedMetricType] = useState("blood_pressure");
   const [timeRange, setTimeRange] = useState("30");
   const [addMetricOpen, setAddMetricOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -159,202 +163,332 @@ export default function HealthPage() {
   
   const chartData = prepareChartData();
   
+  // Handle file selection
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const newFiles = Array.from(event.target.files).filter(file => file.type === 'application/pdf');
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      
+      // Display success toast
+      if (newFiles.length > 0) {
+        toast({
+          title: "Files added",
+          description: `${newFiles.length} PDF file${newFiles.length > 1 ? 's' : ''} added successfully`,
+        });
+      }
+    }
+  };
+  
+  // Trigger file input click
+  const triggerFileUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  // Remove a file from the list
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Health Tracking</h1>
-        <Button onClick={() => setAddMetricOpen(true)}>Add New Measurement</Button>
+        <Button 
+          onClick={() => setAddMetricOpen(true)}
+          className="bg-primary hover:bg-primary/90"
+        >
+          Add Measurement
+        </Button>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="col-span-1">
-          <CardHeader>
-            <CardTitle>Metrics</CardTitle>
-            <CardDescription>Choose a health metric to track</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div 
-                className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_pressure' ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                onClick={() => setSelectedMetricType('blood_pressure')}
-              >
-                <h3 className="font-medium">Blood Pressure</h3>
-                <p className="text-sm text-muted-foreground">Systolic/Diastolic (mmHg)</p>
-              </div>
-              
-              <div 
-                className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'heart_rate' ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                onClick={() => setSelectedMetricType('heart_rate')}
-              >
-                <h3 className="font-medium">Heart Rate</h3>
-                <p className="text-sm text-muted-foreground">Beats per minute (BPM)</p>
-              </div>
-              
-              <div 
-                className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'weight' ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                onClick={() => setSelectedMetricType('weight')}
-              >
-                <h3 className="font-medium">Weight</h3>
-                <p className="text-sm text-muted-foreground">Kilograms (kg)</p>
-              </div>
-              
-              <div 
-                className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'body_fat' ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                onClick={() => setSelectedMetricType('body_fat')}
-              >
-                <h3 className="font-medium">Body Fat</h3>
-                <p className="text-sm text-muted-foreground">Percentage (%)</p>
-              </div>
-              
-              <div 
-                className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_glucose' ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                onClick={() => setSelectedMetricType('blood_glucose')}
-              >
-                <h3 className="font-medium">Blood Glucose</h3>
-                <p className="text-sm text-muted-foreground">mg/dL</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="mb-8">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="metrics">Health Metrics</TabsTrigger>
+          <TabsTrigger value="blood-tests">Blood Test Results</TabsTrigger>
+        </TabsList>
         
-        <Card className="col-span-1 lg:col-span-3">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>
-                  {selectedMetricType === 'blood_pressure' && 'Blood Pressure History'}
-                  {selectedMetricType === 'heart_rate' && 'Heart Rate History'}
-                  {selectedMetricType === 'weight' && 'Weight History'}
-                  {selectedMetricType === 'body_fat' && 'Body Fat History'}
-                  {selectedMetricType === 'blood_glucose' && 'Blood Glucose History'}
-                </CardTitle>
-                <CardDescription>
-                  {formatDate(startDate)} - {formatDate(endDate)}
-                </CardDescription>
-              </div>
-              <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Time Range" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">Last Week</SelectItem>
-                  <SelectItem value="30">Last Month</SelectItem>
-                  <SelectItem value="90">Last 3 Months</SelectItem>
-                  <SelectItem value="180">Last 6 Months</SelectItem>
-                  <SelectItem value="365">Last Year</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="h-80 flex items-center justify-center">
-                <p>Loading health metrics...</p>
-              </div>
-            ) : healthMetrics.length === 0 ? (
-              <div className="h-80 flex items-center justify-center flex-col">
-                <p className="text-muted-foreground mb-2">No data available for this period</p>
-                <Button onClick={() => setAddMetricOpen(true)}>Add First Measurement</Button>
-              </div>
-            ) : (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  {selectedMetricType === 'blood_pressure' ? (
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="systolic" stroke="#8884d8" name="Systolic" />
-                      <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" name="Diastolic" />
-                    </LineChart>
-                  ) : (
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#8884d8" 
-                        name={
-                          selectedMetricType === 'heart_rate' ? 'Heart Rate (BPM)' :
-                          selectedMetricType === 'weight' ? 'Weight (kg)' :
-                          selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
-                          selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
-                          'Value'
-                        }
-                      />
-                    </LineChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      
-      {healthMetrics.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Measurements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Date</th>
-                    {selectedMetricType === 'blood_pressure' ? (
-                      <>
-                        <th className="text-left p-2">Systolic</th>
-                        <th className="text-left p-2">Diastolic</th>
-                      </>
-                    ) : (
-                      <th className="text-left p-2">
-                        {selectedMetricType === 'heart_rate' ? 'Heart Rate (BPM)' :
-                        selectedMetricType === 'weight' ? 'Weight (kg)' :
-                        selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
-                        selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
-                        'Value'}
-                      </th>
-                    )}
-                    <th className="text-left p-2">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {healthMetrics.slice(0, 5).map((metric: any) => (
-                    <tr key={metric.id} className="border-b border-muted">
-                      <td className="p-2">{formatDate(new Date(metric.timestamp))}</td>
+        <TabsContent value="metrics" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="col-span-1">
+              <CardHeader>
+                <CardTitle>Metrics</CardTitle>
+                <CardDescription>Choose a health metric to track</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_pressure' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedMetricType('blood_pressure')}
+                  >
+                    <h3 className="font-medium">Blood Pressure</h3>
+                    <p className="text-sm text-muted-foreground">Systolic/Diastolic (mmHg)</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'heart_rate' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedMetricType('heart_rate')}
+                  >
+                    <h3 className="font-medium">Heart Rate</h3>
+                    <p className="text-sm text-muted-foreground">Beats per minute (BPM)</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'weight' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedMetricType('weight')}
+                  >
+                    <h3 className="font-medium">Weight</h3>
+                    <p className="text-sm text-muted-foreground">Kilograms (kg)</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'body_fat' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedMetricType('body_fat')}
+                  >
+                    <h3 className="font-medium">Body Fat</h3>
+                    <p className="text-sm text-muted-foreground">Percentage (%)</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 rounded-md cursor-pointer ${selectedMetricType === 'blood_glucose' ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedMetricType('blood_glucose')}
+                  >
+                    <h3 className="font-medium">Blood Glucose</h3>
+                    <p className="text-sm text-muted-foreground">mg/dL</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="col-span-1 lg:col-span-3">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>
+                      {selectedMetricType === 'blood_pressure' && 'Blood Pressure History'}
+                      {selectedMetricType === 'heart_rate' && 'Heart Rate History'}
+                      {selectedMetricType === 'weight' && 'Weight History'}
+                      {selectedMetricType === 'body_fat' && 'Body Fat History'}
+                      {selectedMetricType === 'blood_glucose' && 'Blood Glucose History'}
+                    </CardTitle>
+                    <CardDescription>
+                      {formatDate(startDate)} - {formatDate(endDate)}
+                    </CardDescription>
+                  </div>
+                  <Select value={timeRange} onValueChange={setTimeRange}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Time Range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">Last Week</SelectItem>
+                      <SelectItem value="30">Last Month</SelectItem>
+                      <SelectItem value="90">Last 3 Months</SelectItem>
+                      <SelectItem value="180">Last 6 Months</SelectItem>
+                      <SelectItem value="365">Last Year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="h-80 flex items-center justify-center">
+                    <p>Loading health metrics...</p>
+                  </div>
+                ) : healthMetrics.length === 0 ? (
+                  <div className="h-80 flex items-center justify-center flex-col">
+                    <p className="text-muted-foreground mb-2">No data available for this period</p>
+                    <Button onClick={() => setAddMetricOpen(true)}>Add First Measurement</Button>
+                  </div>
+                ) : (
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
                       {selectedMetricType === 'blood_pressure' ? (
-                        <>
-                          <td className="p-2">{metric.systolic} mmHg</td>
-                          <td className="p-2">{metric.diastolic} mmHg</td>
-                        </>
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line type="monotone" dataKey="systolic" stroke="#8884d8" name="Systolic" />
+                          <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" name="Diastolic" />
+                        </LineChart>
                       ) : (
-                        <td className="p-2">
-                          {metric.value}
-                          {selectedMetricType === 'heart_rate' ? ' BPM' :
-                          selectedMetricType === 'weight' ? ' kg' :
-                          selectedMetricType === 'body_fat' ? '%' :
-                          selectedMetricType === 'blood_glucose' ? ' mg/dL' :
-                          ''}
-                        </td>
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="date" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line 
+                            type="monotone" 
+                            dataKey="value" 
+                            stroke="#8884d8" 
+                            name={
+                              selectedMetricType === 'heart_rate' ? 'Heart Rate (BPM)' :
+                              selectedMetricType === 'weight' ? 'Weight (kg)' :
+                              selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
+                              selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
+                              'Value'
+                            }
+                          />
+                        </LineChart>
                       )}
-                      <td className="p-2">{metric.notes || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          {healthMetrics.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Measurements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Date</th>
+                        {selectedMetricType === 'blood_pressure' ? (
+                          <>
+                            <th className="text-left p-2">Systolic</th>
+                            <th className="text-left p-2">Diastolic</th>
+                          </>
+                        ) : (
+                          <th className="text-left p-2">
+                            {selectedMetricType === 'heart_rate' ? 'Heart Rate (BPM)' :
+                            selectedMetricType === 'weight' ? 'Weight (kg)' :
+                            selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
+                            selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
+                            'Value'}
+                          </th>
+                        )}
+                        <th className="text-left p-2">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {healthMetrics.slice(0, 5).map((metric: any) => (
+                        <tr key={metric.id} className="border-b border-muted">
+                          <td className="p-2">{formatDate(new Date(metric.timestamp))}</td>
+                          {selectedMetricType === 'blood_pressure' ? (
+                            <>
+                              <td className="p-2">{metric.systolic} mmHg</td>
+                              <td className="p-2">{metric.diastolic} mmHg</td>
+                            </>
+                          ) : (
+                            <td className="p-2">
+                              {metric.value}
+                              {selectedMetricType === 'heart_rate' ? ' BPM' :
+                              selectedMetricType === 'weight' ? ' kg' :
+                              selectedMetricType === 'body_fat' ? '%' :
+                              selectedMetricType === 'blood_glucose' ? ' mg/dL' :
+                              ''}
+                            </td>
+                          )}
+                          <td className="p-2">{metric.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="blood-tests" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Blood Test Results</CardTitle>
+              <CardDescription>Upload and manage your blood test results in PDF format</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
+                  <div className="mb-4 rounded-full bg-primary/10 p-3 text-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Drag & Drop your PDF files here</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                    Upload your blood test results to keep a record of your health history
+                  </p>
+                  <Button onClick={triggerFileUpload}>
+                    Select PDF Files
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="application/pdf"
+                    onChange={handleFileChange}
+                    multiple
+                  />
+                </div>
+                
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold">Uploaded Files</h3>
+                    
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-muted/50 p-3 rounded-md">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-primary/10 p-2 rounded-md text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                              <polyline points="14 2 14 8 20 8" />
+                              <path d="M9 15s1 1 3 1 3-1 3-1" />
+                              <path d="M9 12h.01M15 12h.01" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.size < 1024 * 1024
+                                ? `${(file.size / 1024).toFixed(1)} KB`
+                                : `${(file.size / (1024 * 1024)).toFixed(1)} MB`}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive/80 h-8 w-8 p-0"
+                          onClick={() => removeFile(index)}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                          <span className="sr-only">Remove</span>
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <Alert className="mt-6 bg-primary/5 border-primary/10">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-primary">
+                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                        <path d="m9 12 2 2 4-4" />
+                      </svg>
+                      <AlertTitle className="text-sm font-medium">Files Saved Locally</AlertTitle>
+                      <AlertDescription className="text-xs text-muted-foreground">
+                        Your PDFs are stored locally on your device. They will be encrypted and only visible to you.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       
-      {/* Dialog for adding new health metrics */}
       <Dialog open={addMetricOpen} onOpenChange={setAddMetricOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <form onSubmit={handleAddMetric}>
@@ -465,6 +599,19 @@ export default function HealthPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {/* Floating action button for quick add measurement */}
+      <div className="fixed bottom-24 right-6">
+        <Button 
+          onClick={() => setAddMetricOpen(true)} 
+          className="h-14 w-14 rounded-full shadow-lg"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span className="sr-only">Add Measurement</span>
+        </Button>
+      </div>
     </div>
   );
 }
