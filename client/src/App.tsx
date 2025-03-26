@@ -51,7 +51,7 @@ function Router() {
   }
   
   return (
-    <div className="min-h-screen bg-[#F5F5F5] pb-20 font-['Roboto',sans-serif] text-[#333333]">
+    <div className="min-h-screen bg-[#1E1E1E] pb-20 font-['Roboto',sans-serif] text-[#F5F5F5]">
       <header className="bg-primary text-white p-4 shadow-md">
         <div className="flex justify-between items-center max-w-lg mx-auto">
           <h1 className="text-xl font-bold font-['Inter',sans-serif]">Strive</h1>

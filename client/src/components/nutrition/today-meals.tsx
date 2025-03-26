@@ -87,14 +87,14 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4">
+    <div className="bg-[#2A2A2A] rounded-xl shadow-md p-4">
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-['Inter',sans-serif] text-lg font-semibold">Today's Meals</h3>
         <span className="text-primary text-sm cursor-pointer" onClick={onAddMeal}>Add Meal</span>
       </div>
       
       {meals.map((meal) => (
-        <div key={meal.id} className="bg-[#F5F5F5] rounded-lg p-3 mb-3 last:mb-0">
+        <div key={meal.id} className="bg-[#333333] rounded-lg p-3 mb-3 last:mb-0">
           <div className="flex justify-between mb-2">
             <h4 className="font-medium">{meal.name}</h4>
             <div className="flex items-center gap-2">
@@ -130,10 +130,10 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
           <div className="flex flex-wrap gap-2">
             {meal.foods.map((food, index) => (
               <div key={index} className="relative group">
-                <span className="bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-gray-300 transition-colors">
+                <span className="bg-gray-700 text-gray-100 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-gray-600 transition-colors">
                   {food.name}
                 </span>
-                <div className="absolute hidden group-hover:flex bg-white shadow-md rounded-md p-1 -top-8 right-0 z-10">
+                <div className="absolute hidden group-hover:flex bg-gray-800 shadow-md rounded-md p-1 -top-8 right-0 z-10">
                   <button 
                     className="text-blue-600 hover:text-blue-800 px-2"
                     onClick={() => {
@@ -168,8 +168,8 @@ const TodayMeals: React.FC<TodayMealsProps> = ({ meals, onAddMeal }) => {
       ))}
       
       {meals.length === 0 && (
-        <div className="bg-[#F5F5F5] rounded-lg p-4 text-center">
-          <p className="text-gray-500">No meals recorded today</p>
+        <div className="bg-[#333333] rounded-lg p-4 text-center">
+          <p className="text-gray-300">No meals recorded today</p>
           <button 
             className="mt-2 bg-primary text-white text-sm px-4 py-2 rounded-lg"
             onClick={onAddMeal}
