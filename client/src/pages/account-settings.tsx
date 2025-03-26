@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '../lib/queryClient';
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronLeft, UserCog, Save, Camera, Mail, Phone, Lock } from 'lucide-react';
@@ -52,11 +53,31 @@ const AccountSettings = () => {
     }
   }, [userData]);
   
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      const userId = (userData as any)?.id || 1;
+      const res = await apiRequest('PATCH', `/api/user/${userId}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/1'] });
+      toast({
+        title: 'Changes Saved',
+        description: 'Your account settings have been updated successfully.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error Saving Changes',
+        description: error.message || 'An error occurred while saving your changes.',
+        variant: 'destructive'
+      });
+    }
+  });
+  
   const handleSaveChanges = () => {
-    toast({
-      title: 'Changes Saved',
-      description: 'Your account settings have been updated successfully.',
-    });
+    updateUserMutation.mutate(formData);
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,10 +126,7 @@ const AccountSettings = () => {
             <Avatar className="w-20 h-20">
               <AvatarImage src="" alt="Profile Photo" />
               <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {userData && 'displayName' in userData 
-                  ? (userData as {displayName: string}).displayName.substring(0, 2).toUpperCase() 
-                  : 'JD'
-                }
+                {formData.displayName ? formData.displayName.substring(0, 2).toUpperCase() : 'JD'}
               </AvatarFallback>
             </Avatar>
             <Button variant="outline" onClick={handleProfilePhotoUpload} className="flex gap-2">
