@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import HealthIntegrations from "@/components/health/health-integrations";
+import PlatformMetrics from "@/components/health/platform-metrics";
 
 // Helper functions for date manipulation and formatting
 function formatDate(date: Date): string {
@@ -331,6 +332,8 @@ export default function HealthPage() {
                               selectedMetricType === 'weight' ? 'Weight (kg)' :
                               selectedMetricType === 'body_fat' ? 'Body Fat (%)' :
                               selectedMetricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
+                              selectedMetricType === 'respiration_rate' ? 'Respiration Rate (BPM)' :
+                              selectedMetricType === 'temperature' ? 'Body Temperature (°C)' :
                               'Value'
                             }
                           />
@@ -387,6 +390,8 @@ export default function HealthPage() {
                               selectedMetricType === 'weight' ? ' kg' :
                               selectedMetricType === 'body_fat' ? '%' :
                               selectedMetricType === 'blood_glucose' ? ' mg/dL' :
+                              selectedMetricType === 'respiration_rate' ? ' BPM' :
+                              selectedMetricType === 'temperature' ? ' °C' :
                               ''}
                             </td>
                           )}
@@ -490,8 +495,9 @@ export default function HealthPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="integrations" className="mt-6">
+        <TabsContent value="integrations" className="mt-6 space-y-8">
           <HealthIntegrations />
+          <PlatformMetrics />
         </TabsContent>
       </Tabs>
       
@@ -521,6 +527,8 @@ export default function HealthPage() {
                     <SelectItem value="weight">Weight</SelectItem>
                     <SelectItem value="body_fat">Body Fat</SelectItem>
                     <SelectItem value="blood_glucose">Blood Glucose</SelectItem>
+                    <SelectItem value="respiration_rate">Respiration Rate</SelectItem>
+                    <SelectItem value="temperature">Body Temperature</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -555,6 +563,8 @@ export default function HealthPage() {
                     newMetric.metricType === 'weight' ? 'Weight (kg)' :
                     newMetric.metricType === 'body_fat' ? 'Body Fat (%)' :
                     newMetric.metricType === 'blood_glucose' ? 'Blood Glucose (mg/dL)' :
+                    newMetric.metricType === 'respiration_rate' ? 'Respiration Rate (BPM)' :
+                    newMetric.metricType === 'temperature' ? 'Body Temperature (°C)' :
                     'Value'}
                   </Label>
                   <Input 
