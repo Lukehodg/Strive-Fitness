@@ -1,5 +1,7 @@
 import React from 'react';
 import { format, addDays } from 'date-fns';
+import { useLocation } from 'wouter';
+import { Calendar } from 'lucide-react';
 
 interface WorkoutDay {
   date: Date;
@@ -21,11 +23,27 @@ const WeeklyWorkoutPlan: React.FC<WeeklyWorkoutPlanProps> = ({
   onDateSelect,
   selectedDate 
 }) => {
+  const [_, navigate] = useLocation();
+
+  const handleCalendarView = () => {
+    navigate('/weekly-plan');
+  };
+
   return (
     <div className="bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-700">
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-['Inter',sans-serif] text-lg font-semibold text-white">Weekly Workout Plan</h3>
-        <span className="text-primary text-sm cursor-pointer hover:text-primary/80" onClick={onViewAll}>View All</span>
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={handleCalendarView} 
+            className="text-primary text-sm flex items-center justify-center hover:text-primary/80"
+            title="Calendar View"
+          >
+            <Calendar size={18} className="mr-1" />
+            <span>Calendar</span>
+          </button>
+          <span className="text-primary text-sm cursor-pointer hover:text-primary/80" onClick={onViewAll}>View All</span>
+        </div>
       </div>
       
       <div className="flex space-x-3 overflow-x-auto pb-2">

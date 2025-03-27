@@ -10,6 +10,7 @@ import Nutrition from "@/pages/nutrition";
 import Profile from "@/pages/profile";
 import CreateWorkout from "@/pages/create-workout";
 import ActiveWorkout from "@/pages/active-workout";
+import WeeklyPlan from "@/pages/weekly-plan";
 import Health from "@/pages/health";
 import Steps from "@/pages/steps";
 import Water from "@/pages/water";
@@ -170,6 +171,7 @@ function Router() {
           <ProtectedRoute path="/water" component={Water} />
           <ProtectedRoute path="/analytics" component={Analytics} />
           <ProtectedRoute path="/medications" component={Medications} />
+          <ProtectedRoute path="/weekly-plan" component={WeeklyPlan} />
           <ProtectedRoute path="/account-settings" component={AccountSettings} />
           <ProtectedRoute path="/privacy-settings" component={PrivacySettings} />
           <ProtectedRoute path="/help-support" component={HelpSupport} />
