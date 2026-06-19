@@ -1,0 +1,23 @@
+# Supabase local config. `supabase init` will expand this; the essentials are
+# pinned here so `supabase start` / `db reset` work out of the box.
+project_id = "strive"
+
+[db]
+port = 54322
+major_version = 15
+
+[api]
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+
+[studio]
+port = 54323
+
+[auth]
+enable_signup = true
+# Apple / Google / phone are configured in the hosted dashboard for real builds.
+# Locally, email signups are enough to exercise RLS.
+
+[storage]
+enabled = true

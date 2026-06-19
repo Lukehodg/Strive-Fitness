@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Strive",
+    "slug": "strive",
+    "scheme": "strive",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0F"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.strive.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Strive uses your location to find pickup games near you.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "com.strive.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0B0F"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Strive uses your location to find pickup games near you."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Strive needs photo access so you can set a profile picture."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "supabaseUrl": "",
+      "supabaseAnonKey": "",
+      "streamApiKey": "",
+      "googleWebClientId": "",
+      "googleIosClientId": "",
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}

@@ -1,58 +1,48 @@
-# Dependencies
-node_modules
+# dependencies
+node_modules/
 /.pnp
 .pnp.js
 
-# Build outputs
-dist
-build
-.vite
-server/public
-vite.config.ts.*
+# expo / react native
+.expo/
+dist/
+build/
+web-build/
+expo-env.d.ts
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-# Environment variables
+# env / secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Logs
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 logs
 *.log
 
-# OS and editor files
+# OS / editor
 .DS_Store
+.DS_Store?
+._*
 .idea
 .vscode
 *.swp
 *.swo
-.DS_Store?
-._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# React Native / Expo
-.expo/
-dist/
-npm-debug.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
-
-# Archives
-*.tar.gz
-*.zip
-
-# Database
-*.sqlite
-*.sqlite3
