@@ -13,7 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0B0B0F"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.lukehodg.strive",
@@ -29,7 +31,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0B0F"
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": ""
@@ -63,8 +68,12 @@
       "googleWebClientId": "",
       "googleIosClientId": "",
       "eas": {
-        "projectId": ""
+        "projectId": "6ddf8985-6305-4075-95e4-2be1240d41ce"
+      },
+      "router": {
+        "origin": false
       }
-    }
+    },
+    "owner": "lukehodg"
   }
 }
