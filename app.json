@@ -16,7 +16,7 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.strive.app",
+      "bundleIdentifier": "com.lukehodg.strive",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Strive uses your location to find pickup games near you.",
         "ITSAppUsesNonExemptEncryption": false
@@ -24,7 +24,7 @@
       "usesAppleSignIn": true
     },
     "android": {
-      "package": "com.strive.app",
+      "package": "com.lukehodg.strive",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0B0F"
@@ -57,7 +57,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "supabaseUrl": "",
+      "supabaseUrl": "https://srpurixecxfuzyfoajmx.supabase.co",
       "supabaseAnonKey": "",
       "streamApiKey": "",
       "googleWebClientId": "",
