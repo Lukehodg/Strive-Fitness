@@ -83,4 +83,16 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
 - **Sprint 5 — Chat:** Stream Chat client + `stream-token` Edge Function scaffolded.
 - **Sprints 6–7 — Notifications / safety / EAS:** schema + Edge Function stubs in place.
 
-See `README.md` and `SETUP.md` for how to wire up Supabase, Stream, and Expo keys.
+### Hardening pass (post-Sprint scaffold)
+- Google sign-in implemented (expo-auth-session id_token exchange).
+- Migration `0002`: `nearby_activities` returns venue lat/lng (map markers on real
+  games); `participants_select` tightened (was world-readable) to respect blocks.
+- `ErrorBoundary` around the app root; push registration mounted; create-profile
+  is scroll/keyboard-safe; safe boot when `.env` is missing (`isSupabaseConfigured`).
+- Test suite (jest-expo, 22 tests), ESLint, and GitHub Actions CI — all green
+  (`npm run typecheck && npm run lint && npm test`).
+- `expo-asset`/`expo-font` added so the app bundles on a clean install (verified
+  via `expo export --platform ios`).
+- Next: see `docs/PRODUCTION_ROADMAP.md` for the path to store launch.
+
+See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

@@ -139,18 +139,28 @@ not at the end.
 ---
 
 ## Engineering backlog (specific, file-referenced)
-These are the concrete code TODOs extracted from the current tree:
 
-- [ ] `lib/auth.ts` / `app/(auth)/sign-in.tsx` — implement Google `id_token` retrieval (currently an alert).
-- [ ] `types/database.ts` — regenerate from live schema; drop placeholder + `as unknown as` casts.
-- [ ] `app/(tabs)/index.tsx` — real per-game approximate map coordinates (privacy).
-- [ ] `supabase/migrations` — new migration tightening `participants_select`; add approximate-coord output to `nearby_activities`.
-- [ ] `hooks/usePushNotifications.ts` — actually mount it (e.g. in the tabs layout).
-- [ ] `supabase/functions/send-notifications` — finish + schedule + Stream webhook.
+**Done in the hardening pass:**
+- [x] `app/(auth)/sign-in.tsx` — Google `id_token` sign-in via expo-auth-session.
+- [x] `app/(tabs)/index.tsx` + migration `0002` — `nearby_activities` returns venue
+      lat/lng; map markers land on real games.
+- [x] `0002` — tightened `participants_select` (was world-readable) to respect
+      visibility + blocks.
+- [x] `hooks/usePushNotifications.ts` — mounted behind the auth gate.
+- [x] `components/ErrorBoundary.tsx` — wraps the app root.
+- [x] Test suite (jest-expo, 22 tests) + ESLint + GitHub Actions CI.
+- [x] Config-missing crash fixed (`lib/env.ts` placeholders + `isSupabaseConfigured`).
+- [x] `expo-asset`/`expo-font` added so the app bundles on a clean install.
+
+**Still open:**
+- [ ] `types/database.ts` — regenerate from live schema; drop placeholder + `as unknown as` casts (needs a Supabase project).
+- [ ] `supabase/functions/send-notifications` — finish + schedule (pg_cron) + Stream webhook.
 - [ ] `lib/stream.ts` — move channel add/remove membership to the server (Edge Function).
-- [ ] Add error boundary component + wrap route groups.
-- [ ] Add tests + GitHub Actions CI.
+- [ ] Loading skeletons on Discover / detail / My Games (empty + error states done).
+- [ ] Verify end-to-end that blocked users vanish from discovery + rosters + chat (RLS in place; needs a live DB to confirm).
+- [ ] Sentry/crash reporting + product analytics.
 - [ ] `eas.json` — real profiles, credentials, `extra.eas.projectId`.
+- [ ] More tests: hook-level (join/leave/fullness) + RLS policy tests against a local DB.
 
 ---
 
