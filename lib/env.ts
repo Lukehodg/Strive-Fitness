@@ -14,22 +14,34 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
 
-function required(key: keyof Extra): string {
+// Placeholder so `createClient` doesn't throw at import when no .env is present
+// — the app boots into a "needs configuration" state instead of white-screening.
+const PLACEHOLDER_URL = "https://placeholder.supabase.co";
+const PLACEHOLDER_KEY = "public-anon-placeholder";
+
+function read(key: keyof Extra, fallback: string): string {
   const value = extra[key];
   if (!value) {
     // Surfaced loudly in dev so a missing .env is obvious, not a silent null.
     console.warn(
       `[env] Missing "${key}". Copy .env.example to .env and fill it in (see SETUP.md).`,
     );
-    return "";
+    return fallback;
   }
   return value;
 }
 
 export const env = {
-  supabaseUrl: required("supabaseUrl"),
-  supabaseAnonKey: required("supabaseAnonKey"),
-  streamApiKey: required("streamApiKey"),
+  supabaseUrl: read("supabaseUrl", PLACEHOLDER_URL),
+  supabaseAnonKey: read("supabaseAnonKey", PLACEHOLDER_KEY),
+  streamApiKey: extra.streamApiKey ?? "",
   googleWebClientId: extra.googleWebClientId ?? "",
   googleIosClientId: extra.googleIosClientId ?? "",
 };
+
+/** True when Supabase has been configured with real credentials. */
+export const isSupabaseConfigured =
+  env.supabaseUrl !== PLACEHOLDER_URL && env.supabaseAnonKey !== PLACEHOLDER_KEY;
+
+/** True when Stream Chat has been configured. */
+export const isStreamConfigured = env.streamApiKey.length > 0;

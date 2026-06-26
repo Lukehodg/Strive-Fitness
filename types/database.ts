@@ -148,6 +148,8 @@ export interface Database {
           host_name: string;
           title: string;
           venue_label: string;
+          venue_lat: number;
+          venue_lng: number;
           starts_at: string;
           duration_minutes: number;
           max_players: number;

@@ -58,11 +58,9 @@ export default function DiscoverScreen() {
           showsUserLocation
         >
           {(data ?? []).map((g: NearbyActivity) => (
-            // We don't expose exact coords to the client, so markers sit on the
-            // user's region; map mode is a coarse overview. Tapping opens detail.
             <Marker
               key={g.id}
-              coordinate={{ latitude: coords.latitude, longitude: coords.longitude }}
+              coordinate={{ latitude: g.venue_lat, longitude: g.venue_lng }}
               title={g.title}
               description={g.venue_label}
               onCalloutPress={() => openGame(g.id)}

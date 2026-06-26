@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
@@ -73,8 +82,15 @@ export default function CreateProfileScreen() {
 
   return (
     <Screen>
-      <View style={styles.container}>
-        <View style={{ gap: spacing(2) }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ gap: spacing(2) }}>
           <Heading>Create your profile</Heading>
           <Muted>This is what other players see when you join a game.</Muted>
         </View>
@@ -107,8 +123,9 @@ export default function CreateProfileScreen() {
           />
         </View>
 
-        <Button title="Save & continue" onPress={save} loading={busy} />
-      </View>
+          <Button title="Save & continue" onPress={save} loading={busy} />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

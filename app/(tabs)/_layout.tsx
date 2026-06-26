@@ -2,8 +2,12 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors } from "@/components/theme";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function TabsLayout() {
+  // Register for push once the user is past the auth gate.
+  usePushNotifications();
+
   return (
     <Tabs
       screenOptions={{
