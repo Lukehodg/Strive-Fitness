@@ -16,13 +16,15 @@ import { env, isSupabaseConfigured } from "@/lib/env";
 // Required for the OAuth popup to close cleanly after redirect.
 WebBrowser.maybeCompleteAuthSession();
 
-export default function SignInScreen() {
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-
-  const googleEnabled = env.googleWebClientId.length > 0;
+/**
+ * Google button lives in its own component so the `useIdTokenAuthRequest` hook
+ * is only ever called when Google client IDs are configured. Calling that hook
+ * with no client id throws on a native build — which previously crashed the
+ * whole sign-in screen. Mount this only when `env.googleWebClientId` is set.
+ */
+function GoogleSignInButton({ setBusy }: { setBusy: (b: boolean) => void }) {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: env.googleWebClientId || undefined,
+    webClientId: env.googleWebClientId,
     iosClientId: env.googleIosClientId || undefined,
   });
 
@@ -40,7 +42,23 @@ export default function SignInScreen() {
         setBusy(false);
       }
     })();
-  }, [response]);
+  }, [response, setBusy]);
+
+  return (
+    <Button
+      title="Continue with Google"
+      variant="secondary"
+      onPress={() => promptAsync()}
+      disabled={!request}
+    />
+  );
+}
+
+export default function SignInScreen() {
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+
+  const googleEnabled = env.googleWebClientId.length > 0;
 
   async function withApple() {
     try {
@@ -53,17 +71,6 @@ export default function SignInScreen() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function withGoogle() {
-    if (!googleEnabled) {
-      Alert.alert(
-        "Google sign-in",
-        "Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to your .env to enable Google sign-in (see SETUP.md).",
-      );
-      return;
-    }
-    promptAsync();
   }
 
   return (
@@ -86,12 +93,20 @@ export default function SignInScreen() {
             <Button title="Continue with Apple" onPress={withApple} loading={busy} />
           ) : null}
 
-          <Button
-            title="Continue with Google"
-            variant="secondary"
-            onPress={withGoogle}
-            disabled={busy || (googleEnabled && !request)}
-          />
+          {googleEnabled ? (
+            <GoogleSignInButton setBusy={setBusy} />
+          ) : (
+            <Button
+              title="Continue with Google"
+              variant="secondary"
+              onPress={() =>
+                Alert.alert(
+                  "Google sign-in",
+                  "Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to enable Google sign-in (see SETUP.md).",
+                )
+              }
+            />
+          )}
 
           <Button
             title="Continue with phone"
