@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, font, radius, spacing } from "@/components/theme";
 import { formatDistance, formatRoster, formatStartTime } from "@/lib/format";
-import { statusLabel } from "@/hooks/useActivity";
+import { statusLabel } from "@/lib/activity-format";
 import type { ActivityStatus } from "@/types/database";
 
 export type GameCardData = {

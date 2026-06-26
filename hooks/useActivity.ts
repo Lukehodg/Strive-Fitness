@@ -4,7 +4,7 @@ import { supabase, toPoint } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { channelIdForActivity, connectStreamUser } from "@/lib/stream";
-import type { Activity, ActivityStatus } from "@/types/database";
+import type { Activity } from "@/types/database";
 
 export type RosterEntry = {
   user_id: string;
@@ -217,15 +217,5 @@ export function useCreateActivity() {
   });
 }
 
-export function statusLabel(status: ActivityStatus): string {
-  switch (status) {
-    case "open":
-      return "Open";
-    case "full":
-      return "Full";
-    case "cancelled":
-      return "Cancelled";
-    case "completed":
-      return "Finished";
-  }
-}
+// Re-export the pure label helper so existing imports from this module keep working.
+export { statusLabel } from "@/lib/activity-format";
