@@ -10,16 +10,22 @@ export const DEFAULT_REGION: Coords = { latitude: 51.3743, longitude: -0.4488 };
  * Returns null if the user declines — callers fall back to DEFAULT_REGION.
  */
 export async function getCurrentCoords(): Promise<Coords | null> {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== "granted") return null;
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return null;
 
-  const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
-  return {
-    latitude: position.coords.latitude,
-    longitude: position.coords.longitude,
-  };
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+  } catch {
+    // Permission/location APIs can reject (e.g. unsupported platform) — callers
+    // fall back to DEFAULT_REGION rather than hanging on a stuck promise.
+    return null;
+  }
 }
 
 /** Best-effort reverse geocode to a coarse area label (e.g. "Weybridge"). */
