@@ -8,6 +8,7 @@ import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
+import type { GameFormat, SkillLevel } from "@/types/database";
 
 /** Build a Date n days from today at the given HH:MM. */
 function dateFrom(dayOffset: number, time: string): Date | null {
@@ -27,6 +28,17 @@ const REPEAT_OPTIONS = [
   { weeks: 4, label: "× 4 weeks" },
   { weeks: 8, label: "× 8 weeks" },
 ];
+const FORMATS: { value: GameFormat; label: string }[] = [
+  { value: "kickabout", label: "Kickabout" },
+  { value: "5-a-side", label: "5-a-side" },
+  { value: "7-a-side", label: "7-a-side" },
+  { value: "11-a-side", label: "11-a-side" },
+];
+const SKILLS: { value: SkillLevel; label: string }[] = [
+  { value: "all", label: "All welcome" },
+  { value: "casual", label: "Casual" },
+  { value: "competitive", label: "Competitive" },
+];
 
 export default function CreateGameScreen() {
   const router = useRouter();
@@ -41,6 +53,8 @@ export default function CreateGameScreen() {
   const [dayOffset, setDayOffset] = useState(0);
   const [time, setTime] = useState("18:30");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
+  const [format, setFormat] = useState<GameFormat>("kickabout");
+  const [skill, setSkill] = useState<SkillLevel>("all");
   const [coords, setCoords] = useState<Coords | null>(null);
 
   useEffect(() => {
@@ -80,6 +94,8 @@ export default function CreateGameScreen() {
         starts_at: startsAt.toISOString(),
         duration_minutes: dur,
         max_players: max,
+        format,
+        skill_level: skill,
         notes: notes.trim() || undefined,
         repeat_weeks: repeatWeeks,
       });
@@ -94,6 +110,40 @@ export default function CreateGameScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Field label="Title" value={title} onChangeText={setTitle} placeholder="Sunday 5-a-side" />
         <Field label="Venue" value={venue} onChangeText={setVenue} placeholder="Weybridge Sports Hub" />
+
+        <View style={{ gap: spacing(2) }}>
+          <Text style={styles.label}>Format</Text>
+          <View style={styles.repeatRow}>
+            {FORMATS.map((f) => (
+              <Pressable
+                key={f.value}
+                onPress={() => setFormat(f.value)}
+                style={[styles.chip, format === f.value && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, format === f.value && styles.chipTextActive]}>
+                  {f.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={{ gap: spacing(2) }}>
+          <Text style={styles.label}>Skill level</Text>
+          <View style={styles.repeatRow}>
+            {SKILLS.map((s) => (
+              <Pressable
+                key={s.value}
+                onPress={() => setSkill(s.value)}
+                style={[styles.chip, skill === s.value && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, skill === s.value && styles.chipTextActive]}>
+                  {s.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
         <View style={{ gap: spacing(2) }}>
           <Text style={styles.label}>Location — tap the map</Text>
@@ -181,7 +231,7 @@ const styles = StyleSheet.create({
   },
   mapWrap: { height: 200, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   twoCol: { flexDirection: "row", gap: spacing(3) },
-  repeatRow: { flexDirection: "row", gap: spacing(2) },
+  repeatRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing(2) },
   chip: { height: 40, justifyContent: "center", paddingHorizontal: spacing(4), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.textMuted, fontFamily: fonts.monoBold, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },

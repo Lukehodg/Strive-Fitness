@@ -104,6 +104,7 @@ export default function NearbyScreen() {
               starts_at: selected.starts_at,
               status: selected.status,
               max_players: selected.max_players,
+              format: selected.format,
               joined_count: selected.joined_count,
               distance_meters: selected.distance_meters,
             }}

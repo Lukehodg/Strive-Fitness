@@ -10,6 +10,8 @@
 
 export type ActivityType = "football" | "gym" | "networking";
 export type ActivityStatus = "open" | "full" | "cancelled" | "completed";
+export type GameFormat = "kickabout" | "5-a-side" | "7-a-side" | "11-a-side";
+export type SkillLevel = "all" | "casual" | "competitive";
 export type ParticipantStatus = "joined" | "left";
 export type EventType =
   | "parkrun"
@@ -67,6 +69,8 @@ export interface Database {
           duration_minutes: number;
           max_players: number;
           status: ActivityStatus;
+          format: GameFormat;
+          skill_level: SkillLevel;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -82,6 +86,8 @@ export interface Database {
           duration_minutes?: number;
           max_players: number;
           status?: ActivityStatus;
+          format?: GameFormat;
+          skill_level?: SkillLevel;
           notes?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["activities"]["Insert"]>;
@@ -209,6 +215,8 @@ export interface Database {
           duration_minutes: number;
           max_players: number;
           status: ActivityStatus;
+          format: GameFormat;
+          skill_level: SkillLevel;
           distance_meters: number;
           joined_count: number;
         }[];

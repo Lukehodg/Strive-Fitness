@@ -9,13 +9,22 @@ import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
+import type { GameFormat, NearbyActivity } from "@/types/database";
 
 const RADII_KM = [5, 10, 25, 50];
+const FORMAT_FILTERS: { value: GameFormat | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "5-a-side", label: "5-a-side" },
+  { value: "7-a-side", label: "7-a-side" },
+  { value: "11-a-side", label: "11-a-side" },
+  { value: "kickabout", label: "Kickabout" },
+];
 
 export default function DiscoverScreen() {
   const router = useRouter();
   const [coords, setCoords] = useState<Coords | null>(null);
   const [radiusKm, setRadiusKm] = useState(25);
+  const [formatFilter, setFormatFilter] = useState<GameFormat | "all">("all");
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
@@ -26,7 +35,12 @@ export default function DiscoverScreen() {
     radiusKm * 1000,
   );
 
-  const count = data?.length ?? 0;
+  const games =
+    formatFilter === "all"
+      ? (data ?? [])
+      : (data ?? []).filter((g: NearbyActivity) => g.format === formatFilter);
+
+  const count = games.length;
   const countLabel =
     !coords || isLoading
       ? "Pickup football near you"
@@ -63,6 +77,26 @@ export default function DiscoverScreen() {
         })}
       </ScrollView>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
+        contentContainerStyle={styles.filters}
+      >
+        {FORMAT_FILTERS.map((f) => {
+          const active = f.value === formatFilter;
+          return (
+            <Pressable
+              key={f.value}
+              onPress={() => setFormatFilter(f.value)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       {!coords || isLoading ? (
         <GameListSkeleton />
       ) : isError ? (
@@ -76,7 +110,7 @@ export default function DiscoverScreen() {
         </View>
       ) : (
         <FlatList
-          data={data ?? []}
+          data={games}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           onRefresh={refetch}
@@ -90,6 +124,7 @@ export default function DiscoverScreen() {
                 starts_at: item.starts_at,
                 status: item.status,
                 max_players: item.max_players,
+                format: item.format,
                 joined_count: item.joined_count,
                 distance_meters: item.distance_meters,
               }}

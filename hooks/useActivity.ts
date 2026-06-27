@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, toPoint } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import type { Activity } from "@/types/database";
+import type { Activity, GameFormat, SkillLevel } from "@/types/database";
 
 export type RosterEntry = {
   user_id: string;
@@ -169,6 +169,8 @@ export type CreateActivityInput = {
   starts_at: string; // ISO
   duration_minutes: number;
   max_players: number;
+  format: GameFormat;
+  skill_level: SkillLevel;
   notes?: string;
   /** How many weekly occurrences to create (1 = one-off). */
   repeat_weeks?: number;
