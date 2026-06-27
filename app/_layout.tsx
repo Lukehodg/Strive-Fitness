@@ -84,6 +84,10 @@ function RootNavigator() {
         options={{ headerShown: true, title: "Chat" }}
       />
       <Stack.Screen
+        name="event/[id]"
+        options={{ headerShown: true, title: "Event", presentation: "card" }}
+      />
+      <Stack.Screen
         name="edit-profile"
         options={{ headerShown: true, title: "Edit profile", presentation: "modal" }}
       />

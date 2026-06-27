@@ -11,6 +11,7 @@
 export type ActivityType = "football" | "gym" | "networking";
 export type ActivityStatus = "open" | "full" | "cancelled" | "completed";
 export type ParticipantStatus = "joined" | "left";
+export type EventType = "parkrun" | "5k" | "10k" | "half_marathon" | "marathon" | "other";
 
 export type Json =
   | string
@@ -132,6 +133,35 @@ export interface Database {
         Update: Partial<{ token: string; platform: "ios" | "android" }>;
         Relationships: [];
       };
+      events: {
+        Row: {
+          id: string;
+          title: string;
+          event_type: EventType;
+          starts_at: string;
+          venue_label: string;
+          location: string | null;
+          distance_km: number | null;
+          description: string | null;
+          external_url: string | null;
+          organizer: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          event_type?: EventType;
+          starts_at: string;
+          venue_label: string;
+          location?: string | null;
+          distance_km?: number | null;
+          description?: string | null;
+          external_url?: string | null;
+          organizer?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -158,11 +188,27 @@ export interface Database {
           joined_count: number;
         }[];
       };
+      upcoming_events: {
+        Args: { lat: number; lng: number };
+        Returns: {
+          id: string;
+          title: string;
+          event_type: EventType;
+          starts_at: string;
+          venue_label: string;
+          distance_km: number | null;
+          description: string | null;
+          external_url: string | null;
+          organizer: string | null;
+          distance_meters: number | null;
+        }[];
+      };
     };
     Enums: {
       activity_type: ActivityType;
       activity_status: ActivityStatus;
       participant_status: ParticipantStatus;
+      event_type: EventType;
     };
   };
 }
@@ -174,3 +220,6 @@ export type ActivityParticipant =
   Database["public"]["Tables"]["activity_participants"]["Row"];
 export type NearbyActivity =
   Database["public"]["Functions"]["nearby_activities"]["Returns"][number];
+export type Event = Database["public"]["Tables"]["events"]["Row"];
+export type UpcomingEvent =
+  Database["public"]["Functions"]["upcoming_events"]["Returns"][number];
