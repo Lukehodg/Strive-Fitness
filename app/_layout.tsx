@@ -91,6 +91,10 @@ function RootNavigator() {
         name="edit-profile"
         options={{ headerShown: true, title: "Edit profile", presentation: "modal" }}
       />
+      <Stack.Screen
+        name="connections"
+        options={{ headerShown: true, title: "Connections", presentation: "card" }}
+      />
     </Stack>
   );
 }

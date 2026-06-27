@@ -9,32 +9,40 @@ const base: GameCardData = {
   starts_at: new Date(Date.now() + 86_400_000).toISOString(),
   status: "open",
   max_players: 10,
+  format: "5-a-side",
   joined_count: 7,
   distance_meters: 850,
 };
 
 describe("GameCard", () => {
-  it("renders title, venue, roster and status", () => {
+  it("renders title, venue, roster and format tag", () => {
     const { getByText } = render(<GameCard game={base} onPress={() => {}} />);
     expect(getByText("Sunday 5-a-side")).toBeTruthy();
     expect(getByText(/Weybridge Sports Hub/)).toBeTruthy();
-    expect(getByText("7 / 10 going")).toBeTruthy();
-    expect(getByText("Open")).toBeTruthy();
+    expect(getByText(/7 \/ 10 going/)).toBeTruthy();
+    expect(getByText("5-A-SIDE")).toBeTruthy();
   });
 
-  it("shows 'Full' status and the distance label", () => {
+  it("shows the 'FULL' tag and the distance chip", () => {
     const { getByText } = render(
       <GameCard game={{ ...base, status: "full", joined_count: 10 }} onPress={() => {}} />,
     );
-    expect(getByText("Full")).toBeTruthy();
-    expect(getByText(/850 m away/)).toBeTruthy();
+    expect(getByText("FULL")).toBeTruthy();
+    expect(getByText("850 M")).toBeTruthy();
   });
 
   it("falls back to '<max> max' when joined_count is absent", () => {
     const { getByText } = render(
       <GameCard game={{ ...base, joined_count: undefined }} onPress={() => {}} />,
     );
-    expect(getByText("10 max")).toBeTruthy();
+    expect(getByText(/10 max/)).toBeTruthy();
+  });
+
+  it("defaults the format tag to FOOTBALL when none is given", () => {
+    const { getByText } = render(
+      <GameCard game={{ ...base, format: undefined }} onPress={() => {}} />,
+    );
+    expect(getByText("FOOTBALL")).toBeTruthy();
   });
 
   it("fires onPress when tapped", () => {
