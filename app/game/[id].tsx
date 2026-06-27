@@ -9,6 +9,7 @@ import { useMyProfile } from "@/hooks/useProfile";
 import {
   statusLabel,
   useActivity,
+  useCancelActivity,
   useJoinActivity,
   useLeaveActivity,
   useRoster,
@@ -28,6 +29,7 @@ export default function GameDetailScreen() {
   const { data: roster } = useRoster(activityId);
   const join = useJoinActivity(activityId);
   const leave = useLeaveActivity(activityId);
+  const cancel = useCancelActivity(activityId);
   const block = useBlockUser();
   const report = useReportUser();
   const addConnection = useAddConnection();
@@ -37,8 +39,26 @@ export default function GameDetailScreen() {
   const amIn = !!roster?.some((r: RosterEntry) => r.user_id === user?.id);
   const isHost = game.host_id === user?.id;
   const isFull = game.status === "full";
+  const isCancelled = game.status === "cancelled";
   const isPast = +new Date(game.starts_at) + game.duration_minutes * 60_000 < Date.now();
   const verified = profile?.phone_verified ?? false;
+
+  function onCancel() {
+    Alert.alert("Cancel this game?", "Everyone on the roster will see it's been called off.", [
+      { text: "Keep it", style: "cancel" },
+      {
+        text: "Cancel game",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await cancel.mutateAsync();
+          } catch (e) {
+            Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Try again.");
+          }
+        },
+      },
+    ]);
+  }
 
   async function onJoin() {
     if (!verified) {
@@ -161,15 +181,24 @@ export default function GameDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {amIn ? (
+        {isCancelled ? (
+          <Muted>This game was cancelled by the host.</Muted>
+        ) : amIn ? (
           <>
             <Button
               title="Open chat"
               onPress={() => router.push({ pathname: "/game/chat/[id]", params: { id: activityId } })}
             />
-            {!isHost ? (
+            {isHost ? (
+              <Button
+                title="Cancel game"
+                variant="danger"
+                onPress={onCancel}
+                loading={cancel.isPending}
+              />
+            ) : (
               <Button title="Leave game" variant="secondary" onPress={onLeave} loading={leave.isPending} />
-            ) : null}
+            )}
           </>
         ) : isPast ? (
           <Muted>This game has finished.</Muted>

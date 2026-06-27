@@ -1,8 +1,9 @@
 import { SectionList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { EmptyState, Heading, Loading, Muted, Screen } from "@/components/ui";
+import { EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
+import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, font, spacing } from "@/components/theme";
 import { useMyGames, type MyGame } from "@/hooks/useMyGames";
 
@@ -10,7 +11,17 @@ export default function MyGamesScreen() {
   const router = useRouter();
   const { data, isLoading, refetch, isRefetching } = useMyGames();
 
-  if (isLoading) return <Loading />;
+  if (isLoading) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <Heading>My Games</Heading>
+          <Muted>Games you're hosting or have joined</Muted>
+        </View>
+        <GameListSkeleton count={3} />
+      </Screen>
+    );
+  }
 
   const now = Date.now();
   const upcoming = (data ?? []).filter((g: MyGame) => +new Date(g.starts_at) >= now);

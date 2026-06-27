@@ -4,8 +4,9 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
 
-import { Button, EmptyState, Heading, Loading, Muted, Screen } from "@/components/ui";
+import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
+import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, font, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
@@ -24,6 +25,14 @@ export default function DiscoverScreen() {
 
   const { data, isLoading, isError, refetch, isRefetching } = useNearbyActivities(coords);
 
+  const count = data?.length ?? 0;
+  const countLabel =
+    !coords || isLoading
+      ? "Pickup football near you"
+      : count === 0
+        ? "No games nearby yet"
+        : `${count} game${count === 1 ? "" : "s"} near you`;
+
   const openGame = (id: string) => router.push({ pathname: "/game/[id]", params: { id } });
 
   return (
@@ -31,7 +40,7 @@ export default function DiscoverScreen() {
       <View style={styles.header}>
         <View>
           <Heading>Discover</Heading>
-          <Muted>Pickup football near you</Muted>
+          <Muted>{countLabel}</Muted>
         </View>
         <View style={styles.toggle}>
           <Segment label="List" active={mode === "list"} onPress={() => setMode("list")} />
@@ -40,7 +49,7 @@ export default function DiscoverScreen() {
       </View>
 
       {!coords || isLoading ? (
-        <Loading />
+        <GameListSkeleton />
       ) : isError ? (
         <View style={{ flex: 1, padding: spacing(6), gap: spacing(4) }}>
           <EmptyState title="Couldn't load games" message="Check your connection and try again." />

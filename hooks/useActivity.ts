@@ -161,6 +161,25 @@ export function useLeaveActivity(activityId: string) {
   });
 }
 
+/** Cancel a game (host only). Sets status to 'cancelled'; RLS enforces ownership. */
+export function useCancelActivity(activityId: string) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase
+        .from("activities")
+        .update({ status: "cancelled" })
+        .eq("id", activityId)
+        .eq("host_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateActivity(qc, activityId, user?.id),
+  });
+}
+
 export type CreateActivityInput = {
   title: string;
   venue_label: string;

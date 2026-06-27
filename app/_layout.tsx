@@ -63,6 +63,10 @@ function RootNavigator() {
         name="game/chat/[id]"
         options={{ headerShown: true, title: "Chat" }}
       />
+      <Stack.Screen
+        name="edit-profile"
+        options={{ headerShown: true, title: "Edit profile", presentation: "modal" }}
+      />
     </Stack>
   );
 }

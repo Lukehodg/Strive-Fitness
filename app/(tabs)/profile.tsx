@@ -62,6 +62,7 @@ export default function ProfileScreen() {
 
         <View style={{ flex: 1 }} />
 
+        <Button title="Edit profile" onPress={() => router.push("/edit-profile")} />
         <Button
           title="Sign out"
           variant="secondary"
