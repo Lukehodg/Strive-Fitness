@@ -9,6 +9,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 
@@ -102,13 +103,18 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
 export function EmptyState({
   title,
   message,
+  icon = "calendar-outline",
 }: {
   title: string;
   message: string;
+  icon?: keyof typeof Ionicons.glyphMap;
 }) {
   return (
     <View style={styles.empty}>
-      <Text style={styles.heading}>{title}</Text>
+      <View style={styles.emptyIcon}>
+        <Ionicons name={icon} size={30} color={colors.ember} />
+      </View>
+      <Text style={[styles.heading, { fontSize: font.h3, textAlign: "center" }]}>{title}</Text>
       <Text style={[styles.muted, { textAlign: "center" }]}>{message}</Text>
     </View>
   );
@@ -181,5 +187,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing(8),
     gap: spacing(2),
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing(2),
   },
 });

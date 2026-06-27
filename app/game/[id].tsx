@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
+import { Avatar } from "@/components/Avatar";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -182,15 +183,24 @@ export default function GameDetailScreen() {
         ) : null}
 
         <View style={{ gap: spacing(2) }}>
-          <Subheading>Who's going</Subheading>
+          <Subheading>Who&apos;s going</Subheading>
           {(roster ?? []).map((entry: RosterEntry) => (
             <Card key={entry.user_id} style={styles.playerRow}>
-              <View>
-                <Text style={styles.playerName}>
-                  {entry.display_name}
-                  {entry.user_id === game.host_id ? "  ·  host" : ""}
-                </Text>
-                {entry.area_label ? <Muted>{entry.area_label}</Muted> : null}
+              <View style={styles.playerInfo}>
+                <Avatar name={entry.display_name} url={entry.avatar_url} size={40} />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.playerNameRow}>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {entry.display_name}
+                    </Text>
+                    {entry.user_id === game.host_id ? (
+                      <View style={styles.hostTag}>
+                        <Text style={styles.hostTagText}>HOST</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {entry.area_label ? <Muted>{entry.area_label}</Muted> : null}
+                </View>
               </View>
               {entry.user_id !== user?.id ? (
                 <Ionicons
@@ -261,7 +271,11 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing(2.5) },
   metaText: { color: colors.text, fontSize: font.body, fontFamily: fonts.body },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing(3) },
+  playerInfo: { flexDirection: "row", alignItems: "center", gap: spacing(3), flex: 1 },
+  playerNameRow: { flexDirection: "row", alignItems: "center", gap: spacing(2) },
   playerName: { color: colors.text, fontSize: font.body, fontFamily: fonts.bodyBold },
+  hostTag: { backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, paddingHorizontal: spacing(1.5), paddingVertical: 2 },
+  hostTagText: { color: colors.ember, fontFamily: fonts.monoBold, fontSize: 9, letterSpacing: 0.5 },
   footer: {
     padding: spacing(5),
     gap: spacing(3),

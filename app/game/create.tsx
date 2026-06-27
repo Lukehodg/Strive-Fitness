@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 
 import { Button, Field, Muted, Screen, Subheading } from "@/components/ui";
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
@@ -145,11 +145,17 @@ export default function CreateGameScreen() {
 const styles = StyleSheet.create({
   content: { padding: spacing(5), gap: spacing(4), paddingBottom: spacing(10) },
   gate: { flex: 1, justifyContent: "center", padding: spacing(8), gap: spacing(3) },
-  label: { color: colors.textMuted, fontSize: font.small, fontWeight: "600" },
+  label: {
+    color: colors.textMuted,
+    fontSize: font.small,
+    fontFamily: fonts.mono,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   mapWrap: { height: 200, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   twoCol: { flexDirection: "row", gap: spacing(3) },
-  chip: { paddingHorizontal: spacing(4), paddingVertical: spacing(2.5), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { height: 40, justifyContent: "center", paddingHorizontal: spacing(4), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.textMuted, fontWeight: "700", fontSize: font.small },
+  chipText: { color: colors.textMuted, fontFamily: fonts.monoBold, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },
   chipTextActive: { color: colors.primaryText },
 });

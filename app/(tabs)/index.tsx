@@ -67,7 +67,11 @@ export default function DiscoverScreen() {
         <GameListSkeleton />
       ) : isError ? (
         <View style={{ flex: 1, padding: spacing(6), gap: spacing(4) }}>
-          <EmptyState title="Couldn't load games" message="Check your connection and try again." />
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Couldn't load games"
+            message="Check your connection and try again."
+          />
           <Button title="Retry" onPress={() => refetch()} />
         </View>
       ) : (
@@ -94,6 +98,7 @@ export default function DiscoverScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
+              icon="football-outline"
               title="No games nearby"
               message="Be the first to host one — tap the + to create a game."
             />

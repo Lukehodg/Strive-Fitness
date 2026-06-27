@@ -1,9 +1,10 @@
-import { Alert, Image, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
-import { colors, radius, spacing } from "@/components/theme";
+import { Avatar } from "@/components/Avatar";
+import { colors, fonts, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 
@@ -18,15 +19,11 @@ export default function ProfileScreen() {
     <Screen>
       <View style={styles.container}>
         <View style={styles.head}>
-          {profile?.avatar_url ? (
-            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Ionicons name="person" size={36} color={colors.textMuted} />
-            </View>
-          )}
+          <Avatar name={profile?.display_name ?? "Player"} url={profile?.avatar_url} size={96} />
           <Heading>{profile?.display_name ?? "Player"}</Heading>
-          {profile?.area_label ? <Muted>{profile.area_label}</Muted> : null}
+          {profile?.area_label ? (
+            <Text style={styles.area}>{profile.area_label}</Text>
+          ) : null}
         </View>
 
         <Card style={styles.verifyRow}>
@@ -81,7 +78,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing(5), gap: spacing(4) },
   head: { alignItems: "center", gap: spacing(2), marginTop: spacing(4) },
-  avatar: { width: 96, height: 96, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt },
-  avatarPlaceholder: { alignItems: "center", justifyContent: "center" },
+  area: {
+    color: colors.textMuted,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   verifyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(3) },
 });

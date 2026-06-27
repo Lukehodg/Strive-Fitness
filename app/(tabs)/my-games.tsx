@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, font, fonts, spacing } from "@/components/theme";
+import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useMyGames, type MyGame } from "@/hooks/useMyGames";
 
 export default function MyGamesScreen() {
@@ -41,6 +41,7 @@ export default function MyGamesScreen() {
 
       {sections.length === 0 ? (
         <EmptyState
+          icon="football-outline"
           title="No games yet"
           message="Join a game from Discover, or host your own. They'll show up here."
         />
@@ -67,7 +68,11 @@ export default function MyGamesScreen() {
                 }}
                 onPress={() => router.push({ pathname: "/game/[id]", params: { id: item.id } })}
               />
-              {item.hosting ? <Text style={styles.hosting}>You're hosting</Text> : null}
+              {item.hosting ? (
+                <View style={styles.hostingTag}>
+                  <Text style={styles.hostingText}>YOU&apos;RE HOSTING</Text>
+                </View>
+              ) : null}
             </View>
           )}
         />
@@ -88,5 +93,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing(2.5),
     marginTop: spacing(2),
   },
-  hosting: { color: colors.ember, fontSize: font.small, marginTop: spacing(1.5), fontFamily: fonts.mono },
+  hostingTag: {
+    alignSelf: "flex-start",
+    marginTop: spacing(2),
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(2),
+    paddingVertical: spacing(1),
+  },
+  hostingText: { color: colors.ember, fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.5 },
 });

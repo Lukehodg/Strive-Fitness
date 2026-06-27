@@ -1,0 +1,56 @@
+import { Image, StyleSheet, Text, View } from "react-native";
+
+import { colors, fonts } from "@/components/theme";
+
+// Brand-palette backgrounds for initial avatars (from the Stride kit).
+const PALETTE = [
+  { bg: colors.primary, fg: colors.primaryText },
+  { bg: colors.pine, fg: "#F3EEE5" },
+  { bg: colors.ember, fg: "#17140F" },
+  { bg: colors.text, fg: "#F3EEE5" },
+  { bg: colors.textMuted, fg: "#FFFFFF" },
+];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0]![0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1]![0] ?? "") : "";
+  return (first + last).toUpperCase();
+}
+
+function paletteFor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length]!;
+}
+
+/** Circular avatar: shows the photo if present, otherwise brand-coloured initials. */
+export function Avatar({
+  name,
+  url,
+  size = 40,
+}: {
+  name: string;
+  url?: string | null;
+  size?: number;
+}) {
+  const dim = { width: size, height: size, borderRadius: size / 2 };
+
+  if (url) {
+    return <Image source={{ uri: url }} style={[dim, styles.image]} />;
+  }
+
+  const { bg, fg } = paletteFor(name);
+  return (
+    <View style={[dim, styles.fallback, { backgroundColor: bg }]}>
+      <Text style={[styles.initials, { color: fg, fontSize: size * 0.4 }]}>{initials(name)}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  image: { backgroundColor: colors.surfaceAlt },
+  fallback: { alignItems: "center", justifyContent: "center" },
+  initials: { fontFamily: fonts.monoBold, letterSpacing: 0.5 },
+});
