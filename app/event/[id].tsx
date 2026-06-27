@@ -4,13 +4,16 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen } from "@/components/ui";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
-import { useEvent } from "@/hooks/useEvents";
+import { useEvent, useEventGoing, useToggleEventRsvp } from "@/hooks/useEvents";
 import { eventTypeLabel } from "@/lib/event-format";
 import { formatStartTime } from "@/lib/format";
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: event, isLoading } = useEvent(id!);
+  const eventId = id!;
+  const { data: event, isLoading } = useEvent(eventId);
+  const { data: going } = useEventGoing(eventId);
+  const toggle = useToggleEventRsvp(eventId);
 
   if (isLoading || !event) return <Loading />;
 
@@ -44,11 +47,17 @@ export default function EventDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {event.external_url ? (
-        <View style={styles.footer}>
-          <Button title="Register / more info" onPress={openLink} />
-        </View>
-      ) : null}
+      <View style={styles.footer}>
+        <Button
+          title={going ? "✓ Going" : "I'm going"}
+          variant={going ? "secondary" : "primary"}
+          loading={toggle.isPending}
+          onPress={() => toggle.mutate(!going)}
+        />
+        {event.external_url ? (
+          <Button title="Register / more info" variant="secondary" onPress={openLink} />
+        ) : null}
+      </View>
     </Screen>
   );
 }
@@ -76,6 +85,7 @@ const styles = StyleSheet.create({
   metaText: { color: colors.text, fontSize: font.body, fontFamily: fonts.body },
   footer: {
     padding: spacing(5),
+    gap: spacing(3),
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.bg,

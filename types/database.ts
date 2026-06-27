@@ -169,6 +169,12 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["events"]["Insert"]>;
         Relationships: [];
       };
+      event_attendees: {
+        Row: { event_id: string; user_id: string; created_at: string };
+        Insert: { event_id: string; user_id: string };
+        Update: Partial<{ event_id: string; user_id: string }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

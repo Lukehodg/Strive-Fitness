@@ -3,20 +3,27 @@ import { useRouter } from "expo-router";
 
 import { EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
+import { EventCard } from "@/components/EventCard";
 import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useMyGames, type MyGame } from "@/hooks/useMyGames";
+import { useMyEvents } from "@/hooks/useEvents";
+import type { Event } from "@/types/database";
+
+type Item = MyGame | Event;
+type SectionMeta = { title: string; kind: "game" | "event" };
 
 export default function MyGamesScreen() {
   const router = useRouter();
-  const { data, isLoading, refetch, isRefetching } = useMyGames();
+  const games = useMyGames();
+  const events = useMyEvents();
 
-  if (isLoading) {
+  if (games.isLoading) {
     return (
       <Screen>
         <View style={styles.header}>
           <Heading>My Games</Heading>
-          <Muted>Games you're hosting or have joined</Muted>
+          <Muted>Your games and events</Muted>
         </View>
         <GameListSkeleton count={3} />
       </Screen>
@@ -24,60 +31,84 @@ export default function MyGamesScreen() {
   }
 
   const now = Date.now();
-  const upcoming = (data ?? []).filter((g: MyGame) => +new Date(g.starts_at) >= now);
-  const past = (data ?? []).filter((g: MyGame) => +new Date(g.starts_at) < now);
+  const upcoming = (games.data ?? []).filter((g: MyGame) => +new Date(g.starts_at) >= now);
+  const past = (games.data ?? []).filter((g: MyGame) => +new Date(g.starts_at) < now);
+  const myEvents = events.data ?? [];
 
-  const sections = [
-    { title: "Upcoming", data: upcoming },
-    { title: "Past", data: past },
+  const sections: (SectionMeta & { data: Item[] })[] = [
+    { title: "Upcoming games", kind: "game" as const, data: upcoming },
+    { title: "Events you're going to", kind: "event" as const, data: myEvents },
+    { title: "Past games", kind: "game" as const, data: past },
   ].filter((s) => s.data.length > 0);
+
+  const onRefresh = () => {
+    games.refetch();
+    events.refetch();
+  };
 
   return (
     <Screen>
       <View style={styles.header}>
         <Heading>My Games</Heading>
-        <Muted>Games you're hosting or have joined</Muted>
+        <Muted>Your games and events</Muted>
       </View>
 
       {sections.length === 0 ? (
         <EmptyState
           icon="football-outline"
-          title="No games yet"
-          message="Join a game from Discover, or host your own. They'll show up here."
+          title="Nothing yet"
+          message="Join a game from Discover, or say you're going to an event — they'll show up here."
         />
       ) : (
-        <SectionList
+        <SectionList<Item, SectionMeta>
           sections={sections}
           keyExtractor={(item) => item.id}
-          onRefresh={refetch}
-          refreshing={isRefetching}
+          onRefresh={onRefresh}
+          refreshing={games.isRefetching || events.isRefetching}
           contentContainerStyle={styles.list}
           renderSectionHeader={({ section }) => (
             <Text style={styles.sectionHeader}>{section.title}</Text>
           )}
-          renderItem={({ item }) => (
-            <View style={{ marginBottom: spacing(3.5) }}>
-              <GameCard
-                game={{
-                  id: item.id,
-                  title: item.title,
-                  venue_label: item.venue_label,
-                  starts_at: item.starts_at,
-                  status: item.status,
-                  max_players: item.max_players,
-                }}
-                onPress={() => router.push({ pathname: "/game/[id]", params: { id: item.id } })}
-              />
-              {item.hosting ? (
-                <View style={styles.hostingTag}>
-                  <Text style={styles.hostingText}>YOU&apos;RE HOSTING</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
+          renderItem={({ item, section }) =>
+            section.kind === "event" ? (
+              <View style={{ marginBottom: spacing(3.5) }}>
+                <EventCard
+                  event={item as Event}
+                  onPress={() =>
+                    router.push({ pathname: "/event/[id]", params: { id: item.id } })
+                  }
+                />
+              </View>
+            ) : (
+              <GameRow game={item as MyGame} onPress={() => router.push({ pathname: "/game/[id]", params: { id: item.id } })} />
+            )
+          }
         />
       )}
     </Screen>
+  );
+}
+
+function GameRow({ game, onPress }: { game: MyGame; onPress: () => void }) {
+  return (
+    <View style={{ marginBottom: spacing(3.5) }}>
+      <GameCard
+        game={{
+          id: game.id,
+          title: game.title,
+          venue_label: game.venue_label,
+          starts_at: game.starts_at,
+          status: game.status,
+          max_players: game.max_players,
+        }}
+        onPress={onPress}
+      />
+      {game.hosting ? (
+        <View style={styles.hostingTag}>
+          <Text style={styles.hostingText}>YOU&apos;RE HOSTING</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
