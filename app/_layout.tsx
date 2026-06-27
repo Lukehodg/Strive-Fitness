@@ -92,7 +92,7 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Archivo_800ExtraBold,
     Archivo_900Black,
     HankenGrotesk_400Regular,
@@ -101,6 +101,9 @@ export default function RootLayout() {
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
+  // Render once fonts resolve — or if they error, fall back to system fonts
+  // rather than hanging on the loading screen.
+  const ready = fontsLoaded || !!fontError;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -109,7 +112,7 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <StatusBar style="dark" />
-              {fontsLoaded ? <RootNavigator /> : <Loading />}
+              {ready ? <RootNavigator /> : <Loading />}
             </AuthProvider>
           </QueryClientProvider>
         </ErrorBoundary>
