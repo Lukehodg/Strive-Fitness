@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, font, spacing } from "@/components/theme";
+import { colors, font, fonts, spacing } from "@/components/theme";
 import { useMyGames, type MyGame } from "@/hooks/useMyGames";
 
 export default function MyGamesScreen() {
@@ -80,12 +80,13 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing(5), paddingTop: spacing(2), paddingBottom: spacing(3) },
   list: { padding: spacing(5), paddingBottom: spacing(10) },
   sectionHeader: {
-    color: colors.textMuted,
-    fontSize: font.small,
-    fontWeight: "700",
+    color: colors.ember,
+    fontSize: 12,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 1,
     textTransform: "uppercase",
     marginBottom: spacing(2.5),
     marginTop: spacing(2),
   },
-  hosting: { color: colors.primary, fontSize: font.small, marginTop: spacing(1.5), fontWeight: "600" },
+  hosting: { color: colors.ember, fontSize: font.small, marginTop: spacing(1.5), fontFamily: fonts.mono },
 });

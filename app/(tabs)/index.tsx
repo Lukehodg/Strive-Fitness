@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 
@@ -125,7 +125,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.textMuted, fontSize: font.small, fontWeight: "700" },
+  chipText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   chipTextActive: { color: colors.primaryText },
   list: { padding: spacing(5), gap: spacing(3.5), paddingBottom: spacing(24) },
   fab: {

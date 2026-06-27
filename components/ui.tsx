@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, radius, spacing } from "@/components/theme";
 
 /** Full-screen container with safe-area + app background. */
 export function Screen({
@@ -124,10 +124,26 @@ export function Loading() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  heading: { color: colors.text, fontSize: font.h1, fontWeight: "800" },
-  subheading: { color: colors.text, fontSize: font.h3, fontWeight: "700" },
-  muted: { color: colors.textMuted, fontSize: font.body },
-  label: { color: colors.textMuted, fontSize: font.small, fontWeight: "600" },
+  heading: {
+    color: colors.text,
+    fontSize: font.h1,
+    fontFamily: fonts.displayBlack,
+    letterSpacing: -0.6,
+  },
+  subheading: {
+    color: colors.text,
+    fontSize: font.h3,
+    fontFamily: fonts.display,
+    letterSpacing: -0.3,
+  },
+  muted: { color: colors.textMuted, fontSize: font.body, fontFamily: fonts.body },
+  label: {
+    color: colors.textMuted,
+    fontSize: font.small,
+    fontFamily: fonts.mono,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   button: {
     height: 52,
     borderRadius: radius.md,
@@ -135,7 +151,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing(4),
   },
-  buttonText: { fontSize: font.body, fontWeight: "700" },
+  buttonText: { fontSize: font.body, fontFamily: fonts.display, letterSpacing: 0.2 },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -143,6 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     color: colors.text,
     fontSize: font.body,
+    fontFamily: fonts.body,
     paddingHorizontal: spacing(3.5),
     paddingVertical: spacing(3.5),
   },

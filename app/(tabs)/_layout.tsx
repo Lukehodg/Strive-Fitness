@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors } from "@/components/theme";
+import { colors, fonts } from "@/components/theme";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export default function TabsLayout() {
@@ -12,8 +12,14 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.ember,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontFamily: fonts.mono,
+          fontSize: 10,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,

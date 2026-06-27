@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import {
@@ -250,11 +250,18 @@ const styles = StyleSheet.create({
   content: { padding: spacing(5), gap: spacing(4), paddingBottom: spacing(8) },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing(2) },
   titleActions: { flexDirection: "row", alignItems: "center", gap: spacing(3) },
-  countdown: { color: colors.primary, fontSize: font.body, fontWeight: "700", marginTop: -spacing(2) },
+  countdown: {
+    color: colors.ember,
+    fontSize: font.small,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginTop: -spacing(2),
+  },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing(2.5) },
-  metaText: { color: colors.text, fontSize: font.body },
+  metaText: { color: colors.text, fontSize: font.body, fontFamily: fonts.body },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing(3) },
-  playerName: { color: colors.text, fontSize: font.body, fontWeight: "600" },
+  playerName: { color: colors.text, fontSize: font.body, fontFamily: fonts.bodyBold },
   footer: {
     padding: spacing(5),
     gap: spacing(3),
@@ -262,8 +269,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.bg,
   },
-  badge: { backgroundColor: colors.surfaceAlt, borderRadius: radius.pill, paddingHorizontal: spacing(3), paddingVertical: spacing(1) },
-  badgeFull: { backgroundColor: colors.warning },
-  badgeText: { color: colors.textMuted, fontSize: font.small, fontWeight: "700" },
-  badgeTextFull: { color: "#1A1206" },
+  badge: { backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
+  badgeFull: { backgroundColor: colors.primary },
+  badgeText: { color: colors.ember, fontSize: 11, fontFamily: fonts.monoBold, letterSpacing: 0.5, textTransform: "uppercase" },
+  badgeTextFull: { color: colors.primaryText },
 });

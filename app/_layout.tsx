@@ -4,13 +4,24 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
+import { Archivo_800ExtraBold, Archivo_900Black } from "@expo-google-fonts/archivo";
+import {
+  HankenGrotesk_400Regular,
+  HankenGrotesk_500Medium,
+  HankenGrotesk_700Bold,
+} from "@expo-google-fonts/hanken-grotesk";
+import {
+  JetBrainsMono_500Medium,
+  JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
 
 import { queryClient } from "@/lib/queryClient";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { Loading } from "@/components/ui";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { colors } from "@/components/theme";
+import { colors, fonts } from "@/components/theme";
 
 /**
  * Redirects based on auth + profile state:
@@ -48,7 +59,16 @@ function RootNavigator() {
   if (initializing || (session && profileLoading)) return <Loading />;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        headerStyle: { backgroundColor: colors.bg },
+        headerTitleStyle: { fontFamily: fonts.display, color: colors.text },
+        headerTintColor: colors.text,
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.bg },
+      }}
+    >
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
@@ -72,14 +92,24 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Archivo_800ExtraBold,
+    Archivo_900Black,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_700Bold,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_700Bold,
+  });
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <StatusBar style="light" />
-              <RootNavigator />
+              <StatusBar style="dark" />
+              {fontsLoaded ? <RootNavigator /> : <Loading />}
             </AuthProvider>
           </QueryClientProvider>
         </ErrorBoundary>

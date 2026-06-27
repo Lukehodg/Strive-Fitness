@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GameCard } from "@/components/GameCard";
 import { Loading } from "@/components/ui";
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import type { NearbyActivity } from "@/types/database";
@@ -134,8 +134,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(2),
     alignItems: "center",
   },
-  title: { color: colors.text, fontSize: font.h3, fontWeight: "800" },
-  count: { color: colors.textMuted, fontSize: font.small },
+  title: { color: colors.text, fontSize: font.h3, fontFamily: fonts.display, letterSpacing: -0.3 },
+  count: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.mono,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   recentre: {
     position: "absolute",
     right: spacing(5),
@@ -158,8 +164,11 @@ const styles = StyleSheet.create({
   bottom: { position: "absolute", left: 0, right: 0, bottom: spacing(4), padding: spacing(4) },
   hintWrap: { position: "absolute", left: 0, right: 0, bottom: spacing(6), alignItems: "center" },
   hint: {
-    color: colors.text,
-    fontSize: font.small,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.mono,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
     backgroundColor: colors.surface,
     overflow: "hidden",
     borderRadius: radius.pill,

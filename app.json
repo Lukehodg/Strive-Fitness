@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "Strive",
+    "name": "Stride",
     "slug": "strive",
     "scheme": "strive",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B0B0F"
+      "backgroundColor": "#17140F"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -29,7 +29,7 @@
       "package": "com.lukehodg.strive",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0B0B0F"
+        "backgroundColor": "#FF9F1C"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",

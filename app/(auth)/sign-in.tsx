@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 
-import { Button, Heading, Muted, Screen } from "@/components/ui";
-import { spacing } from "@/components/theme";
+import { Button, Muted, Screen } from "@/components/ui";
+import { Wordmark } from "@/components/Wordmark";
+import { colors, fonts, spacing } from "@/components/theme";
 import {
   appleAvailable,
   signInWithApple,
@@ -77,8 +78,12 @@ export default function SignInScreen() {
     <Screen>
       <View style={styles.container}>
         <View style={styles.hero}>
-          <Heading>Strive</Heading>
-          <Muted>Find a game near you. Men-only, verified, real-world.</Muted>
+          <Wordmark size={72} />
+          <Text style={styles.tag}>Move with your crew.</Text>
+          <Muted>
+            For men who&apos;d rather not kick a ball alone. Find a game near you, show
+            up, and build something in the doing.
+          </Muted>
         </View>
 
         <View style={styles.actions}>
@@ -124,5 +129,6 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing(6), justifyContent: "space-between" },
   hero: { marginTop: spacing(16), gap: spacing(3) },
+  tag: { fontFamily: fonts.display, fontSize: 24, color: colors.text, letterSpacing: -0.4 },
   actions: { gap: spacing(3), marginBottom: spacing(8) },
 });

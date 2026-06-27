@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { formatDistance, formatRoster, formatStartTime } from "@/lib/format";
 import { statusLabel } from "@/lib/activity-format";
 import type { ActivityStatus } from "@/types/database";
@@ -16,37 +16,45 @@ export type GameCardData = {
   distance_meters?: number;
 };
 
+/** Mono uppercase data chip (kickoff time, distance, status). */
+function Tag({ children, tone = "default" }: { children: string; tone?: "default" | "alert" }) {
+  return (
+    <View style={[styles.tag, tone === "alert" && styles.tagAlert]}>
+      <Text style={[styles.tagText, tone === "alert" && styles.tagTextAlert]}>{children}</Text>
+    </View>
+  );
+}
+
 export function GameCard({ game, onPress }: { game: GameCardData; onPress: () => void }) {
   const full = game.status === "full";
+  const distance =
+    game.distance_meters != null
+      ? formatDistance(game.distance_meters).replace(" away", "").toUpperCase()
+      : null;
+
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}
     >
-      <View style={styles.row}>
-        <Text style={styles.title} numberOfLines={1}>
-          {game.title}
-        </Text>
-        <View style={[styles.badge, full && styles.badgeFull]}>
-          <Text style={[styles.badgeText, full && styles.badgeTextFull]}>
-            {statusLabel(game.status)}
-          </Text>
-        </View>
+      <View style={styles.tags}>
+        <Tag>FOOTBALL</Tag>
+        <Tag>{formatStartTime(game.starts_at).toUpperCase()}</Tag>
+        {distance ? <Tag>{distance}</Tag> : null}
+        {full ? <Tag tone="alert">FULL</Tag> : null}
       </View>
 
-      <Text style={styles.meta}>{formatStartTime(game.starts_at)}</Text>
-      <Text style={styles.meta} numberOfLines={1}>
-        📍 {game.venue_label}
-        {game.distance_meters != null ? ` · ${formatDistance(game.distance_meters)}` : ""}
+      <Text style={styles.title} numberOfLines={1}>
+        {game.title}
       </Text>
 
-      <View style={styles.footer}>
-        <Text style={styles.roster}>
-          {game.joined_count != null
-            ? formatRoster(game.joined_count, game.max_players)
-            : `${game.max_players} max`}
-        </Text>
-      </View>
+      <Text style={styles.meta} numberOfLines={1}>
+        {game.venue_label}
+        {game.joined_count != null
+          ? ` · ${formatRoster(game.joined_count, game.max_players)}`
+          : ` · ${game.max_players} max`}
+        {!full && game.status !== "open" ? ` · ${statusLabel(game.status)}` : ""}
+      </Text>
     </Pressable>
   );
 }
@@ -58,20 +66,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing(4),
-    gap: spacing(1.5),
+    gap: spacing(2),
   },
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(2) },
-  title: { color: colors.text, fontSize: font.h3, fontWeight: "700", flex: 1 },
-  meta: { color: colors.textMuted, fontSize: font.small },
-  footer: { marginTop: spacing(1), flexDirection: "row", justifyContent: "space-between" },
-  roster: { color: colors.primary, fontSize: font.small, fontWeight: "700" },
-  badge: {
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing(1.5) },
+  tag: {
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing(2.5),
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(2),
     paddingVertical: spacing(1),
   },
-  badgeFull: { backgroundColor: colors.warning },
-  badgeText: { color: colors.textMuted, fontSize: font.small, fontWeight: "700" },
-  badgeTextFull: { color: "#1A1206" },
+  tagAlert: { backgroundColor: colors.primary },
+  tagText: {
+    fontFamily: fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 0.6,
+    color: colors.ember,
+  },
+  tagTextAlert: { color: colors.primaryText },
+  title: { color: colors.text, fontSize: font.h3, fontFamily: fonts.display, letterSpacing: -0.3 },
+  meta: { color: colors.textMuted, fontSize: font.small, fontFamily: fonts.body },
 });
