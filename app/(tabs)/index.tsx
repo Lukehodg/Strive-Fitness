@@ -1,24 +1,30 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, radius, spacing } from "@/components/theme";
+import { colors, font, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
+
+const RADII_KM = [5, 10, 25, 50];
 
 export default function DiscoverScreen() {
   const router = useRouter();
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [radiusKm, setRadiusKm] = useState(25);
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
   }, []);
 
-  const { data, isLoading, isError, refetch, isRefetching } = useNearbyActivities(coords);
+  const { data, isLoading, isError, refetch, isRefetching } = useNearbyActivities(
+    coords,
+    radiusKm * 1000,
+  );
 
   const count = data?.length ?? 0;
   const countLabel =
@@ -36,6 +42,27 @@ export default function DiscoverScreen() {
         <Heading>Discover</Heading>
         <Muted>{countLabel}</Muted>
       </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
+        {RADII_KM.map((km) => {
+          const active = km === radiusKm;
+          return (
+            <Pressable
+              key={km}
+              onPress={() => setRadiusKm(km)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                Within {km} km
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       {!coords || isLoading ? (
         <GameListSkeleton />
@@ -86,8 +113,20 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing(5),
     paddingTop: spacing(2),
-    paddingBottom: spacing(3),
+    paddingBottom: spacing(2),
   },
+  filters: { paddingHorizontal: spacing(5), paddingBottom: spacing(3), gap: spacing(2) },
+  chip: {
+    paddingHorizontal: spacing(3.5),
+    paddingVertical: spacing(2),
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.textMuted, fontSize: font.small, fontWeight: "700" },
+  chipTextActive: { color: colors.primaryText },
   list: { padding: spacing(5), gap: spacing(3.5), paddingBottom: spacing(24) },
   fab: {
     position: "absolute",

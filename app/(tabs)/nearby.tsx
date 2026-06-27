@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -45,6 +46,15 @@ export default function NearbyScreen() {
     );
   }
 
+  function recentre() {
+    if (!coords) return;
+    setSelectedId(null);
+    mapRef.current?.animateToRegion(
+      { latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 },
+      350,
+    );
+  }
+
   return (
     <View style={styles.root}>
       <MapView
@@ -79,6 +89,10 @@ export default function NearbyScreen() {
           </Text>
         </View>
       </SafeAreaView>
+
+      <Pressable style={[styles.recentre, selected ? styles.recentreUp : null]} onPress={recentre}>
+        <Ionicons name="locate" size={22} color={colors.text} />
+      </Pressable>
 
       {selected ? (
         <View style={styles.bottom} pointerEvents="box-none">
@@ -122,6 +136,25 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.text, fontSize: font.h3, fontWeight: "800" },
   count: { color: colors.textMuted, fontSize: font.small },
+  recentre: {
+    position: "absolute",
+    right: spacing(5),
+    bottom: spacing(6),
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  recentreUp: { bottom: spacing(40) },
   bottom: { position: "absolute", left: 0, right: 0, bottom: spacing(4), padding: spacing(4) },
   hintWrap: { position: "absolute", left: 0, right: 0, bottom: spacing(6), alignItems: "center" },
   hint: {

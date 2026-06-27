@@ -1,4 +1,4 @@
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -16,7 +16,7 @@ import {
   type RosterEntry,
 } from "@/hooks/useActivity";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
-import { formatRoster, formatStartTime } from "@/lib/format";
+import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
 export default function GameDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +42,19 @@ export default function GameDetailScreen() {
   const isCancelled = game.status === "cancelled";
   const isPast = +new Date(game.starts_at) + game.duration_minutes * 60_000 < Date.now();
   const verified = profile?.phone_verified ?? false;
+
+  async function onShare() {
+    if (!game) return;
+    try {
+      await Share.share({
+        message:
+          `${game.title} — ${game.venue_label}\n${formatStartTime(game.starts_at)}\n` +
+          `Join me on Strive: strive://game/${activityId}`,
+      });
+    } catch {
+      // user dismissed the share sheet — nothing to do
+    }
+  }
 
   function onCancel() {
     Alert.alert("Cancel this game?", "Everyone on the roster will see it's been called off.", [
@@ -135,12 +148,24 @@ export default function GameDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <Heading>{game.title}</Heading>
-          <View style={[styles.badge, isFull && styles.badgeFull]}>
-            <Text style={[styles.badgeText, isFull && styles.badgeTextFull]}>
-              {statusLabel(game.status)}
-            </Text>
+          <View style={styles.titleActions}>
+            <Ionicons
+              name="share-outline"
+              size={22}
+              color={colors.textMuted}
+              onPress={onShare}
+            />
+            <View style={[styles.badge, isFull && styles.badgeFull]}>
+              <Text style={[styles.badgeText, isFull && styles.badgeTextFull]}>
+                {statusLabel(game.status)}
+              </Text>
+            </View>
           </View>
         </View>
+
+        {!isCancelled ? (
+          <Text style={styles.countdown}>{formatCountdown(game.starts_at, game.duration_minutes)}</Text>
+        ) : null}
 
         <Card style={{ gap: spacing(2.5) }}>
           <Row icon="time" text={formatStartTime(game.starts_at)} />
@@ -224,6 +249,8 @@ function Row({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: strin
 const styles = StyleSheet.create({
   content: { padding: spacing(5), gap: spacing(4), paddingBottom: spacing(8) },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing(2) },
+  titleActions: { flexDirection: "row", alignItems: "center", gap: spacing(3) },
+  countdown: { color: colors.primary, fontSize: font.body, fontWeight: "700", marginTop: -spacing(2) },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing(2.5) },
   metaText: { color: colors.text, fontSize: font.body },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: spacing(3) },

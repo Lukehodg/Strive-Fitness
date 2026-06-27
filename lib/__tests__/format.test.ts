@@ -1,4 +1,9 @@
-import { formatDistance, formatRoster, formatStartTime } from "@/lib/format";
+import {
+  formatCountdown,
+  formatDistance,
+  formatRoster,
+  formatStartTime,
+} from "@/lib/format";
 
 describe("formatDistance", () => {
   it("shows metres under 1km, rounded and floored at 50m", () => {
@@ -22,6 +27,27 @@ describe("formatRoster", () => {
   it("formats joined / max", () => {
     expect(formatRoster(7, 10)).toBe("7 / 10 going");
     expect(formatRoster(0, 14)).toBe("0 / 14 going");
+  });
+});
+
+describe("formatCountdown", () => {
+  const iso = (msFromNow: number) => new Date(Date.now() + msFromNow).toISOString();
+
+  it("counts down in minutes under an hour", () => {
+    expect(formatCountdown(iso(25 * 60_000), 60)).toBe("Starts in 25 min");
+  });
+
+  it("counts down in hours", () => {
+    expect(formatCountdown(iso(3 * 3_600_000), 60)).toBe("Starts in 3h");
+  });
+
+  it("counts down in days", () => {
+    expect(formatCountdown(iso(2 * 86_400_000), 60)).toBe("Starts in 2 days");
+  });
+
+  it("shows in-progress and finished states", () => {
+    expect(formatCountdown(iso(-10 * 60_000), 60)).toBe("In progress");
+    expect(formatCountdown(iso(-120 * 60_000), 60)).toBe("Finished");
   });
 });
 

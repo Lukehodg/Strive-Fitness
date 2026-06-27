@@ -35,3 +35,19 @@ export function formatStartTime(iso: string): string {
 export function formatRoster(joined: number, max: number): string {
   return `${joined} / ${max} going`;
 }
+
+/** "Starts in 3h" / "In progress" / "Finished" relative to now. */
+export function formatCountdown(startsAt: string, durationMinutes: number): string {
+  const start = new Date(startsAt).getTime();
+  const end = start + durationMinutes * 60_000;
+  const now = Date.now();
+  if (now >= end) return "Finished";
+  if (now >= start) return "In progress";
+
+  const mins = Math.round((start - now) / 60_000);
+  if (mins < 60) return `Starts in ${mins} min`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `Starts in ${hrs}h`;
+  const days = Math.round(hrs / 24);
+  return `Starts in ${days} day${days === 1 ? "" : "s"}`;
+}
