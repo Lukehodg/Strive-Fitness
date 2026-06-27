@@ -175,6 +175,18 @@ export interface Database {
         Update: Partial<{ event_id: string; user_id: string }>;
         Relationships: [];
       };
+      messages: {
+        Row: {
+          id: string;
+          activity_id: string;
+          user_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: { activity_id: string; user_id: string; body: string };
+        Update: Partial<{ body: string }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -236,3 +248,4 @@ export type NearbyActivity =
 export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type UpcomingEvent =
   Database["public"]["Functions"]["upcoming_events"]["Returns"][number];
+export type Message = Database["public"]["Tables"]["messages"]["Row"];

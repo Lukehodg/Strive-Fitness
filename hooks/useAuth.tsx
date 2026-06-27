@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
-import { disconnectStreamUser } from "@/lib/stream";
 
 type AuthContextValue = {
   session: Session | null;
@@ -37,7 +36,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       initializing,
       signOut: async () => {
-        await disconnectStreamUser().catch(() => {});
         await supabase.auth.signOut();
       },
     }),

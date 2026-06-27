@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, toPoint } from "@/lib/supabase";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { channelIdForActivity, connectStreamUser } from "@/lib/stream";
 import type { Activity } from "@/types/database";
 
 export type RosterEntry = {
@@ -120,15 +119,6 @@ export function useJoinActivity(activityId: string) {
         }
         throw error;
       }
-
-      // Best-effort: join the game's Stream channel. Non-fatal if chat is down.
-      try {
-        const sc = await connectStreamUser();
-        const channel = sc.channel("messaging", channelIdForActivity(activityId));
-        await channel.addMembers([user.id]);
-      } catch (e) {
-        console.warn("[chat] could not add to channel", e);
-      }
     },
     onSuccess: () => invalidateActivity(qc, activityId, user?.id),
   });
@@ -148,14 +138,6 @@ export function useLeaveActivity(activityId: string) {
         .eq("activity_id", activityId)
         .eq("user_id", user.id);
       if (error) throw error;
-
-      try {
-        const sc = await connectStreamUser();
-        const channel = sc.channel("messaging", channelIdForActivity(activityId));
-        await channel.removeMembers([user.id]);
-      } catch (e) {
-        console.warn("[chat] could not remove from channel", e);
-      }
     },
     onSuccess: () => invalidateActivity(qc, activityId, user?.id),
   });
@@ -214,18 +196,6 @@ export function useCreateActivity() {
           throw new Error("Verify your phone number before hosting a game.");
         }
         throw error;
-      }
-
-      // Create the game's Stream channel up front so chat is ready on join.
-      try {
-        const sc = await connectStreamUser();
-        const channel = sc.channel("messaging", channelIdForActivity(data.id), {
-          members: [user.id],
-          name: data.title,
-        });
-        await channel.create();
-      } catch (e) {
-        console.warn("[chat] could not create channel", e);
       }
       return data;
     },
