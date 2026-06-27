@@ -1,23 +1,18 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker } from "react-native-maps";
 
 import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, font, radius, spacing } from "@/components/theme";
+import { colors, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import type { NearbyActivity } from "@/types/database";
-
-type ViewMode = "list" | "map";
 
 export default function DiscoverScreen() {
   const router = useRouter();
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [mode, setMode] = useState<ViewMode>("list");
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
@@ -38,14 +33,8 @@ export default function DiscoverScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <View>
-          <Heading>Discover</Heading>
-          <Muted>{countLabel}</Muted>
-        </View>
-        <View style={styles.toggle}>
-          <Segment label="List" active={mode === "list"} onPress={() => setMode("list")} />
-          <Segment label="Map" active={mode === "map"} onPress={() => setMode("map")} />
-        </View>
+        <Heading>Discover</Heading>
+        <Muted>{countLabel}</Muted>
       </View>
 
       {!coords || isLoading ? (
@@ -55,27 +44,6 @@ export default function DiscoverScreen() {
           <EmptyState title="Couldn't load games" message="Check your connection and try again." />
           <Button title="Retry" onPress={() => refetch()} />
         </View>
-      ) : mode === "map" ? (
-        <MapView
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={{
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            latitudeDelta: 0.2,
-            longitudeDelta: 0.2,
-          }}
-          showsUserLocation
-        >
-          {(data ?? []).map((g: NearbyActivity) => (
-            <Marker
-              key={g.id}
-              coordinate={{ latitude: g.venue_lat, longitude: g.venue_lng }}
-              title={g.title}
-              description={g.venue_label}
-              onCalloutPress={() => openGame(g.id)}
-            />
-          ))}
-        </MapView>
       ) : (
         <FlatList
           data={data ?? []}
@@ -114,36 +82,12 @@ export default function DiscoverScreen() {
   );
 }
 
-function Segment({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.segment, active && styles.segmentActive]}>
-      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing(5),
     paddingTop: spacing(2),
     paddingBottom: spacing(3),
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
   },
-  toggle: { flexDirection: "row", backgroundColor: colors.surface, borderRadius: radius.pill, padding: 3 },
-  segment: { paddingHorizontal: spacing(3.5), paddingVertical: spacing(1.5), borderRadius: radius.pill },
-  segmentActive: { backgroundColor: colors.primary },
-  segmentText: { color: colors.textMuted, fontSize: font.small, fontWeight: "700" },
-  segmentTextActive: { color: colors.primaryText },
   list: { padding: spacing(5), gap: spacing(3.5), paddingBottom: spacing(24) },
   fab: {
     position: "absolute",
