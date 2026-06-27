@@ -11,7 +11,14 @@
 export type ActivityType = "football" | "gym" | "networking";
 export type ActivityStatus = "open" | "full" | "cancelled" | "completed";
 export type ParticipantStatus = "joined" | "left";
-export type EventType = "parkrun" | "5k" | "10k" | "half_marathon" | "marathon" | "other";
+export type EventType =
+  | "parkrun"
+  | "5k"
+  | "10k"
+  | "half_marathon"
+  | "marathon"
+  | "hyrox"
+  | "other";
 
 export type Json =
   | string

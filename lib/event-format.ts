@@ -13,6 +13,8 @@ export function eventTypeLabel(type: EventType): string {
       return "HALF MARATHON";
     case "marathon":
       return "MARATHON";
+    case "hyrox":
+      return "HYROX";
     case "other":
       return "EVENT";
   }
