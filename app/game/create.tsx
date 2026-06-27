@@ -22,6 +22,11 @@ function dateFrom(dayOffset: number, time: string): Date | null {
 }
 
 const DAY_LABELS = ["Today", "Tomorrow", "+2d", "+3d", "+4d", "+5d", "+6d"];
+const REPEAT_OPTIONS = [
+  { weeks: 1, label: "Just once" },
+  { weeks: 4, label: "× 4 weeks" },
+  { weeks: 8, label: "× 8 weeks" },
+];
 
 export default function CreateGameScreen() {
   const router = useRouter();
@@ -35,6 +40,7 @@ export default function CreateGameScreen() {
   const [notes, setNotes] = useState("");
   const [dayOffset, setDayOffset] = useState(0);
   const [time, setTime] = useState("18:30");
+  const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [coords, setCoords] = useState<Coords | null>(null);
 
   useEffect(() => {
@@ -75,6 +81,7 @@ export default function CreateGameScreen() {
         duration_minutes: dur,
         max_players: max,
         notes: notes.trim() || undefined,
+        repeat_weeks: repeatWeeks,
       });
       router.replace({ pathname: "/game/[id]", params: { id: game.id } });
     } catch (e) {
@@ -125,6 +132,26 @@ export default function CreateGameScreen() {
 
         <Field label="Start time (HH:MM)" value={time} onChangeText={setTime} placeholder="18:30" keyboardType="numbers-and-punctuation" />
 
+        <View style={{ gap: spacing(2) }}>
+          <Text style={styles.label}>Repeat</Text>
+          <View style={styles.repeatRow}>
+            {REPEAT_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.weeks}
+                onPress={() => setRepeatWeeks(opt.weeks)}
+                style={[styles.chip, repeatWeeks === opt.weeks && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, repeatWeeks === opt.weeks && styles.chipTextActive]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {repeatWeeks > 1 ? (
+            <Muted>Creates {repeatWeeks} weekly games, same day & time.</Muted>
+          ) : null}
+        </View>
+
         <View style={styles.twoCol}>
           <View style={{ flex: 1 }}>
             <Field label="Max players" value={maxPlayers} onChangeText={setMaxPlayers} keyboardType="number-pad" />
@@ -154,6 +181,7 @@ const styles = StyleSheet.create({
   },
   mapWrap: { height: 200, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   twoCol: { flexDirection: "row", gap: spacing(3) },
+  repeatRow: { flexDirection: "row", gap: spacing(2) },
   chip: { height: 40, justifyContent: "center", paddingHorizontal: spacing(4), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.textMuted, fontFamily: fonts.monoBold, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },
