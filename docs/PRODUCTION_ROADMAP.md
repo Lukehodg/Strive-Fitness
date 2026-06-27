@@ -95,14 +95,18 @@ not at the end.
 - **Effort:** ~3–4 days.
 
 ## Phase 4 — Chat + notifications
-- [ ] Create a **Stream Chat** app; set `EXPO_PUBLIC_STREAM_API_KEY`.
-- [ ] Deploy `stream-token` Edge Function; `supabase secrets set STREAM_API_KEY/SECRET`.
-- [ ] Server-side channel membership sync (don't trust the client to add/remove members).
+- [x] **Chat** is built-in on Supabase Realtime (`messages` table, 0006) — Stream dropped.
+- [x] **Event notifications** fire from the app via `send-notifications`: game invite,
+      invite accepted, new chat message, game cancelled. The function authenticates the
+      caller and gates roster-wide sends on membership.
+- [ ] Deploy `send-notifications` and confirm `SUPABASE_SERVICE_ROLE_KEY` is set on it.
+- [ ] **Reminders** (~1h before `starts_at`): no actor, so schedule via pg_cron to invoke
+      `send-notifications` server-side with the service-role key. Suggested:
+      `select cron.schedule('game-reminders','* * * * *', $$ ... $$)` that finds activities
+      starting in ~60min and posts `{ activityId, title, body }` to the function.
 - [ ] Chat moderation: profanity/abuse handling, report-from-chat, blocked-user hiding.
-- [ ] Notifications: deploy `send-notifications`; wire **reminders** via pg_cron/scheduled
-      function (~1h before `starts_at`) and **chat nudges** via a Stream webhook.
 - [ ] APNs (Apple) + FCM (Android) credentials in Expo.
-- **Effort:** ~3–5 days.
+- **Effort:** ~2–3 days (reminders + store push creds).
 
 ## Phase 5 — Observability + quality
 - [ ] Crash/error reporting (Sentry) in app + Edge Functions.

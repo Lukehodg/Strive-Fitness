@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase, toPoint } from "@/lib/supabase";
+import { notify } from "@/lib/notify";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { Activity, GameFormat, SkillLevel } from "@/types/database";
@@ -143,13 +144,16 @@ export function useLeaveActivity(activityId: string) {
   });
 }
 
-/** Cancel a game (host only). Sets status to 'cancelled'; RLS enforces ownership. */
+/**
+ * Cancel a game (host only). Sets status to 'cancelled'; RLS enforces ownership.
+ * Lets the roster know it's off via a push (pass the title for a nicer body).
+ */
 export function useCancelActivity(activityId: string) {
   const { user } = useAuth();
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (title?: string) => {
       if (!user) throw new Error("Not signed in");
       const { error } = await supabase
         .from("activities")
@@ -157,6 +161,14 @@ export function useCancelActivity(activityId: string) {
         .eq("id", activityId)
         .eq("host_id", user.id);
       if (error) throw error;
+
+      await notify({
+        activityId,
+        excludeUserId: user.id,
+        title: "Game cancelled",
+        body: title ? `“${title}” has been called off.` : "A game you joined was called off.",
+        data: { type: "game", activityId },
+      });
     },
     onSuccess: () => invalidateActivity(qc, activityId, user?.id),
   });

@@ -84,6 +84,14 @@ function RootNavigator() {
         options={{ headerShown: true, title: "Chat" }}
       />
       <Stack.Screen
+        name="game/invite/[id]"
+        options={{ headerShown: true, title: "Invite a connection", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="invites"
+        options={{ headerShown: true, title: "Invites", presentation: "card" }}
+      />
+      <Stack.Screen
         name="event/[id]"
         options={{ headerShown: true, title: "Event", presentation: "card" }}
       />

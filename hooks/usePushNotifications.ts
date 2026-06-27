@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
+import { useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
 
 import { supabase } from "@/lib/supabase";
@@ -24,6 +25,24 @@ Notifications.setNotificationHandler({
  */
 export function usePushNotifications() {
   const { user } = useAuth();
+  const router = useRouter();
+
+  // Deep-link when a notification is tapped. `data` is set by the
+  // send-notifications Edge Function (type: invite | game | chat).
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as {
+        type?: string;
+        activityId?: string;
+      };
+      if (data?.type === "invite") {
+        router.push("/invites");
+      } else if (data?.activityId) {
+        router.push({ pathname: "/game/[id]", params: { id: data.activityId } });
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
 
   useEffect(() => {
     if (!user) return;

@@ -95,4 +95,14 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   via `expo export --platform ios`).
 - Next: see `docs/PRODUCTION_ROADMAP.md` for the path to store launch.
 
+### Feature passes (post-hardening, broadened to football + running events)
+- Stride brand theme; Events tab (parkruns/races/HYROX) + "I'm going" RSVP.
+- **Recurring games** (`0007`), **built-in Realtime chat** (`0006`, Stream dropped),
+  **format/skill + Discover filters** (`0007`), **connections** screen.
+- **Invites + notifications** (`0008`): invite a connection into a game; invitee
+  inbox with accept/decline (accept joins the roster). Event-driven push via the
+  `send-notifications` Edge Function (invite / accepted / chat / cancelled), now
+  JWT-authenticated and membership-gated. Tap-to-deep-link wired. Time-based
+  reminders still need pg_cron — see roadmap Phase 4.
+
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

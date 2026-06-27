@@ -26,7 +26,6 @@ export default function GameChatScreen() {
   const { user } = useAuth();
   const { data: messages, isLoading } = useMessages(activityId);
   const { data: roster } = useRoster(activityId);
-  const send = useSendMessage(activityId);
   const [text, setText] = useState("");
 
   // Resolve sender name/avatar from the roster.
@@ -37,6 +36,9 @@ export default function GameChatScreen() {
     );
     return map;
   }, [roster]);
+
+  const myName = user ? people.get(user.id)?.name : undefined;
+  const send = useSendMessage(activityId, myName);
 
   // Newest first for an inverted list.
   const data = useMemo(() => [...(messages ?? [])].reverse(), [messages]);

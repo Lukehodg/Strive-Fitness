@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
+import { notify } from "@/lib/notify";
 import { useAuth } from "@/hooks/useAuth";
 import type { Message } from "@/types/database";
 
@@ -60,8 +61,11 @@ export function useMessages(activityId: string) {
   return query;
 }
 
-/** Send a chat message. Realtime echoes it back into the list. */
-export function useSendMessage(activityId: string) {
+/**
+ * Send a chat message. Realtime echoes it back into the list. Also nudges the
+ * rest of the roster with a push (titled with the sender's name).
+ */
+export function useSendMessage(activityId: string, senderName?: string) {
   const { user } = useAuth();
 
   return useMutation({
@@ -73,6 +77,14 @@ export function useSendMessage(activityId: string) {
         .from("messages")
         .insert({ activity_id: activityId, user_id: user.id, body: trimmed });
       if (error) throw error;
+
+      await notify({
+        activityId,
+        excludeUserId: user.id,
+        title: senderName ?? "New message",
+        body: trimmed.length > 140 ? `${trimmed.slice(0, 139)}…` : trimmed,
+        data: { type: "chat", activityId },
+      });
     },
   });
 }

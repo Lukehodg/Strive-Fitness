@@ -13,6 +13,7 @@ export type ActivityStatus = "open" | "full" | "cancelled" | "completed";
 export type GameFormat = "kickabout" | "5-a-side" | "7-a-side" | "11-a-side";
 export type SkillLevel = "all" | "casual" | "competitive";
 export type ParticipantStatus = "joined" | "left";
+export type InviteStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type EventType =
   | "parkrun"
   | "5k"
@@ -193,6 +194,26 @@ export interface Database {
         Update: Partial<{ body: string }>;
         Relationships: [];
       };
+      game_invites: {
+        Row: {
+          id: string;
+          activity_id: string;
+          inviter_id: string;
+          invitee_id: string;
+          status: InviteStatus;
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          activity_id: string;
+          inviter_id: string;
+          invitee_id: string;
+          status?: InviteStatus;
+        };
+        Update: Partial<{ status: InviteStatus }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -241,6 +262,7 @@ export interface Database {
       activity_type: ActivityType;
       activity_status: ActivityStatus;
       participant_status: ParticipantStatus;
+      invite_status: InviteStatus;
       event_type: EventType;
     };
   };
@@ -257,3 +279,4 @@ export type Event = Database["public"]["Tables"]["events"]["Row"];
 export type UpcomingEvent =
   Database["public"]["Functions"]["upcoming_events"]["Returns"][number];
 export type Message = Database["public"]["Tables"]["messages"]["Row"];
+export type GameInvite = Database["public"]["Tables"]["game_invites"]["Row"];

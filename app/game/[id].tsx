@@ -66,7 +66,7 @@ export default function GameDetailScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await cancel.mutateAsync();
+            await cancel.mutateAsync(game?.title);
           } catch (e) {
             Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Try again.");
           }
@@ -182,6 +182,14 @@ export default function GameDetailScreen() {
           <Card>
             <Muted>{game.notes}</Muted>
           </Card>
+        ) : null}
+
+        {amIn && !isPast && !isCancelled ? (
+          <Button
+            title="Invite a connection"
+            variant="secondary"
+            onPress={() => router.push({ pathname: "/game/invite/[id]", params: { id: activityId } })}
+          />
         ) : null}
 
         <View style={{ gap: spacing(2) }}>

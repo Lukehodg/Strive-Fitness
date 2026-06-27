@@ -1,17 +1,19 @@
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
-import { colors, fonts, spacing } from "@/components/theme";
+import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
+import { usePendingInviteCount } from "@/hooks/useInvites";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
+  const { data: pendingInvites } = usePendingInviteCount();
 
   if (isLoading) return <Loading />;
 
@@ -59,6 +61,20 @@ export default function ProfileScreen() {
 
         <View style={{ flex: 1 }} />
 
+        <Pressable
+          style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.85 : 1 }]}
+          onPress={() => router.push("/invites")}
+        >
+          <Ionicons name="mail-outline" size={20} color={colors.text} />
+          <Text style={styles.linkText}>Invites</Text>
+          {pendingInvites ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingInvites}</Text>
+            </View>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+
         <Button
           title="Connections"
           variant="secondary"
@@ -91,4 +107,26 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   verifyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(3) },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(3),
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing(4),
+    paddingVertical: spacing(3.5),
+  },
+  linkText: { flex: 1, color: colors.text, fontSize: 16, fontFamily: fonts.bodyBold },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing(1.5),
+  },
+  badgeText: { color: colors.primaryText, fontFamily: fonts.monoBold, fontSize: 11 },
 });
