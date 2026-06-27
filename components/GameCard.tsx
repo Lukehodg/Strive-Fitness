@@ -67,6 +67,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing(4),
     gap: spacing(2),
+    shadowColor: "#17140F",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing(1.5) },
   tag: {

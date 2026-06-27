@@ -3,7 +3,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
+import { Button, EmptyState, Heading, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
@@ -40,12 +40,13 @@ export default function DiscoverScreen() {
     <Screen>
       <View style={styles.header}>
         <Heading>Discover</Heading>
-        <Muted>{countLabel}</Muted>
+        <Text style={styles.count}>{countLabel}</Text>
       </View>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
         contentContainerStyle={styles.filters}
       >
         {RADII_KM.map((km) => {
@@ -56,9 +57,7 @@ export default function DiscoverScreen() {
               onPress={() => setRadiusKm(km)}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                Within {km} km
-              </Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{km} KM</Text>
             </Pressable>
           );
         })}
@@ -113,12 +112,24 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing(5),
     paddingTop: spacing(2),
-    paddingBottom: spacing(2),
+    paddingBottom: spacing(2.5),
+    gap: spacing(1),
   },
-  filters: { paddingHorizontal: spacing(5), paddingBottom: spacing(3), gap: spacing(2) },
+  count: {
+    color: colors.textMuted,
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  // flexGrow:0 keeps the row at its natural height; alignItems centres the
+  // chips so they don't stretch to fill vertical space.
+  filterBar: { flexGrow: 0, marginBottom: spacing(3) },
+  filters: { paddingHorizontal: spacing(5), gap: spacing(2), alignItems: "center" },
   chip: {
-    paddingHorizontal: spacing(3.5),
-    paddingVertical: spacing(2),
+    height: 38,
+    justifyContent: "center",
+    paddingHorizontal: spacing(4),
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
