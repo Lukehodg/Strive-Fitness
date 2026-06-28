@@ -23,7 +23,7 @@ export default function MyGamesScreen() {
       <Screen>
         <View style={styles.header}>
           <Heading>My Games</Heading>
-          <Muted>Your games and events</Muted>
+          <Muted>Your activities and events</Muted>
         </View>
         <GameListSkeleton count={3} />
       </Screen>
@@ -36,9 +36,9 @@ export default function MyGamesScreen() {
   const myEvents = events.data ?? [];
 
   const sections: (SectionMeta & { data: Item[] })[] = [
-    { title: "Upcoming games", kind: "game" as const, data: upcoming },
+    { title: "Upcoming", kind: "game" as const, data: upcoming },
     { title: "Events you're going to", kind: "event" as const, data: myEvents },
-    { title: "Past games", kind: "game" as const, data: past },
+    { title: "Past", kind: "game" as const, data: past },
   ].filter((s) => s.data.length > 0);
 
   const onRefresh = () => {
@@ -50,14 +50,14 @@ export default function MyGamesScreen() {
     <Screen>
       <View style={styles.header}>
         <Heading>My Games</Heading>
-        <Muted>Your games and events</Muted>
+        <Muted>Your activities and events</Muted>
       </View>
 
       {sections.length === 0 ? (
         <EmptyState
           icon="football-outline"
           title="Nothing yet"
-          message="Join a game from Discover, or say you're going to an event — they'll show up here."
+          message="Join something from Discover, or say you're going to an event — it'll show up here."
         />
       ) : (
         <SectionList<Item, SectionMeta>

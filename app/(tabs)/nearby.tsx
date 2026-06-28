@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker } from "react-native-maps";
@@ -10,26 +10,36 @@ import { Loading } from "@/components/ui";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import { sportColor } from "@/lib/sports";
-import type { NearbyActivity } from "@/types/database";
+import { SPORTS, SPORT_META, sportColor } from "@/lib/sports";
+import type { ActivityType, NearbyActivity } from "@/types/database";
+
+const SPORT_FILTERS: { value: ActivityType | "all"; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: "all", label: "All", icon: "apps" },
+  ...SPORTS.map((s) => ({ value: s, label: SPORT_META[s].label, icon: SPORT_META[s].icon })),
+];
 
 /**
- * Full-screen map of nearby football games. Markers sit on each game's venue;
- * tapping one focuses it and shows a preview card you can open. The list lives
- * on the Discover tab — this is the spatial view of the same data.
+ * Full-screen map of nearby activities. Markers sit on each one's venue,
+ * coloured by sport; tapping one focuses it and shows a preview card. The list
+ * lives on the Discover tab — this is the spatial view of the same data.
  */
 export default function NearbyScreen() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sportFilter, setSportFilter] = useState<ActivityType | "all">("all");
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
   }, []);
 
   const { data, isLoading } = useNearbyActivities(coords);
-  const games: NearbyActivity[] = data ?? [];
+  const allGames: NearbyActivity[] = data ?? [];
+  const games =
+    sportFilter === "all"
+      ? allGames
+      : allGames.filter((g: NearbyActivity) => g.activity_type === sportFilter);
   const selected = games.find((g: NearbyActivity) => g.id === selectedId) ?? null;
 
   if (!coords) return <Loading />;
@@ -85,10 +95,38 @@ export default function NearbyScreen() {
           <Text style={styles.title}>Nearby</Text>
           <Text style={styles.count}>
             {isLoading
-              ? "Finding games…"
-              : `${games.length} game${games.length === 1 ? "" : "s"}`}
+              ? "Finding activities…"
+              : `${games.length} ${games.length === 1 ? "activity" : "activities"}`}
           </Text>
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterBar}
+          contentContainerStyle={styles.filters}
+        >
+          {SPORT_FILTERS.map((f) => {
+            const active = f.value === sportFilter;
+            return (
+              <Pressable
+                key={f.value}
+                onPress={() => {
+                  setSportFilter(f.value);
+                  setSelectedId(null);
+                }}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Ionicons
+                  name={f.icon}
+                  size={13}
+                  color={active ? colors.primaryText : f.value === "all" ? colors.textMuted : sportColor(f.value)}
+                />
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </SafeAreaView>
 
       <Pressable style={[styles.recentre, selected ? styles.recentreUp : null]} onPress={recentre}>
@@ -117,7 +155,7 @@ export default function NearbyScreen() {
         </View>
       ) : !isLoading && games.length > 0 ? (
         <View style={styles.hintWrap} pointerEvents="none">
-          <Text style={styles.hint}>Tap a pin to see the game</Text>
+          <Text style={styles.hint}>Tap a pin to see it</Text>
         </View>
       ) : null}
     </View>
@@ -145,6 +183,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
+  filterBar: { width: "100%", flexGrow: 0, maxHeight: 40, marginTop: spacing(2) },
+  filters: { paddingHorizontal: spacing(4), gap: spacing(2), alignItems: "center" },
+  chip: {
+    height: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(1.5),
+    justifyContent: "center",
+    paddingHorizontal: spacing(3.5),
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  chipTextActive: { color: colors.primaryText },
   recentre: {
     position: "absolute",
     right: spacing(5),

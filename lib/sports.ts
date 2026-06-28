@@ -80,6 +80,24 @@ export function sportDefaults(type: ActivityType) {
   );
 }
 
+/**
+ * The natural noun for a single occurrence of each sport — so the UI can say
+ * "Leave run" / "Cancel ride" / "Join match" instead of a blanket "game".
+ */
+const NOUNS: Record<string, string> = {
+  football: "game",
+  running: "run",
+  cycling: "ride",
+  gym: "session",
+  tennis: "match",
+  padel: "match",
+  basketball: "game",
+};
+
+export function activityNoun(type: ActivityType): string {
+  return NOUNS[type] ?? "activity";
+}
+
 /** Football is the only sport with a team format + skill level. */
 export function isFootball(type: ActivityType): boolean {
   return type === "football";

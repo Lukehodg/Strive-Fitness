@@ -18,7 +18,7 @@ import {
 } from "@/hooks/useActivity";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
 import { skillLabel } from "@/lib/activity-format";
-import { isFootball, sportIcon, sportLabel } from "@/lib/sports";
+import { activityNoun, isFootball, sportIcon, sportLabel } from "@/lib/sports";
 import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
 export default function GameDetailScreen() {
@@ -45,6 +45,9 @@ export default function GameDetailScreen() {
   const isCancelled = game.status === "cancelled";
   const isPast = +new Date(game.starts_at) + game.duration_minutes * 60_000 < Date.now();
   const verified = profile?.phone_verified ?? false;
+  // Sport-natural noun: "game" / "run" / "ride" / "match" / "session".
+  const noun = activityNoun(game.activity_type);
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   async function onShare() {
     if (!game) return;
@@ -60,7 +63,7 @@ export default function GameDetailScreen() {
   }
 
   function onCancel() {
-    Alert.alert("Cancel this game?", "Everyone on the roster will see it's been called off.", [
+    Alert.alert(`Cancel this ${noun}?`, "Everyone on the roster will see it's been called off.", [
       { text: "Keep it", style: "cancel" },
       {
         text: "Cancel game",
@@ -235,7 +238,7 @@ export default function GameDetailScreen() {
 
       <View style={styles.footer}>
         {isCancelled ? (
-          <Muted>This game was cancelled by the host.</Muted>
+          <Muted>This {noun} was cancelled by the host.</Muted>
         ) : amIn ? (
           <>
             <Button
@@ -244,21 +247,21 @@ export default function GameDetailScreen() {
             />
             {isHost ? (
               <Button
-                title="Cancel game"
+                title={`Cancel ${noun}`}
                 variant="danger"
                 onPress={onCancel}
                 loading={cancel.isPending}
               />
             ) : (
-              <Button title="Leave game" variant="secondary" onPress={onLeave} loading={leave.isPending} />
+              <Button title={`Leave ${noun}`} variant="secondary" onPress={onLeave} loading={leave.isPending} />
             )}
           </>
         ) : isPast ? (
-          <Muted>This game has finished.</Muted>
+          <Muted>This {noun} has finished.</Muted>
         ) : isFull ? (
-          <Button title="Game full" disabled onPress={() => {}} />
+          <Button title={`${Noun} full`} disabled onPress={() => {}} />
         ) : (
-          <Button title="Join game" onPress={onJoin} loading={join.isPending} />
+          <Button title={`Join ${noun}`} onPress={onJoin} loading={join.isPending} />
         )}
       </View>
     </Screen>
