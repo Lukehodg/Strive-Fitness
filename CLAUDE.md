@@ -130,5 +130,11 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   best-effort Strava deauth + avatar cleanup). Profile → "Privacy & data" surfaces
   export, delete, and Privacy/Terms links (`lib/legal.ts`). Starter policy in
   `docs/PRIVACY.md`. In-app deletion is also an App Store requirement.
+- **Production hardening:** pg_cron reminders (`0011`), jittered map pins (`0012`),
+  `home_location` column-revoked (`0013`, see `docs/RLS_POLICY_CHECKLIST.md`),
+  **Sentry** (app + Edge Functions via `_shared/sentry.ts`), **moderation** (`0014`:
+  `suspended_at`/`is_moderator`, suspension enforced in insert RLS; `moderation`
+  Edge Function for report triage + suspend), and **PostHog** funnel analytics
+  (`lib/analytics.ts`, fetch-based, no SDK). All gated behind their config keys.
 
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

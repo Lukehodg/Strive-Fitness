@@ -74,11 +74,23 @@ dropped; there are no third-party keys to configure.
 - In-app account deletion is also an **App Store requirement** for apps with
   accounts — the Profile → Privacy & data section covers it.
 
-## 7. Maps
+## 7. Observability, analytics & moderation
+- **Sentry:** set `EXPO_PUBLIC_SENTRY_DSN` (app) and `supabase secrets set
+  SENTRY_DSN=…` (Edge Functions). No-op until set; no PII is sent.
+- **Analytics (PostHog):** set `EXPO_PUBLIC_POSTHOG_KEY` (+ optional
+  `EXPO_PUBLIC_POSTHOG_HOST`, defaults EU). Funnel events post straight to the
+  capture API — no SDK/rebuild. Events: `signed_in`, `profile_saved`,
+  `game_viewed`, `game_created`, `game_joined`, `chat_opened`.
+- **Moderation:** deploy `supabase functions deploy moderation`. Promote your
+  first moderator: `update profiles set is_moderator = true where id = '<uid>'`.
+  Then call the function (list_reports / set_status / suspend / unsuspend).
+  Suspended users can't host/join/message/invite (enforced in RLS, 0014).
+
+## 8. Maps
 - iOS uses Apple Maps (no key). For Android, add a Google Maps API key under
   `android.config.googleMaps.apiKey` in `app.json`.
 
-## 8. Running
+## 9. Running
 - **Expo Go** is fine for most UI, but native modules (react-native-maps, Apple
   sign-in, HealthKit) want a **dev build**:
   ```

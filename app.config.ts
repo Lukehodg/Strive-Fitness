@@ -18,6 +18,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     stravaClientId:
       process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID ?? config.extra?.stravaClientId ?? "",
     sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? config.extra?.sentryDsn ?? "",
+    posthogKey: process.env.EXPO_PUBLIC_POSTHOG_KEY ?? config.extra?.posthogKey ?? "",
+    posthogHost: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? config.extra?.posthogHost ?? "",
     eas: config.extra?.eas,
   },
 });

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +20,7 @@ import {
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
 import { skillLabel } from "@/lib/activity-format";
 import { activityNoun, isFootball, sportIcon, sportLabel } from "@/lib/sports";
+import { capture } from "@/lib/analytics";
 import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
 export default function GameDetailScreen() {
@@ -36,6 +38,10 @@ export default function GameDetailScreen() {
   const block = useBlockUser();
   const report = useReportUser();
   const addConnection = useAddConnection();
+
+  useEffect(() => {
+    if (activityId) capture("game_viewed", { activityId });
+  }, [activityId]);
 
   if (isLoading || !game) return <Loading />;
 

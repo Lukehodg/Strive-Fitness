@@ -12,6 +12,8 @@ type Extra = {
   googleIosClientId: string;
   stravaClientId: string;
   sentryDsn: string;
+  posthogKey: string;
+  posthogHost: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
@@ -41,6 +43,8 @@ export const env = {
   googleIosClientId: extra.googleIosClientId ?? "",
   stravaClientId: extra.stravaClientId ?? "",
   sentryDsn: extra.sentryDsn ?? "",
+  posthogKey: extra.posthogKey ?? "",
+  posthogHost: extra.posthogHost || "https://eu.i.posthog.com",
 };
 
 /** True when Supabase has been configured with real credentials. */
@@ -55,3 +59,6 @@ export const isStravaConfigured = env.stravaClientId.length > 0;
 
 /** True when Sentry crash reporting has been configured (DSN present). */
 export const isSentryConfigured = env.sentryDsn.length > 0;
+
+/** True when PostHog analytics has been configured (project key present). */
+export const isAnalyticsConfigured = env.posthogKey.length > 0;

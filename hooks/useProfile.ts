@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase, toPoint } from "@/lib/supabase";
+import { capture } from "@/lib/analytics";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { Profile } from "@/types/database";
@@ -59,6 +60,7 @@ export function useUpsertProfile() {
       return data;
     },
     onSuccess: (profile) => {
+      capture("profile_saved");
       qc.setQueryData(queryKeys.profile(profile.id), profile);
     },
   });

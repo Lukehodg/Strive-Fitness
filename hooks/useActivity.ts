@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase, toPoint } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { capture } from "@/lib/analytics";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { Activity, ActivityType, GameFormat, SkillLevel } from "@/types/database";
@@ -121,7 +122,10 @@ export function useJoinActivity(activityId: string) {
         throw error;
       }
     },
-    onSuccess: () => invalidateActivity(qc, activityId, user?.id),
+    onSuccess: () => {
+      capture("game_joined", { activityId });
+      invalidateActivity(qc, activityId, user?.id);
+    },
   });
 }
 
@@ -225,7 +229,8 @@ export function useCreateActivity() {
       const sorted = (data ?? []).sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at));
       return sorted[0]!;
     },
-    onSuccess: () => {
+    onSuccess: (game) => {
+      capture("game_created", { sport: game.activity_type });
       qc.invalidateQueries({ queryKey: ["nearby"] });
       if (user) qc.invalidateQueries({ queryKey: queryKeys.myGames(user.id) });
     },

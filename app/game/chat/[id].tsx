@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -18,6 +18,7 @@ import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages, useSendMessage } from "@/hooks/useMessages";
 import { useRoster, type RosterEntry } from "@/hooks/useActivity";
+import { capture } from "@/lib/analytics";
 import type { Message } from "@/types/database";
 
 export default function GameChatScreen() {
@@ -39,6 +40,10 @@ export default function GameChatScreen() {
 
   const myName = user ? people.get(user.id)?.name : undefined;
   const send = useSendMessage(activityId, myName);
+
+  useEffect(() => {
+    if (activityId) capture("chat_opened", { activityId });
+  }, [activityId]);
 
   // Newest first for an inverted list.
   const data = useMemo(() => [...(messages ?? [])].reverse(), [messages]);

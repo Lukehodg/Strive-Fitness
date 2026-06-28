@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+import { capture, setAnalyticsUser } from "@/lib/analytics";
 
 type AuthContextValue = {
   session: Session | null;
@@ -23,8 +24,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setInitializing(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
+      // Pin analytics to the user; capture the sign-in funnel step.
+      setAnalyticsUser(next?.user?.id ?? null);
+      if (event === "SIGNED_IN") capture("signed_in");
     });
 
     return () => sub.subscription.unsubscribe();
