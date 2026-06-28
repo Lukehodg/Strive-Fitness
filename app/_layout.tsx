@@ -77,7 +77,7 @@ function RootNavigator() {
       />
       <Stack.Screen
         name="game/create"
-        options={{ headerShown: true, title: "Create a game", presentation: "modal" }}
+        options={{ headerShown: true, title: "Create an activity", presentation: "modal" }}
       />
       <Stack.Screen
         name="game/chat/[id]"

@@ -9,7 +9,7 @@ import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import { SPORTS, SPORT_META } from "@/lib/sports";
+import { SPORTS, SPORT_META, sportIcon, sportLabel } from "@/lib/sports";
 import type { ActivityType, NearbyActivity } from "@/types/database";
 
 const RADII_KM = [5, 10, 25, 50];
@@ -136,11 +136,19 @@ export default function DiscoverScreen() {
             />
           )}
           ListEmptyComponent={
-            <EmptyState
-              icon="search-outline"
-              title="Nothing nearby"
-              message="Be the first to host one — tap the + to create an activity."
-            />
+            sportFilter === "all" ? (
+              <EmptyState
+                icon="search-outline"
+                title="Nothing nearby"
+                message="Be the first to host one — tap the + to create an activity."
+              />
+            ) : (
+              <EmptyState
+                icon={sportIcon(sportFilter)}
+                title={`No ${sportLabel(sportFilter).toLowerCase()} nearby`}
+                message={`Nothing within ${radiusKm} km. Widen the radius, or tap the + to host the first one.`}
+              />
+            )
           }
         />
       )}

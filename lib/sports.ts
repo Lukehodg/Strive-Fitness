@@ -25,17 +25,42 @@ export const SPORTS: Sport[] = [
   "basketball",
 ];
 
-export const SPORT_META: Record<Sport, { label: string; icon: IconName }> = {
-  football: { label: "Football", icon: "football" },
-  running: { label: "Running", icon: "walk" },
-  cycling: { label: "Cycling", icon: "bicycle" },
-  gym: { label: "Gym", icon: "barbell" },
-  tennis: { label: "Tennis", icon: "tennisball" },
-  padel: { label: "Padel", icon: "tennisball" },
-  basketball: { label: "Basketball", icon: "basketball" },
+type SportMeta = {
+  label: string;
+  icon: IconName;
+  /** Map-pin / accent colour. */
+  color: string;
 };
 
-const META = SPORT_META as Record<string, { label: string; icon: IconName }>;
+export const SPORT_META: Record<Sport, SportMeta> = {
+  football: { label: "Football", icon: "football", color: "#E67E00" },
+  running: { label: "Running", icon: "walk", color: "#1F4D3B" },
+  cycling: { label: "Cycling", icon: "bicycle", color: "#2D6CDF" },
+  gym: { label: "Gym", icon: "barbell", color: "#7A3BB2" },
+  tennis: { label: "Tennis", icon: "tennisball", color: "#5C8A1B" },
+  padel: { label: "Padel", icon: "tennisball", color: "#0E8C8C" },
+  basketball: { label: "Basketball", icon: "basketball", color: "#C2410C" },
+};
+
+/** Sensible starting values in Create, per sport. */
+export const SPORT_DEFAULTS: Record<
+  Sport,
+  { maxPlayers: number; durationMinutes: number; titlePlaceholder: string }
+> = {
+  football: { maxPlayers: 10, durationMinutes: 60, titlePlaceholder: "Sunday 5-a-side" },
+  running: { maxPlayers: 15, durationMinutes: 45, titlePlaceholder: "Riverside easy 5K" },
+  cycling: { maxPlayers: 12, durationMinutes: 120, titlePlaceholder: "Surrey Hills loop" },
+  gym: { maxPlayers: 6, durationMinutes: 75, titlePlaceholder: "Push day + spot" },
+  tennis: { maxPlayers: 4, durationMinutes: 90, titlePlaceholder: "Doubles, anyone?" },
+  padel: { maxPlayers: 4, durationMinutes: 90, titlePlaceholder: "Padel social" },
+  basketball: { maxPlayers: 10, durationMinutes: 90, titlePlaceholder: "Pickup hoops" },
+};
+
+const META = SPORT_META as Record<string, SportMeta>;
+const DEFAULTS = SPORT_DEFAULTS as Record<
+  string,
+  { maxPlayers: number; durationMinutes: number; titlePlaceholder: string }
+>;
 
 export function sportLabel(type: ActivityType): string {
   return META[type]?.label ?? "Activity";
@@ -43,6 +68,16 @@ export function sportLabel(type: ActivityType): string {
 
 export function sportIcon(type: ActivityType): IconName {
   return META[type]?.icon ?? "ellipse";
+}
+
+export function sportColor(type: ActivityType): string {
+  return META[type]?.color ?? "#8A847A";
+}
+
+export function sportDefaults(type: ActivityType) {
+  return (
+    DEFAULTS[type] ?? { maxPlayers: 10, durationMinutes: 60, titlePlaceholder: "Activity name" }
+  );
 }
 
 /** Football is the only sport with a team format + skill level. */

@@ -9,7 +9,7 @@ import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import { SPORTS, SPORT_META, isFootball } from "@/lib/sports";
+import { SPORTS, SPORT_META, isFootball, sportDefaults } from "@/lib/sports";
 import type { ActivityType, GameFormat, SkillLevel } from "@/types/database";
 
 /** Build a Date n days from today at the given HH:MM. */
@@ -61,6 +61,16 @@ export default function CreateGameScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
 
   const football = isFootball(sport);
+
+  // Switching sport refreshes the numeric defaults — but only the ones the user
+  // hasn't already customised (i.e. still equal to the previous sport's default).
+  function onPickSport(next: ActivityType) {
+    const prev = sportDefaults(sport);
+    const nd = sportDefaults(next);
+    if (maxPlayers === String(prev.maxPlayers)) setMaxPlayers(String(nd.maxPlayers));
+    if (duration === String(prev.durationMinutes)) setDuration(String(nd.durationMinutes));
+    setSport(next);
+  }
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
@@ -124,7 +134,7 @@ export default function CreateGameScreen() {
               return (
                 <Pressable
                   key={s}
-                  onPress={() => setSport(s)}
+                  onPress={() => onPickSport(s)}
                   style={[styles.chip, styles.chipRow, active && styles.chipActive]}
                 >
                   <Ionicons
@@ -141,7 +151,12 @@ export default function CreateGameScreen() {
           </View>
         </View>
 
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder="Sunday 5-a-side" />
+        <Field
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder={sportDefaults(sport).titlePlaceholder}
+        />
         <Field label="Venue" value={venue} onChangeText={setVenue} placeholder="Weybridge Sports Hub" />
 
         {football ? (
@@ -241,16 +256,26 @@ export default function CreateGameScreen() {
 
         <View style={styles.twoCol}>
           <View style={{ flex: 1 }}>
-            <Field label="Max players" value={maxPlayers} onChangeText={setMaxPlayers} keyboardType="number-pad" />
+            <Field label={football ? "Max players" : "Max people"} value={maxPlayers} onChangeText={setMaxPlayers} keyboardType="number-pad" />
           </View>
           <View style={{ flex: 1 }}>
             <Field label="Duration (min)" value={duration} onChangeText={setDuration} keyboardType="number-pad" />
           </View>
         </View>
 
-        <Field label="Notes (optional)" value={notes} onChangeText={setNotes} placeholder="Bring a dark & light shirt." multiline />
+        <Field
+          label="Notes (optional)"
+          value={notes}
+          onChangeText={setNotes}
+          placeholder={football ? "Bring a dark & light shirt." : "Anything people should know?"}
+          multiline
+        />
 
-        <Button title="Create game" onPress={onCreate} loading={create.isPending} />
+        <Button
+          title={football ? "Create game" : "Create activity"}
+          onPress={onCreate}
+          loading={create.isPending}
+        />
       </ScrollView>
     </Screen>
   );

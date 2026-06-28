@@ -10,6 +10,7 @@ import { Loading } from "@/components/ui";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
+import { sportColor } from "@/lib/sports";
 import type { NearbyActivity } from "@/types/database";
 
 /**
@@ -73,7 +74,7 @@ export default function NearbyScreen() {
           <Marker
             key={g.id}
             coordinate={{ latitude: g.venue_lat, longitude: g.venue_lng }}
-            pinColor={g.id === selectedId ? colors.primary : colors.danger}
+            pinColor={g.id === selectedId ? colors.primary : sportColor(g.activity_type)}
             onPress={() => focus(g)}
           />
         ))}
