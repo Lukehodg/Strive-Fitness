@@ -6,6 +6,7 @@ import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/com
 import { Avatar } from "@/components/Avatar";
 import { StravaSection } from "@/components/StravaSection";
 import { HealthSection } from "@/components/HealthSection";
+import { AccountDataSection } from "@/components/AccountDataSection";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -85,6 +86,9 @@ export default function ProfileScreen() {
           onPress={() => router.push("/connections")}
         />
         <Button title="Edit profile" onPress={() => router.push("/edit-profile")} />
+
+        <AccountDataSection />
+
         <Button
           title="Sign out"
           variant="secondary"

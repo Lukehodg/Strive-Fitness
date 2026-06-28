@@ -125,5 +125,10 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   server-side** (keeps health data out of GDPR special-category storage).
   `HealthSection.ios.tsx` is the real impl; `HealthSection.tsx` is a no-op stub
   for other platforms (Metro picks per platform). Needs a native rebuild.
+- **GDPR groundwork:** the `account` Edge Function does **data export** (JSON
+  bundle) and **account deletion** (deletes the auth user → cascades all tables;
+  best-effort Strava deauth + avatar cleanup). Profile → "Privacy & data" surfaces
+  export, delete, and Privacy/Terms links (`lib/legal.ts`). Starter policy in
+  `docs/PRIVACY.md`. In-app deletion is also an App Store requirement.
 
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

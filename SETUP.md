@@ -65,11 +65,20 @@ dropped; there are no third-party keys to configure.
   profile. Nothing is written to Supabase. App Review wants a privacy policy and
   a clear reason for HealthKit use (we read workouts to show recent activity).
 
-## 6. Maps
+## 6. Privacy & data rights (GDPR)
+- Deploy the account function: `supabase functions deploy account`. It powers
+  in-app **data export** (JSON) and **account deletion** (erases the auth user,
+  which cascades every table; best-effort Strava deauth + avatar cleanup first).
+- Host your Privacy Policy + Terms and set `PRIVACY_URL` / `TERMS_URL` in
+  `lib/legal.ts`. A starter policy is in `docs/PRIVACY.md` (review before use).
+- In-app account deletion is also an **App Store requirement** for apps with
+  accounts — the Profile → Privacy & data section covers it.
+
+## 7. Maps
 - iOS uses Apple Maps (no key). For Android, add a Google Maps API key under
   `android.config.googleMaps.apiKey` in `app.json`.
 
-## 7. Running
+## 8. Running
 - **Expo Go** is fine for most UI, but native modules (react-native-maps, Apple
   sign-in, HealthKit) want a **dev build**:
   ```
