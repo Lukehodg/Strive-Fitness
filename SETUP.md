@@ -55,13 +55,23 @@ dropped; there are no third-party keys to configure.
   route — so activities are safe to show on a profile. The "Powered by Strava"
   attribution is required by their brand guidelines (already rendered).
 
-## 5. Maps
+## 5. Apple Health (iOS)
+- Provided by `@kingstinct/react-native-healthkit` + its config plugin (already
+  wired in `app.json`), which adds the HealthKit entitlement and the
+  `NSHealthShareUsageDescription` prompt. **Read-only**; background delivery off.
+- Needs a **fresh native build** (`eas build` / `expo run:ios`) — it won't run in
+  Expo Go. iOS-only; on Android the section renders nothing.
+- Data stays **on-device**: workouts are read live and shown on the owner's
+  profile. Nothing is written to Supabase. App Review wants a privacy policy and
+  a clear reason for HealthKit use (we read workouts to show recent activity).
+
+## 6. Maps
 - iOS uses Apple Maps (no key). For Android, add a Google Maps API key under
   `android.config.googleMaps.apiKey` in `app.json`.
 
-## 6. Running
+## 7. Running
 - **Expo Go** is fine for most UI, but native modules (react-native-maps, Apple
-  sign-in) want a **dev build**:
+  sign-in, HealthKit) want a **dev build**:
   ```
   npx expo run:ios      # or run:android
   ```

@@ -120,5 +120,10 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   **stats only — no GPS/route** (privacy), readable by others (minus blocks) for
   future public profiles. Needs `EXPO_PUBLIC_STRAVA_CLIENT_ID` +
   `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` secrets (see SETUP.md).
+- **Apple Health** (iOS): `@kingstinct/react-native-healthkit` (+ config plugin).
+  Read-only workouts shown on the profile, **on-device only — never stored
+  server-side** (keeps health data out of GDPR special-category storage).
+  `HealthSection.ios.tsx` is the real impl; `HealthSection.tsx` is a no-op stub
+  for other platforms (Metro picks per platform). Needs a native rebuild.
 
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { StravaSection } from "@/components/StravaSection";
+import { HealthSection } from "@/components/HealthSection";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -61,6 +62,8 @@ export default function ProfileScreen() {
         ) : null}
 
         <StravaSection />
+
+        <HealthSection />
 
         <Pressable
           style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.85 : 1 }]}
