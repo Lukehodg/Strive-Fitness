@@ -51,7 +51,7 @@ export default function TabsLayout() {
         name="my-games"
         options={{
           title: "My Games",
-          tabBarIcon: ({ color, size }) => <Ionicons name="football" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

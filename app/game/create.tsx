@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 
@@ -47,15 +47,22 @@ export default function CreateGameScreen() {
   const { data: profile } = useMyProfile();
   const create = useCreateActivity();
 
+  // Opened from a sport-filtered Discover? Start on that sport.
+  const { sport: sportParam } = useLocalSearchParams<{ sport?: string }>();
+  const initialSport: ActivityType = (SPORTS as string[]).includes(sportParam ?? "")
+    ? (sportParam as ActivityType)
+    : "football";
+  const initialDefaults = sportDefaults(initialSport);
+
   const [title, setTitle] = useState("");
   const [venue, setVenue] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState("10");
-  const [duration, setDuration] = useState("60");
+  const [maxPlayers, setMaxPlayers] = useState(String(initialDefaults.maxPlayers));
+  const [duration, setDuration] = useState(String(initialDefaults.durationMinutes));
   const [notes, setNotes] = useState("");
   const [dayOffset, setDayOffset] = useState(0);
   const [time, setTime] = useState("18:30");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
-  const [sport, setSport] = useState<ActivityType>("football");
+  const [sport, setSport] = useState<ActivityType>(initialSport);
   const [format, setFormat] = useState<GameFormat>("kickabout");
   const [skill, setSkill] = useState<SkillLevel>("all");
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -81,7 +88,7 @@ export default function CreateGameScreen() {
       <Screen>
         <View style={styles.gate}>
           <Subheading>Verify to host</Subheading>
-          <Muted>You need a verified phone number before you can host a game.</Muted>
+          <Muted>You need a verified phone number before you can host.</Muted>
           <Button title="Verify phone" onPress={() => router.push("/(auth)/verify-phone")} />
         </View>
       </Screen>

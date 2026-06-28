@@ -153,7 +153,16 @@ export default function DiscoverScreen() {
         />
       )}
 
-      <Pressable style={styles.fab} onPress={() => router.push("/game/create")}>
+      <Pressable
+        style={styles.fab}
+        onPress={() =>
+          router.push(
+            sportFilter === "all"
+              ? "/game/create"
+              : { pathname: "/game/create", params: { sport: sportFilter } },
+          )
+        }
+      >
         <Ionicons name="add" size={28} color={colors.primaryText} />
       </Pressable>
     </Screen>

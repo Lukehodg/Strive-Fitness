@@ -55,7 +55,7 @@ export default function GameDetailScreen() {
       await Share.share({
         message:
           `${game.title} — ${game.venue_label}\n${formatStartTime(game.starts_at)}\n` +
-          `Join me on Strive: strive://game/${activityId}`,
+          `Join me on Stride: strive://game/${activityId}`,
       });
     } catch {
       // user dismissed the share sheet — nothing to do

@@ -55,7 +55,7 @@ export default function MyGamesScreen() {
 
       {sections.length === 0 ? (
         <EmptyState
-          icon="football-outline"
+          icon="calendar-outline"
           title="Nothing yet"
           message="Join something from Discover, or say you're going to an event — it'll show up here."
         />
