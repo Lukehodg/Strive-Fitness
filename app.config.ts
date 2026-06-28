@@ -17,6 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? config.extra?.googleIosClientId ?? "",
     stravaClientId:
       process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID ?? config.extra?.stravaClientId ?? "",
+    sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? config.extra?.sentryDsn ?? "",
     eas: config.extra?.eas,
   },
 });

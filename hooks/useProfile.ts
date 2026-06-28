@@ -5,6 +5,11 @@ import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { Profile } from "@/types/database";
 
+// Every readable profile column. home_location is column-revoked (0013) — it's
+// write-only, so `select("*")` would now error; list the columns explicitly.
+const PROFILE_COLUMNS =
+  "id, display_name, avatar_url, area_label, phone_verified, bio, created_at, updated_at";
+
 /** The signed-in user's profile, or null if they haven't created one yet. */
 export function useMyProfile() {
   const { user } = useAuth();
@@ -15,7 +20,7 @@ export function useMyProfile() {
     queryFn: async (): Promise<Profile | null> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(PROFILE_COLUMNS)
         .eq("id", user!.id)
         .maybeSingle();
       if (error) throw error;
@@ -48,7 +53,7 @@ export function useUpsertProfile() {
           ...rest,
           home_location: location ? toPoint(location.longitude, location.latitude) : null,
         })
-        .select("*")
+        .select(PROFILE_COLUMNS)
         .single();
       if (error) throw error;
       return data;

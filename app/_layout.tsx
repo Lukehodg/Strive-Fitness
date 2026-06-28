@@ -16,12 +16,25 @@ import {
   JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
 
+import * as Sentry from "@sentry/react-native";
+
 import { queryClient } from "@/lib/queryClient";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { Loading } from "@/components/ui";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { colors, fonts } from "@/components/theme";
+import { env, isSentryConfigured } from "@/lib/env";
+
+// Crash + error reporting. No-op until EXPO_PUBLIC_SENTRY_DSN is set. We never
+// send PII (phone/location must not end up in a crash payload).
+if (isSentryConfigured) {
+  Sentry.init({
+    dsn: env.sentryDsn,
+    tracesSampleRate: 0.2,
+    sendDefaultPii: false,
+  });
+}
 
 /**
  * Redirects based on auth + profile state:
@@ -107,7 +120,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Archivo_800ExtraBold,
     Archivo_900Black,
@@ -136,3 +149,6 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// Sentry.wrap adds error-boundary + perf instrumentation at the app root.
+export default Sentry.wrap(RootLayout);

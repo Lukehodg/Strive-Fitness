@@ -12,17 +12,28 @@ nothing ships without them.
 
 ## Where we are today
 
+> **Big caveat:** everything below is verified by typecheck / lint / 33 jest
+> tests / iOS bundle export — but **not yet run on a device against a live
+> backend.** That end-to-end pass is the single most important remaining step.
+
 | Area | Status |
 |------|--------|
-| App shell, navigation, screens (Discover / detail / create / My Games / Profile / chat) | ✅ built |
-| DB schema + RLS + PostGIS `nearby_activities` RPC | ✅ written, ⛔ not yet applied to a real project |
-| Auth flows (Apple / phone OTP) | 🟡 coded; Google sign-in is a **stub**; none tested against a live provider |
-| Chat (Stream client + token Edge Function) | 🟡 coded; needs a Stream app + secret |
-| Notifications | 🟡 push registration + send function are **stubs**, not scheduled/triggered |
-| Safety (block / report) | 🟡 writes wired; moderation review + "blocked disappears everywhere" not verified |
-| Tests / CI / crash reporting | ⛔ none |
-| Store build config (EAS) | 🟡 skeleton; empty `projectId`, no credentials |
-| Legal (privacy, terms, GDPR, moderation policy) | ⛔ none |
+| App shell, navigation, screens (Discover / Nearby / Events / detail / create / My Games / Profile / chat) | ✅ built |
+| DB schema + RLS + PostGIS RPC (migrations `0001`–`0013`) | ✅ written, ⛔ not yet applied to a real project |
+| Multi-sport (football/run/cycle/gym/tennis/padel/basketball) | ✅ built |
+| Auth flows (Apple / Google / phone OTP) | 🟡 coded incl. Google id_token; none tested against a live provider |
+| Chat (built-in Supabase Realtime) | ✅ built (Stream dropped) |
+| Notifications (invite/accept/chat/cancel + **pg_cron reminders**) | ✅ coded; needs functions deployed + APNs creds + Vault secrets |
+| Connections / invites | ✅ built |
+| Strava (privacy-safe profile activity) | ✅ built; needs Strava app + secrets |
+| Apple Health (iOS, on-device) | ✅ built; needs a native rebuild |
+| Privacy hardening (home_location revoked, **jittered map pins**) | ✅ coded (`0012`/`0013`) |
+| GDPR (data export + account deletion) | ✅ built; deploy `account` fn + host policy |
+| Crash reporting (Sentry) | ✅ wired; no-op until DSN set |
+| Tests / CI | ✅ 33 tests + GitHub Actions |
+| Safety (block / report) | 🟡 writes wired; moderation **review process** + end-to-end "blocked disappears everywhere" not verified on live DB |
+| Store build config (EAS) | 🟡 `projectId` set, `preview` profile ready; no store credentials yet |
+| Legal (privacy, terms, moderation policy) | 🟡 `docs/PRIVACY.md` draft + in-app export/delete; needs hosting + legal review + moderation SLA |
 
 > **Liquidity reality check (Phase 0, runs in parallel with everything):** a
 > production app over an empty pitch is still empty. Keep filling one recurring
@@ -75,9 +86,9 @@ not at the end.
   - [ ] **UK A2P / sender ID / 10DLC-equivalent registration** — start now; can take days–weeks.
   - [ ] Budget per-SMS cost; add basic rate-limiting / abuse protection on OTP sends.
 - [ ] **Apple**: Sign in with Apple (Services ID + key); test on a device build.
-- [ ] **Google**: finish the stub in `app/(auth)/sign-in.tsx` + `lib/auth.ts` —
-      retrieve a real `id_token` (expo-auth-session / Google sign-in) and exchange it.
-      Set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID`.
+- [x] **Google**: `id_token` sign-in implemented via expo-auth-session
+      (`GoogleSignInButton` in `app/(auth)/sign-in.tsx`). Just set
+      `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `_IOS_CLIENT_ID` to enable.
 - [ ] Verify the auth gate edge cases: first-run → create-profile, returning user,
       phone-linking to an existing Apple/Google account, session refresh, sign-out.
 - **Effort:** ~2–3 days code; **SMS registration is the schedule risk.**
@@ -100,27 +111,31 @@ not at the end.
       invite accepted, new chat message, game cancelled. The function authenticates the
       caller and gates roster-wide sends on membership.
 - [ ] Deploy `send-notifications` and confirm `SUPABASE_SERVICE_ROLE_KEY` is set on it.
-- [ ] **Reminders** (~1h before `starts_at`): no actor, so schedule via pg_cron to invoke
-      `send-notifications` server-side with the service-role key. Suggested:
-      `select cron.schedule('game-reminders','* * * * *', $$ ... $$)` that finds activities
-      starting in ~60min and posts `{ activityId, title, body }` to the function.
+- [x] **Reminders** (~1h before `starts_at`): migration `0011` adds a pg_cron job
+      (`send_due_reminders`) that posts to `send-notifications` via pg_net. The
+      function treats a service-role bearer as a trusted call. **Setup:** enable
+      pg_cron/pg_net and add Vault secrets `project_url` + `service_role_key`.
 - [ ] Chat moderation: profanity/abuse handling, report-from-chat, blocked-user hiding.
 - [ ] APNs (Apple) + FCM (Android) credentials in Expo.
-- **Effort:** ~2–3 days (reminders + store push creds).
+- **Effort:** ~1–2 days (store push creds + moderation).
 
 ## Phase 5 — Observability + quality
-- [ ] Crash/error reporting (Sentry) in app + Edge Functions.
+- [x] Crash/error reporting (Sentry) in the **app** (`Sentry.init` + `Sentry.wrap`,
+      no-op until `EXPO_PUBLIC_SENTRY_DSN` is set, no PII). _Still TODO: Sentry in
+      the Edge Functions, and the build-time config plugin for source maps._
 - [ ] Lightweight product analytics for the core funnel (sign-up → verify → discover → join → chat).
-- [ ] Tests: unit (hooks, `lib/format`, `lib/location`), a few integration tests on
-      join/leave/fullness, and RLS policy tests. **There are currently zero tests.**
-- [ ] CI (GitHub Actions): typecheck + lint + tests on every PR. Add a SessionStart hook so web sessions can run them.
+- [x] Tests: **33** (jest-expo) across formatters, location, activity-format,
+      GameCard, Strava. _Still TODO: hook-level join/leave/fullness + RLS policy tests._
+- [x] CI (GitHub Actions): typecheck + lint + tests.
 - [ ] `expo-doctor` clean; pin dependency versions to the SDK.
-- **Effort:** ~3–4 days for a meaningful baseline.
+- **Effort:** ~1–2 days (analytics + Edge Function Sentry + more tests).
 
 ## Phase 6 — Legal & safety (start drafting in parallel from week 1)
 - [ ] Privacy policy + terms of service (hosted URLs; required by both stores).
-- [ ] **GDPR/UK**: lawful basis, data export + account deletion, data-retention policy.
-      Account deletion is an **App Store requirement** for accounts.
+      Draft in `docs/PRIVACY.md`; point `lib/legal.ts` at the hosted versions.
+- [x] **GDPR data rights**: in-app **data export** (JSON) + **account deletion**
+      (cascades all tables) via the `account` Edge Function. Deploy it.
+      _Still TODO: lawful-basis register + retention policy (process, not code)._
 - [ ] Age gate (18+) and clear men-only / platonic policy + enforcement stance.
 - [ ] **Moderation workflow**: who reviews `reports`, SLA, ability to suspend/ban,
       audit trail. A men-only social app **will** be asked how it keeps users safe.
@@ -157,21 +172,20 @@ not at the end.
 - [x] `expo-asset`/`expo-font` added so the app bundles on a clean install.
 
 **Still open:**
-- [ ] `types/database.ts` — regenerate from live schema; drop placeholder + `as unknown as` casts (needs a Supabase project).
-- [ ] `supabase/functions/send-notifications` — finish + schedule (pg_cron) + Stream webhook.
-- [ ] `lib/stream.ts` — move channel add/remove membership to the server (Edge Function).
-- [ ] Loading skeletons on Discover / detail / My Games (empty + error states done).
-- [ ] Verify end-to-end that blocked users vanish from discovery + rosters + chat (RLS in place; needs a live DB to confirm).
-- [ ] Sentry/crash reporting + product analytics.
-- [ ] `eas.json` — real profiles, credentials, `extra.eas.projectId`.
+- [ ] **Run it on a device against the live backend** — the whole loop, end to end. Nothing here has been.
+- [ ] `types/database.ts` — regenerate from the live schema; drop the placeholder + `as unknown as` casts (needs a Supabase project).
+- [ ] Deploy the Edge Functions: `send-notifications`, `strava`, `account`; set their secrets.
+- [ ] Verify end-to-end that blocked users vanish from discovery + rosters + chat (RLS in place — see `docs/RLS_POLICY_CHECKLIST.md`; needs a live DB).
+- [ ] Product analytics + Sentry in the Edge Functions.
+- [ ] EAS store credentials (APNs/FCM) + store listings + data-safety forms (disclose Strava/HealthKit).
 - [ ] More tests: hook-level (join/leave/fullness) + RLS policy tests against a local DB.
+- [ ] Moderation workflow for `reports` (who reviews, SLA, ban/suspend, audit trail).
 
 ---
 
 ## Rough cost (recurring unless noted)
 - Apple Developer: **$99/yr**. Google Play: **$25 one-off**.
-- Supabase: free tier to start; **~$25/mo** Pro when you need it.
-- Stream Chat: free dev tier; paid as you grow.
+- Supabase: free tier to start; **~$25/mo** Pro when you need it (chat is built-in here, no Stream bill).
 - SMS (Twilio): **per-message** — the main variable cost; verification is gated behind it.
 - Sentry/analytics: free tiers to start.
 - Maps: Google Maps API (Android) — free tier likely enough early.

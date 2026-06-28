@@ -47,30 +47,40 @@ Deno.serve(async (req: Request) => {
     }
 
     const url = Deno.env.get("SUPABASE_URL")!;
-    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(url, serviceKey);
 
     // --- Authenticate the caller ----------------------------------------
+    // A service-role bearer = a trusted server call (the pg_cron reminder job).
+    // It skips the user lookup + membership gate. Any other token must resolve
+    // to a real user, who must be on the roster for activity-wide sends.
     const authHeader = req.headers.get("Authorization") ?? "";
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
     if (!jwt) return json({ error: "missing authorization" }, 401);
 
-    const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
-    const caller = userData?.user;
-    if (userErr || !caller) return json({ error: "invalid token" }, 401);
+    const trusted = jwt === serviceKey;
+    let callerId: string | null = null;
+    if (!trusted) {
+      const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
+      if (userErr || !userData?.user) return json({ error: "invalid token" }, 401);
+      callerId = userData.user.id;
+    }
 
     // --- Resolve recipients ---------------------------------------------
     let userIds = [...(payload.userIds ?? [])];
 
     if (payload.activityId) {
-      // Roster-wide send: the caller must be on that roster.
-      const { data: membership } = await admin
-        .from("activity_participants")
-        .select("user_id")
-        .eq("activity_id", payload.activityId)
-        .eq("user_id", caller.id)
-        .eq("status", "joined")
-        .maybeSingle();
-      if (!membership) return json({ error: "not a participant" }, 403);
+      // Roster-wide send: a real caller must be on that roster (trusted skips).
+      if (!trusted) {
+        const { data: membership } = await admin
+          .from("activity_participants")
+          .select("user_id")
+          .eq("activity_id", payload.activityId)
+          .eq("user_id", callerId)
+          .eq("status", "joined")
+          .maybeSingle();
+        if (!membership) return json({ error: "not a participant" }, 403);
+      }
 
       const { data: roster } = await admin
         .from("activity_participants")
@@ -80,8 +90,8 @@ Deno.serve(async (req: Request) => {
       userIds = [...userIds, ...(roster ?? []).map((r: any) => r.user_id)];
     }
 
-    // Never notify the actor; de-dupe.
-    const exclude = payload.excludeUserId ?? caller.id;
+    // Never notify the actor; de-dupe. (Trusted calls have no actor to exclude.)
+    const exclude = payload.excludeUserId ?? callerId ?? "";
     userIds = [...new Set(userIds)].filter((id) => id && id !== exclude);
 
     if (userIds.length === 0) return json({ sent: 0 });

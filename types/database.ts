@@ -43,12 +43,13 @@ export interface Database {
   public: {
     Tables: {
       profiles: {
+        // home_location is intentionally NOT in Row: it's column-revoked from the
+        // app role (0013) — write-only. It stays in Insert below.
         Row: {
           id: string;
           display_name: string;
           avatar_url: string | null;
           area_label: string | null;
-          home_location: string | null;
           phone_verified: boolean;
           bio: string | null;
           created_at: string;

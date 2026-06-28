@@ -11,6 +11,7 @@ type Extra = {
   googleWebClientId: string;
   googleIosClientId: string;
   stravaClientId: string;
+  sentryDsn: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
@@ -39,6 +40,7 @@ export const env = {
   googleWebClientId: extra.googleWebClientId ?? "",
   googleIosClientId: extra.googleIosClientId ?? "",
   stravaClientId: extra.stravaClientId ?? "",
+  sentryDsn: extra.sentryDsn ?? "",
 };
 
 /** True when Supabase has been configured with real credentials. */
@@ -50,3 +52,6 @@ export const isStreamConfigured = env.streamApiKey.length > 0;
 
 /** True when Strava OAuth has been configured (client id present). */
 export const isStravaConfigured = env.stravaClientId.length > 0;
+
+/** True when Sentry crash reporting has been configured (DSN present). */
+export const isSentryConfigured = env.sentryDsn.length > 0;

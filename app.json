@@ -76,6 +76,7 @@
       "googleWebClientId": "",
       "googleIosClientId": "",
       "stravaClientId": "",
+      "sentryDsn": "",
       "eas": {
         "projectId": "6ddf8985-6305-4075-95e4-2be1240d41ce"
       },
