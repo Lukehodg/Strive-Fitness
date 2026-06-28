@@ -45,6 +45,22 @@ describe("GameCard", () => {
     expect(getByText("FOOTBALL")).toBeTruthy();
   });
 
+  it("leads with the sport label for non-football activities", () => {
+    const { getByText, queryByText } = render(
+      <GameCard game={{ ...base, activity_type: "gym", format: "5-a-side" }} onPress={() => {}} />,
+    );
+    expect(getByText("GYM")).toBeTruthy();
+    // football format is suppressed for other sports
+    expect(queryByText("5-A-SIDE")).toBeNull();
+  });
+
+  it("still leads with the format for football", () => {
+    const { getByText } = render(
+      <GameCard game={{ ...base, activity_type: "football", format: "7-a-side" }} onPress={() => {}} />,
+    );
+    expect(getByText("7-A-SIDE")).toBeTruthy();
+  });
+
   it("fires onPress when tapped", () => {
     const onPress = jest.fn();
     const { getByText } = render(<GameCard game={base} onPress={onPress} />);

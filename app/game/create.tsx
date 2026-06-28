@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, type MapPressEvent } from "react-native-maps";
 
 import { Button, Field, Muted, Screen, Subheading } from "@/components/ui";
@@ -8,7 +9,8 @@ import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import type { GameFormat, SkillLevel } from "@/types/database";
+import { SPORTS, SPORT_META, isFootball } from "@/lib/sports";
+import type { ActivityType, GameFormat, SkillLevel } from "@/types/database";
 
 /** Build a Date n days from today at the given HH:MM. */
 function dateFrom(dayOffset: number, time: string): Date | null {
@@ -53,9 +55,12 @@ export default function CreateGameScreen() {
   const [dayOffset, setDayOffset] = useState(0);
   const [time, setTime] = useState("18:30");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
+  const [sport, setSport] = useState<ActivityType>("football");
   const [format, setFormat] = useState<GameFormat>("kickabout");
   const [skill, setSkill] = useState<SkillLevel>("all");
   const [coords, setCoords] = useState<Coords | null>(null);
+
+  const football = isFootball(sport);
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
@@ -90,12 +95,15 @@ export default function CreateGameScreen() {
       const game = await create.mutateAsync({
         title: title.trim(),
         venue_label: venue.trim(),
+        activity_type: sport,
         location: coords,
         starts_at: startsAt.toISOString(),
         duration_minutes: dur,
         max_players: max,
-        format,
-        skill_level: skill,
+        // Format + skill only apply to football; other sports keep the
+        // column defaults and the app never surfaces them.
+        format: football ? format : "kickabout",
+        skill_level: football ? skill : "all",
         notes: notes.trim() || undefined,
         repeat_weeks: repeatWeeks,
       });
@@ -108,42 +116,71 @@ export default function CreateGameScreen() {
   return (
     <Screen edges={["bottom"]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={{ gap: spacing(2) }}>
+          <Text style={styles.label}>Sport</Text>
+          <View style={styles.repeatRow}>
+            {SPORTS.map((s) => {
+              const active = sport === s;
+              return (
+                <Pressable
+                  key={s}
+                  onPress={() => setSport(s)}
+                  style={[styles.chip, styles.chipRow, active && styles.chipActive]}
+                >
+                  <Ionicons
+                    name={SPORT_META[s].icon}
+                    size={14}
+                    color={active ? colors.primaryText : colors.textMuted}
+                  />
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {SPORT_META[s].label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <Field label="Title" value={title} onChangeText={setTitle} placeholder="Sunday 5-a-side" />
         <Field label="Venue" value={venue} onChangeText={setVenue} placeholder="Weybridge Sports Hub" />
 
-        <View style={{ gap: spacing(2) }}>
-          <Text style={styles.label}>Format</Text>
-          <View style={styles.repeatRow}>
-            {FORMATS.map((f) => (
-              <Pressable
-                key={f.value}
-                onPress={() => setFormat(f.value)}
-                style={[styles.chip, format === f.value && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, format === f.value && styles.chipTextActive]}>
-                  {f.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        {football ? (
+          <>
+            <View style={{ gap: spacing(2) }}>
+              <Text style={styles.label}>Format</Text>
+              <View style={styles.repeatRow}>
+                {FORMATS.map((f) => (
+                  <Pressable
+                    key={f.value}
+                    onPress={() => setFormat(f.value)}
+                    style={[styles.chip, format === f.value && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, format === f.value && styles.chipTextActive]}>
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
 
-        <View style={{ gap: spacing(2) }}>
-          <Text style={styles.label}>Skill level</Text>
-          <View style={styles.repeatRow}>
-            {SKILLS.map((s) => (
-              <Pressable
-                key={s.value}
-                onPress={() => setSkill(s.value)}
-                style={[styles.chip, skill === s.value && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, skill === s.value && styles.chipTextActive]}>
-                  {s.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+            <View style={{ gap: spacing(2) }}>
+              <Text style={styles.label}>Skill level</Text>
+              <View style={styles.repeatRow}>
+                {SKILLS.map((s) => (
+                  <Pressable
+                    key={s.value}
+                    onPress={() => setSkill(s.value)}
+                    style={[styles.chip, skill === s.value && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, skill === s.value && styles.chipTextActive]}>
+                      {s.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </>
+        ) : null}
 
         <View style={{ gap: spacing(2) }}>
           <Text style={styles.label}>Location — tap the map</Text>
@@ -232,7 +269,8 @@ const styles = StyleSheet.create({
   mapWrap: { height: 200, borderRadius: radius.md, overflow: "hidden", borderWidth: 1, borderColor: colors.border },
   twoCol: { flexDirection: "row", gap: spacing(3) },
   repeatRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing(2) },
-  chip: { height: 40, justifyContent: "center", paddingHorizontal: spacing(4), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { height: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing(4), borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chipRow: { gap: spacing(1.5) },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.textMuted, fontFamily: fonts.monoBold, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },
   chipTextActive: { color: colors.primaryText },

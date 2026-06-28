@@ -9,22 +9,20 @@ import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useNearbyActivities } from "@/hooks/useNearbyActivities";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
-import type { GameFormat, NearbyActivity } from "@/types/database";
+import { SPORTS, SPORT_META } from "@/lib/sports";
+import type { ActivityType, NearbyActivity } from "@/types/database";
 
 const RADII_KM = [5, 10, 25, 50];
-const FORMAT_FILTERS: { value: GameFormat | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "5-a-side", label: "5-a-side" },
-  { value: "7-a-side", label: "7-a-side" },
-  { value: "11-a-side", label: "11-a-side" },
-  { value: "kickabout", label: "Kickabout" },
+const SPORT_FILTERS: { value: ActivityType | "all"; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: "all", label: "All", icon: "apps" },
+  ...SPORTS.map((s) => ({ value: s, label: SPORT_META[s].label, icon: SPORT_META[s].icon })),
 ];
 
 export default function DiscoverScreen() {
   const router = useRouter();
   const [coords, setCoords] = useState<Coords | null>(null);
   const [radiusKm, setRadiusKm] = useState(25);
-  const [formatFilter, setFormatFilter] = useState<GameFormat | "all">("all");
+  const [sportFilter, setSportFilter] = useState<ActivityType | "all">("all");
 
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
@@ -36,17 +34,17 @@ export default function DiscoverScreen() {
   );
 
   const games =
-    formatFilter === "all"
+    sportFilter === "all"
       ? (data ?? [])
-      : (data ?? []).filter((g: NearbyActivity) => g.format === formatFilter);
+      : (data ?? []).filter((g: NearbyActivity) => g.activity_type === sportFilter);
 
   const count = games.length;
   const countLabel =
     !coords || isLoading
-      ? "Pickup football near you"
+      ? "Activities near you"
       : count === 0
-        ? "No games nearby yet"
-        : `${count} game${count === 1 ? "" : "s"} near you`;
+        ? "Nothing nearby yet"
+        : `${count} ${count === 1 ? "activity" : "activities"} near you`;
 
   const openGame = (id: string) => router.push({ pathname: "/game/[id]", params: { id } });
 
@@ -83,14 +81,19 @@ export default function DiscoverScreen() {
         style={styles.filterBar}
         contentContainerStyle={styles.filters}
       >
-        {FORMAT_FILTERS.map((f) => {
-          const active = f.value === formatFilter;
+        {SPORT_FILTERS.map((f) => {
+          const active = f.value === sportFilter;
           return (
             <Pressable
               key={f.value}
-              onPress={() => setFormatFilter(f.value)}
-              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setSportFilter(f.value)}
+              style={[styles.chip, styles.chipRow, active && styles.chipActive]}
             >
+              <Ionicons
+                name={f.icon}
+                size={14}
+                color={active ? colors.primaryText : colors.textMuted}
+              />
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
             </Pressable>
           );
@@ -124,6 +127,7 @@ export default function DiscoverScreen() {
                 starts_at: item.starts_at,
                 status: item.status,
                 max_players: item.max_players,
+                activity_type: item.activity_type,
                 format: item.format,
                 joined_count: item.joined_count,
                 distance_meters: item.distance_meters,
@@ -133,9 +137,9 @@ export default function DiscoverScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
-              icon="football-outline"
-              title="No games nearby"
-              message="Be the first to host one — tap the + to create a game."
+              icon="search-outline"
+              title="Nothing nearby"
+              message="Be the first to host one — tap the + to create an activity."
             />
           }
         />
@@ -175,6 +179,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  chipRow: { flexDirection: "row", alignItems: "center", gap: spacing(1.5) },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: {
     color: colors.textMuted,

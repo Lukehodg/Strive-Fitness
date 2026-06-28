@@ -100,6 +100,7 @@ function GameRow({ game, onPress }: { game: MyGame; onPress: () => void }) {
           starts_at: game.starts_at,
           status: game.status,
           max_players: game.max_players,
+          activity_type: game.activity_type,
           format: game.format,
         }}
         onPress={onPress}

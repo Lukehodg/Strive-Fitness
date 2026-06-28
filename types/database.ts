@@ -8,7 +8,15 @@
  * Keep this in sync with the schema until generation is wired up.
  */
 
-export type ActivityType = "football" | "gym" | "networking";
+export type ActivityType =
+  | "football"
+  | "running"
+  | "cycling"
+  | "gym"
+  | "tennis"
+  | "padel"
+  | "basketball"
+  | "networking";
 export type ActivityStatus = "open" | "full" | "cancelled" | "completed";
 export type GameFormat = "kickabout" | "5-a-side" | "7-a-side" | "11-a-side";
 export type SkillLevel = "all" | "casual" | "competitive";
@@ -236,6 +244,7 @@ export interface Database {
           duration_minutes: number;
           max_players: number;
           status: ActivityStatus;
+          activity_type: ActivityType;
           format: GameFormat;
           skill_level: SkillLevel;
           distance_meters: number;

@@ -18,6 +18,7 @@ import {
 } from "@/hooks/useActivity";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
 import { skillLabel } from "@/lib/activity-format";
+import { isFootball, sportIcon, sportLabel } from "@/lib/sports";
 import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
 export default function GameDetailScreen() {
@@ -170,7 +171,14 @@ export default function GameDetailScreen() {
         ) : null}
 
         <Card style={{ gap: spacing(2.5) }}>
-          <Row icon="football" text={`${game.format}  ·  ${skillLabel(game.skill_level)}`} />
+          <Row
+            icon={sportIcon(game.activity_type)}
+            text={
+              isFootball(game.activity_type)
+                ? `${game.format}  ·  ${skillLabel(game.skill_level)}`
+                : sportLabel(game.activity_type)
+            }
+          />
           <Row icon="time" text={formatStartTime(game.starts_at)} />
           <Row icon="hourglass" text={`${game.duration_minutes} min`} />
           <Row icon="location" text={game.venue_label} />

@@ -4,7 +4,7 @@ import { supabase, toPoint } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import type { Activity, GameFormat, SkillLevel } from "@/types/database";
+import type { Activity, ActivityType, GameFormat, SkillLevel } from "@/types/database";
 
 export type RosterEntry = {
   user_id: string;
@@ -177,6 +177,7 @@ export function useCancelActivity(activityId: string) {
 export type CreateActivityInput = {
   title: string;
   venue_label: string;
+  activity_type: ActivityType;
   location: { latitude: number; longitude: number };
   starts_at: string; // ISO
   duration_minutes: number;
@@ -200,14 +201,14 @@ export function useCreateActivity() {
   return useMutation({
     mutationFn: async (input: CreateActivityInput): Promise<Activity> => {
       if (!user) throw new Error("Not signed in");
-      const { location, repeat_weeks, ...rest } = input;
+      const { location, repeat_weeks, activity_type, ...rest } = input;
       const weeks = Math.max(1, Math.min(12, repeat_weeks ?? 1));
       const point = toPoint(location.longitude, location.latitude);
       const baseStart = new Date(rest.starts_at).getTime();
 
       const rows = Array.from({ length: weeks }, (_, i) => ({
         host_id: user.id,
-        activity_type: "football" as const,
+        activity_type,
         ...rest,
         starts_at: new Date(baseStart + i * 7 * 86_400_000).toISOString(),
         location: point,

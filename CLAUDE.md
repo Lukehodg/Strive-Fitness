@@ -46,7 +46,10 @@ dense area before expanding anywhere else.
   never a manual edit in the dashboard.
 
 ## Hard scope guardrails — DO NOT build these in MVP
-- Gym or networking verticals (data model supports them; UI does not surface them yet)
+- The **networking** vertical (data model supports it; UI does not surface it).
+  NOTE: the owner has since broadened the *sport* set — football, running,
+  cycling, gym, tennis, padel, basketball are now live activity types (0009).
+  This supersedes the original football-only MVP framing above.
 - In-app payments / subscriptions
 - Friend graph / following / feed
 - Multiple cities or geographic expansion logic
@@ -104,5 +107,10 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   `send-notifications` Edge Function (invite / accepted / chat / cancelled), now
   JWT-authenticated and membership-gated. Tap-to-deep-link wired. Time-based
   reminders still need pg_cron — see roadmap Phase 4.
+- **Multi-sport** (`0009`): `activity_type` extended (running/cycling/tennis/padel/
+  basketball added to football+gym); Discover filters by **sport** (icon chips),
+  Create has a sport picker (football keeps format/skill, others hide them), and
+  `nearby_activities` returns every sport + its `activity_type`. `lib/sports.ts`
+  holds the sport list/labels/icons.
 
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

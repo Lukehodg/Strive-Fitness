@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { formatDistance, formatRoster, formatStartTime } from "@/lib/format";
 import { statusLabel } from "@/lib/activity-format";
-import type { ActivityStatus, GameFormat } from "@/types/database";
+import { isFootball, sportLabel } from "@/lib/sports";
+import type { ActivityStatus, ActivityType, GameFormat } from "@/types/database";
 
 export type GameCardData = {
   id: string;
@@ -12,6 +13,7 @@ export type GameCardData = {
   starts_at: string;
   status: ActivityStatus;
   max_players: number;
+  activity_type?: ActivityType;
   format?: GameFormat;
   joined_count?: number;
   distance_meters?: number;
@@ -32,6 +34,12 @@ export function GameCard({ game, onPress }: { game: GameCardData; onPress: () =>
     game.distance_meters != null
       ? formatDistance(game.distance_meters).replace(" away", "").toUpperCase()
       : null;
+  // Football leads with its format (e.g. KICKABOUT); other sports lead with
+  // the sport itself (GYM, RUNNING…).
+  const primaryTag =
+    game.activity_type && !isFootball(game.activity_type)
+      ? sportLabel(game.activity_type).toUpperCase()
+      : (game.format ?? "football").toUpperCase();
 
   return (
     <Pressable
@@ -39,7 +47,7 @@ export function GameCard({ game, onPress }: { game: GameCardData; onPress: () =>
       style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}
     >
       <View style={styles.tags}>
-        <Tag>{(game.format ?? "football").toUpperCase()}</Tag>
+        <Tag>{primaryTag}</Tag>
         <Tag>{formatStartTime(game.starts_at).toUpperCase()}</Tag>
         {distance ? <Tag>{distance}</Tag> : null}
         {full ? <Tag tone="alert">FULL</Tag> : null}
