@@ -8,7 +8,7 @@ import type { Profile } from "@/types/database";
 // Every readable profile column. home_location is column-revoked (0013) — it's
 // write-only, so `select("*")` would now error; list the columns explicitly.
 const PROFILE_COLUMNS =
-  "id, display_name, avatar_url, area_label, phone_verified, bio, created_at, updated_at";
+  "id, display_name, avatar_url, area_label, phone_verified, bio, suspended_at, is_moderator, created_at, updated_at";
 
 /** The signed-in user's profile, or null if they haven't created one yet. */
 export function useMyProfile() {

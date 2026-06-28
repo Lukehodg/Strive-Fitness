@@ -52,6 +52,8 @@ export interface Database {
           area_label: string | null;
           phone_verified: boolean;
           bio: string | null;
+          suspended_at: string | null;
+          is_moderator: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -138,6 +140,9 @@ export interface Database {
           activity_id: string | null;
           reason: string;
           details: string | null;
+          status: "open" | "reviewed" | "actioned" | "dismissed";
+          reviewed_at: string | null;
+          reviewed_by: string | null;
           created_at: string;
         };
         Insert: {
