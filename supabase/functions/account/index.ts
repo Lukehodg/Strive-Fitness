@@ -15,6 +15,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { captureError } from "../_shared/sentry.ts";
+
 const json = (obj: unknown, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
@@ -119,6 +121,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ error: "unknown action" }, 400);
   } catch (e: any) {
+    await captureError(e, { fn: "account" });
     return json({ error: e?.message ?? "unknown error" }, 500);
   }
 });

@@ -22,6 +22,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { captureError } from "../_shared/sentry.ts";
+
 type Payload = {
   // Either target an activity's roster, or explicit user ids (or both).
   activityId?: string;
@@ -120,6 +122,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ sent: messages.length });
   } catch (e: any) {
+    await captureError(e, { fn: "send-notifications" });
     return json({ error: e?.message ?? "unknown error" }, 500);
   }
 });

@@ -16,6 +16,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { captureError } from "../_shared/sentry.ts";
+
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_DEAUTH_URL = "https://www.strava.com/oauth/deauthorize";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities?per_page=15";
@@ -186,6 +188,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ error: "unknown action" }, 400);
   } catch (e: any) {
+    await captureError(e, { fn: "strava" });
     return json({ error: e?.message ?? "unknown error" }, 500);
   }
 });
