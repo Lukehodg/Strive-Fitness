@@ -26,7 +26,8 @@ dense area before expanding anywhere else.
 - **Geo:** PostGIS in Postgres for all "near me" proximity queries. Never hand-roll
   distance math in JS.
 - **Auth:** Supabase Auth — Apple, Google, and phone (OTP) verification.
-- **Chat:** Stream Chat (getstream.io) for MVP. Do not build chat from scratch.
+- **Chat:** built-in, on Supabase Realtime (`messages` table + postgres_changes).
+  Stream Chat was dropped (see 0006). Do not re-add a third-party chat SDK.
 - **Maps:** react-native-maps + expo-location.
 - **Push:** Expo Notifications.
 - **Payments:** none in MVP. RevenueCat later — do not add billing yet.

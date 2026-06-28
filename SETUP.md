@@ -24,20 +24,18 @@ you reach those sprints.
   (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`) and
   wire the id_token retrieval in `app/(auth)/sign-in.tsx` (see the TODO there).
 
-## 2. Stream Chat
-1. Create an app at https://getstream.io.
-2. Put the **API key** (public) in `.env` as `EXPO_PUBLIC_STREAM_API_KEY`.
-3. Deploy the token function and set its secrets (the **secret** stays server-side):
-   ```
-   supabase functions deploy stream-token
-   supabase secrets set STREAM_API_KEY=<key> STREAM_API_SECRET=<secret>
-   ```
+## 2. Chat
+Nothing to set up — chat is built in on Supabase Realtime (`messages` table,
+migration 0006). Make sure migration 0006 is applied and the table is in the
+`supabase_realtime` publication (the migration does this). Stream Chat was
+dropped; there are no third-party keys to configure.
 
-## 3. Push notifications (Sprint 6)
+## 3. Push notifications
 - Expo push works in dev builds out of the box. Tokens are saved by
   `hooks/usePushNotifications.ts`.
-- Deploy `supabase functions deploy send-notifications`. Trigger reminders on a
-  schedule (pg_cron / scheduled function) and chat nudges from a Stream webhook.
+- Deploy `supabase functions deploy send-notifications`. It fires on invite /
+  accept / chat / cancel events from the app. Time-based reminders still need a
+  schedule (pg_cron) — see `docs/PRODUCTION_ROADMAP.md` Phase 4.
 
 ## 4. Maps
 - iOS uses Apple Maps (no key). For Android, add a Google Maps API key under

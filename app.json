@@ -20,7 +20,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.lukehodg.strive",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Strive uses your location to find pickup games near you.",
+        "NSLocationWhenInUseUsageDescription": "Stride uses your location to find activities near you.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "usesAppleSignIn": true
@@ -48,13 +48,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Strive uses your location to find pickup games near you."
+          "locationWhenInUsePermission": "Stride uses your location to find activities near you."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Strive needs photo access so you can set a profile picture."
+          "photosPermission": "Stride needs photo access so you can set a profile picture."
         }
       ]
     ],
