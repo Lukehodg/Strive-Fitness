@@ -113,5 +113,12 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   Create has a sport picker (football keeps format/skill, others hide them), and
   `nearby_activities` returns every sport + its `activity_type`. `lib/sports.ts`
   holds the sport list/labels/icons.
+- **Strava integration** (`0010`): "Recent activity" on the profile. OAuth
+  authorize via expo-auth-session; the `strava` Edge Function does the secret-side
+  token exchange/refresh + activity fetch with the service role. `strava_accounts`
+  hides tokens from the app role via column grants; `strava_activities` stores
+  **stats only — no GPS/route** (privacy), readable by others (minus blocks) for
+  future public profiles. Needs `EXPO_PUBLIC_STRAVA_CLIENT_ID` +
+  `STRAVA_CLIENT_ID`/`STRAVA_CLIENT_SECRET` secrets (see SETUP.md).
 
 See `README.md`, `SETUP.md`, and `docs/PRODUCTION_ROADMAP.md`.

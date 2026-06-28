@@ -1,9 +1,10 @@
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Button, Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
+import { StravaSection } from "@/components/StravaSection";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
@@ -19,7 +20,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.head}>
           <Avatar name={profile?.display_name ?? "Player"} url={profile?.avatar_url} size={96} />
           <Heading>{profile?.display_name ?? "Player"}</Heading>
@@ -59,7 +60,7 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
 
-        <View style={{ flex: 1 }} />
+        <StravaSection />
 
         <Pressable
           style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.85 : 1 }]}
@@ -91,13 +92,13 @@ export default function ProfileScreen() {
             ])
           }
         />
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing(5), gap: spacing(4) },
+  container: { padding: spacing(5), gap: spacing(4), paddingBottom: spacing(10) },
   head: { alignItems: "center", gap: spacing(2), marginTop: spacing(4) },
   area: {
     color: colors.textMuted,

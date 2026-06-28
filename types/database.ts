@@ -222,6 +222,43 @@ export interface Database {
         Update: Partial<{ status: InviteStatus }>;
         Relationships: [];
       };
+      // Token columns are intentionally omitted from Row: the app role can't
+      // read them (column grants in 0010), so the typed client shouldn't either.
+      strava_accounts: {
+        Row: {
+          user_id: string;
+          athlete_id: number;
+          username: string | null;
+          firstname: string | null;
+          lastname: string | null;
+          profile_url: string | null;
+          scope: string | null;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: { user_id: string; athlete_id: number };
+        Update: Partial<{ username: string | null }>;
+        Relationships: [];
+      };
+      strava_activities: {
+        Row: {
+          id: number;
+          user_id: string;
+          name: string | null;
+          sport_type: string | null;
+          distance_m: number | null;
+          moving_time_s: number | null;
+          elapsed_time_s: number | null;
+          total_elevation_gain: number | null;
+          average_speed: number | null;
+          start_date: string | null;
+          created_at: string;
+        };
+        Insert: { id: number; user_id: string };
+        Update: Partial<{ name: string | null }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -289,3 +326,5 @@ export type UpcomingEvent =
   Database["public"]["Functions"]["upcoming_events"]["Returns"][number];
 export type Message = Database["public"]["Tables"]["messages"]["Row"];
 export type GameInvite = Database["public"]["Tables"]["game_invites"]["Row"];
+export type StravaAccount = Database["public"]["Tables"]["strava_accounts"]["Row"];
+export type StravaActivity = Database["public"]["Tables"]["strava_activities"]["Row"];

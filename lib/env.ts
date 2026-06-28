@@ -10,6 +10,7 @@ type Extra = {
   streamApiKey: string;
   googleWebClientId: string;
   googleIosClientId: string;
+  stravaClientId: string;
 };
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Partial<Extra>;
@@ -37,6 +38,7 @@ export const env = {
   streamApiKey: extra.streamApiKey ?? "",
   googleWebClientId: extra.googleWebClientId ?? "",
   googleIosClientId: extra.googleIosClientId ?? "",
+  stravaClientId: extra.stravaClientId ?? "",
 };
 
 /** True when Supabase has been configured with real credentials. */
@@ -45,3 +47,6 @@ export const isSupabaseConfigured =
 
 /** True when Stream Chat has been configured. */
 export const isStreamConfigured = env.streamApiKey.length > 0;
+
+/** True when Strava OAuth has been configured (client id present). */
+export const isStravaConfigured = env.stravaClientId.length > 0;

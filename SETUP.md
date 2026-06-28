@@ -37,13 +37,31 @@ dropped; there are no third-party keys to configure.
   accept / chat / cancel events from the app. Time-based reminders still need a
   schedule (pg_cron) — see `docs/PRODUCTION_ROADMAP.md` Phase 4.
 
-## 4. Maps
+## 4. Strava (Recent activity on profiles)
+1. Create an API application at https://www.strava.com/settings/api.
+2. **Authorization Callback Domain:** set it to match the app's redirect. For a
+   dev/standalone build the redirect is `strive://strava`, so use `strive` as the
+   domain. (For Expo Go / web you'll get a different host — check what
+   `AuthSession.makeRedirectUri` logs and register that.)
+3. Put the **Client ID** (public) in `.env` as `EXPO_PUBLIC_STRAVA_CLIENT_ID` (and
+   in `app.json` `extra.stravaClientId` for EAS builds).
+4. Keep the **Client Secret** server-side only:
+   ```
+   supabase secrets set STRAVA_CLIENT_ID=<id> STRAVA_CLIENT_SECRET=<secret>
+   supabase functions deploy strava
+   ```
+5. Apply migration `0010_strava.sql`.
+- Privacy: we store **stats only** (distance/time/elevation) — never GPS or
+  route — so activities are safe to show on a profile. The "Powered by Strava"
+  attribution is required by their brand guidelines (already rendered).
+
+## 5. Maps
 - iOS uses Apple Maps (no key). For Android, add a Google Maps API key under
   `android.config.googleMaps.apiKey` in `app.json`.
 
-## 5. Running
+## 6. Running
 - **Expo Go** is fine for most UI, but native modules (react-native-maps, Apple
-  sign-in, Stream) want a **dev build**:
+  sign-in) want a **dev build**:
   ```
   npx expo run:ios      # or run:android
   ```

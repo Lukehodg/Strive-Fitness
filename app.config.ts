@@ -15,6 +15,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? config.extra?.googleWebClientId ?? "",
     googleIosClientId:
       process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? config.extra?.googleIosClientId ?? "",
+    stravaClientId:
+      process.env.EXPO_PUBLIC_STRAVA_CLIENT_ID ?? config.extra?.stravaClientId ?? "",
     eas: config.extra?.eas,
   },
 });
