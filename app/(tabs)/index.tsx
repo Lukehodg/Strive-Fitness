@@ -12,7 +12,8 @@ import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import { SPORTS, SPORT_META, sportIcon, sportLabel } from "@/lib/sports";
 import type { ActivityType, NearbyActivity } from "@/types/database";
 
-const RADII_KM = [5, 10, 25, 50];
+// Always search a sensible radius for the beachhead — no manual radius control.
+const SEARCH_RADIUS_M = 25_000;
 const SPORT_FILTERS: { value: ActivityType | "all"; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: "all", label: "All", icon: "apps" },
   ...SPORTS.map((s) => ({ value: s, label: SPORT_META[s].label, icon: SPORT_META[s].icon })),
@@ -21,7 +22,6 @@ const SPORT_FILTERS: { value: ActivityType | "all"; label: string; icon: keyof t
 export default function DiscoverScreen() {
   const router = useRouter();
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [radiusKm, setRadiusKm] = useState(25);
   const [sportFilter, setSportFilter] = useState<ActivityType | "all">("all");
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function DiscoverScreen() {
 
   const { data, isLoading, isError, refetch, isRefetching } = useNearbyActivities(
     coords,
-    radiusKm * 1000,
+    SEARCH_RADIUS_M,
   );
 
   const games =
@@ -54,26 +54,6 @@ export default function DiscoverScreen() {
         <Heading>Discover</Heading>
         <Text style={styles.count}>{countLabel}</Text>
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filters}
-      >
-        {RADII_KM.map((km) => {
-          const active = km === radiusKm;
-          return (
-            <Pressable
-              key={km}
-              onPress={() => setRadiusKm(km)}
-              style={[styles.chip, active && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{km} KM</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
 
       <ScrollView
         horizontal
@@ -146,7 +126,7 @@ export default function DiscoverScreen() {
               <EmptyState
                 icon={sportIcon(sportFilter)}
                 title={`No ${sportLabel(sportFilter).toLowerCase()} nearby`}
-                message={`Nothing within ${radiusKm} km. Widen the radius, or tap the + to host the first one.`}
+                message="Nothing on yet — tap the + to host the first one."
               />
             )
           }
