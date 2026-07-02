@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Loading, Screen } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
-import { colors, font, fonts, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, isDark, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages, useSendMessage } from "@/hooks/useMessages";
 import { useRoster, type RosterEntry } from "@/hooks/useActivity";
@@ -91,6 +91,12 @@ export default function GameChatScreen() {
                   <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
                     {!mine ? <Text style={styles.sender}>{person?.name ?? "Player"}</Text> : null}
                     <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
+                    <Text style={[styles.time, mine && styles.timeMine]}>
+                      {new Date(item.created_at).toLocaleTimeString(undefined, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </Text>
                   </View>
                 </View>
               );
@@ -105,6 +111,7 @@ export default function GameChatScreen() {
             onChangeText={setText}
             placeholder="Message the crew…"
             placeholderTextColor={colors.textMuted}
+            keyboardAppearance={isDark ? "dark" : "light"}
             multiline
             onSubmitEditing={onSend}
           />
@@ -132,6 +139,14 @@ const styles = StyleSheet.create({
   sender: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.5, color: colors.ember, marginBottom: 2 },
   body: { fontFamily: fonts.body, fontSize: font.body, color: colors.text },
   bodyMine: { color: colors.primaryText },
+  time: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.textMuted,
+    alignSelf: "flex-end",
+    marginTop: 2,
+  },
+  timeMine: { color: "rgba(23,20,15,0.55)" },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",

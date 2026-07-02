@@ -23,7 +23,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { Loading } from "@/components/ui";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { colors, fonts } from "@/components/theme";
+import { colors, fonts, isDark } from "@/components/theme";
 import { env, isSentryConfigured } from "@/lib/env";
 
 // Crash + error reporting. No-op until EXPO_PUBLIC_SENTRY_DSN is set. We never
@@ -140,7 +140,7 @@ function RootLayout() {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <StatusBar style="dark" />
+              <StatusBar style={isDark ? "light" : "dark"} />
               {ready ? <RootNavigator /> : <Loading />}
             </AuthProvider>
           </QueryClientProvider>

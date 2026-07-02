@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, font, fonts, radius, spacing } from "@/components/theme";
+import { colors, font, fonts, isDark, radius, spacing } from "@/components/theme";
 
 /** Full-screen container with safe-area + app background. */
 export function Screen({
@@ -103,6 +103,7 @@ export function Field({
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.textMuted}
+        keyboardAppearance={isDark ? "dark" : "light"}
         style={[styles.input, style]}
         {...props}
       />

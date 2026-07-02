@@ -3,12 +3,14 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { colors, fonts } from "@/components/theme";
 
 // Brand-palette backgrounds for initial avatars (from the Stride kit).
+// fg is theme-derived so the pairs stay readable in dark mode too (e.g. the
+// `colors.text` chip flips ink-on-bone → bone-on-ink instead of bone-on-bone).
 const PALETTE = [
   { bg: colors.primary, fg: colors.primaryText },
   { bg: colors.pine, fg: "#F3EEE5" },
   { bg: colors.ember, fg: "#17140F" },
-  { bg: colors.text, fg: "#F3EEE5" },
-  { bg: colors.textMuted, fg: "#FFFFFF" },
+  { bg: colors.text, fg: colors.bg },
+  { bg: colors.textMuted, fg: colors.bg },
 ];
 
 function initials(name: string): string {

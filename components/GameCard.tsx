@@ -44,7 +44,10 @@ export function GameCard({ game, onPress }: { game: GameCardData; onPress: () =>
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}
+      style={({ pressed }) => [
+        styles.card,
+        { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
+      ]}
     >
       <View style={styles.tags}>
         <Tag>{primaryTag}</Tag>

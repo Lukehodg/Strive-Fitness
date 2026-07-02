@@ -1,8 +1,18 @@
+import { Appearance } from "react-native";
+
 /**
  * Stride brand tokens — "floodlights at dusk".
- * Warm light theme: bone surfaces, ink text, marigold the one call to action.
+ * Light: bone surfaces, ink text, marigold the one call to action.
+ * Dark: the night-game version — warm ink surfaces, bone text, marigold as the
+ * floodlight. Same hierarchy, inverted ground.
+ *
+ * The palette is resolved ONCE at launch from the system setting: styles across
+ * the app are static StyleSheets, so a mid-session OS theme change applies the
+ * next time the app opens (an accepted trade-off — no flicker, no restyle pass).
+ * Requires `userInterfaceStyle: "automatic"` in app.json (a native setting, so
+ * dark mode ships with the next build).
  */
-export const colors = {
+const light = {
   bg: "#F3EEE5", // Bone — app background
   surface: "#FFFFFF", // white cards
   surfaceAlt: "#FFF1DA", // Tint — mono tags, subtle fills
@@ -18,6 +28,26 @@ export const colors = {
   danger: "#B23B2C",
   warning: "#E67E00",
 };
+
+const dark: typeof light = {
+  bg: "#14110B", // deep warm ink, a shade under the brand Ink
+  surface: "#201C14", // warm charcoal cards
+  surfaceAlt: "#2E2513", // warm tint for mono tags
+  border: "rgba(243,238,229,0.14)",
+  text: "#F3EEE5", // Bone
+  textMuted: "#A89F8F", // light stone — comfortably AA on the dark ground
+  primary: "#FF9F1C", // marigold unchanged — it IS the floodlight
+  primaryText: "#17140F",
+  ember: "#FFB042", // eyebrow accents need more lumen on dark
+  pine: "#2F6B4F", // still a chip background; bone text stays readable
+  danger: "#E06A57",
+  warning: "#FFB042",
+};
+
+/** Resolved at launch (see note above). */
+export const isDark = Appearance.getColorScheme() === "dark";
+
+export const colors = isDark ? dark : light;
 
 /**
  * Brand type. Archivo carries the swagger (display + wordmark), Hanken Grotesk

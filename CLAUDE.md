@@ -140,6 +140,13 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   Hosts can remove a player (delete policy; not a ban — block for that), which
   waitlist-promotes the next in line. Theme polish: WCAG-fixed `textMuted`,
   marigold full-stop on screen headings (wordmark echo), primary-CTA lift.
+- **Dark mode:** palette resolved once at launch from the system setting
+  (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
+  so an OS theme flip applies on next app open; deliberate trade-off). Warm
+  "night game" dark set; marigold unchanged. `userInterfaceStyle: "automatic"`
+  is a native setting → ships with the next build. Status bar, keyboards,
+  avatar initial pairs are scheme-aware; chat bubbles gained timestamps; cards
+  press-scale.
 - **Production hardening:** pg_cron reminders (`0011`), jittered map pins (`0012`),
   `home_location` column-revoked (`0013`, see `docs/RLS_POLICY_CHECKLIST.md`),
   **Sentry** (app + Edge Functions via `_shared/sentry.ts`), **moderation** (`0014`:
