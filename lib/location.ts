@@ -6,6 +6,19 @@ export type Coords = { latitude: number; longitude: number };
 export const DEFAULT_REGION: Coords = { latitude: 51.3743, longitude: -0.4488 };
 
 /**
+ * Round coords to 3 decimals (~110m). Used for discovery queries so:
+ *  - query-cache keys are stable across GPS wobble (Discover + the Nearby map
+ *    share one cached result instead of refetching per fix), and
+ *  - we never send the server a more precise location than search needs.
+ */
+export function coarseCoords(coords: Coords): Coords {
+  return {
+    latitude: Math.round(coords.latitude * 1000) / 1000,
+    longitude: Math.round(coords.longitude * 1000) / 1000,
+  };
+}
+
+/**
  * Ask for foreground location permission and return current coords.
  * Returns null if the user declines — callers fall back to DEFAULT_REGION.
  */

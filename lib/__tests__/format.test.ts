@@ -1,5 +1,6 @@
 import {
   formatCountdown,
+  formatDayChip,
   formatDistance,
   formatRoster,
   formatStartTime,
@@ -73,5 +74,21 @@ describe("formatStartTime", () => {
     const label = formatStartTime(at(d));
     expect(label).not.toMatch(/^Today |^Tomorrow /);
     expect(label).toMatch(/,/); // "Sat 21 Jun, 18:30"
+  });
+});
+
+describe("formatDayChip", () => {
+  afterEach(() => jest.useRealTimers());
+
+  it("labels the first two offsets by name", () => {
+    expect(formatDayChip(0)).toBe("Today");
+    expect(formatDayChip(1)).toBe("Tomorrow");
+  });
+
+  it("labels further offsets with the real weekday", () => {
+    // 2026-07-01 is a Wednesday, so +2 = Friday, +6 = the following Tuesday.
+    jest.useFakeTimers().setSystemTime(new Date("2026-07-01T12:00:00Z"));
+    expect(formatDayChip(2)).toBe("Fri");
+    expect(formatDayChip(6)).toBe("Tue");
   });
 });

@@ -32,7 +32,9 @@ export default function MyGamesScreen() {
 
   const now = Date.now();
   const upcoming = (games.data ?? []).filter((g: MyGame) => +new Date(g.starts_at) >= now);
-  const past = (games.data ?? []).filter((g: MyGame) => +new Date(g.starts_at) < now);
+  // Source is sorted soonest-first; reverse the past slice so the game you just
+  // played tops the section instead of your oldest one.
+  const past = (games.data ?? []).filter((g: MyGame) => +new Date(g.starts_at) < now).reverse();
   const myEvents = events.data ?? [];
 
   const sections: (SectionMeta & { data: Item[] })[] = [

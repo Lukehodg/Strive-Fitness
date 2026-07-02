@@ -1,6 +1,11 @@
 import * as Location from "expo-location";
 
-import { getCurrentCoords, reverseGeocodeArea, DEFAULT_REGION } from "@/lib/location";
+import {
+  coarseCoords,
+  getCurrentCoords,
+  reverseGeocodeArea,
+  DEFAULT_REGION,
+} from "@/lib/location";
 
 jest.mock("expo-location", () => ({
   Accuracy: { Balanced: 3 },
@@ -34,6 +39,23 @@ describe("getCurrentCoords", () => {
     // stuck on a spinner forever.
     mocked.requestForegroundPermissionsAsync.mockRejectedValue(new Error("unsupported"));
     await expect(getCurrentCoords()).resolves.toBeNull();
+  });
+});
+
+describe("coarseCoords", () => {
+  it("rounds to 3 decimals (~110m)", () => {
+    expect(coarseCoords({ latitude: 51.374312, longitude: -0.448771 })).toEqual({
+      latitude: 51.374,
+      longitude: -0.449,
+    });
+  });
+
+  it("keeps nearby fixes on the same key", () => {
+    // Two GPS fixes a few metres apart must produce identical coords, so
+    // Discover and the Nearby map share one cached query.
+    const a = coarseCoords({ latitude: 51.37411, longitude: -0.44882 });
+    const b = coarseCoords({ latitude: 51.37414, longitude: -0.44879 });
+    expect(a).toEqual(b);
   });
 });
 

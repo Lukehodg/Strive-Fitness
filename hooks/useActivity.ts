@@ -166,7 +166,8 @@ export function useCancelActivity(activityId: string) {
         .eq("host_id", user.id);
       if (error) throw error;
 
-      await notify({
+      // Fire-and-forget: don't hold the cancel spinner on the push round trip.
+      void notify({
         activityId,
         excludeUserId: user.id,
         title: "Game cancelled",

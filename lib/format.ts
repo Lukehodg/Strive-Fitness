@@ -36,6 +36,15 @@ export function formatRoster(joined: number, max: number): string {
   return `${joined} / ${max} going`;
 }
 
+/** Day-picker chip label: "Today", "Tomorrow", then the real weekday ("Wed"). */
+export function formatDayChip(dayOffset: number): string {
+  if (dayOffset === 0) return "Today";
+  if (dayOffset === 1) return "Tomorrow";
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  return d.toLocaleDateString(undefined, { weekday: "short" });
+}
+
 /** "Starts in 3h" / "In progress" / "Finished" relative to now. */
 export function formatCountdown(startsAt: string, durationMinutes: number): string {
   const start = new Date(startsAt).getTime();

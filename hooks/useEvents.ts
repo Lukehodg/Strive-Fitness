@@ -2,18 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
-import type { Coords } from "@/lib/location";
+import { coarseCoords, type Coords } from "@/lib/location";
 import type { Event, UpcomingEvent } from "@/types/database";
 
 /** Upcoming curated events (parkruns, races) with distance from `coords`. */
 export function useUpcomingEvents(coords: Coords | null) {
+  // ~110m coords keep the cache key stable across GPS wobble (see coarseCoords).
+  const at = coords ? coarseCoords(coords) : null;
   return useQuery({
-    queryKey: ["events", coords?.latitude ?? 0, coords?.longitude ?? 0],
-    enabled: !!coords,
+    queryKey: ["events", at?.latitude ?? 0, at?.longitude ?? 0],
+    enabled: !!at,
     queryFn: async (): Promise<UpcomingEvent[]> => {
       const { data, error } = await supabase.rpc("upcoming_events", {
-        lat: coords!.latitude,
-        lng: coords!.longitude,
+        lat: at!.latitude,
+        lng: at!.longitude,
       });
       if (error) throw error;
       return data ?? [];

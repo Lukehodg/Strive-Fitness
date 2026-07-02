@@ -20,13 +20,17 @@ export function useMessages(activityId: string) {
     queryKey: key(activityId),
     enabled: !!activityId,
     queryFn: async (): Promise<Message[]> => {
+      // Latest 200 only — a game chat doesn't need unbounded history, and this
+      // keeps the initial load flat as a chat grows. Fetched newest-first for
+      // the limit, then flipped back to ascending (the hook's contract).
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("activity_id", activityId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false })
+        .limit(200);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).reverse();
     },
   });
 
@@ -78,7 +82,8 @@ export function useSendMessage(activityId: string, senderName?: string) {
         .insert({ activity_id: activityId, user_id: user.id, body: trimmed });
       if (error) throw error;
 
-      await notify({
+      // Fire-and-forget: the push shouldn't add latency to sending a message.
+      void notify({
         activityId,
         excludeUserId: user.id,
         title: senderName ?? "New message",

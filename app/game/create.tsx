@@ -8,6 +8,7 @@ import { Button, Field, Muted, Screen, Subheading } from "@/components/ui";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
+import { formatDayChip } from "@/lib/format";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import { SPORTS, SPORT_META, isFootball, sportDefaults } from "@/lib/sports";
 import type { ActivityType, GameFormat, SkillLevel } from "@/types/database";
@@ -24,7 +25,8 @@ function dateFrom(dayOffset: number, time: string): Date | null {
   return d;
 }
 
-const DAY_LABELS = ["Today", "Tomorrow", "+2d", "+3d", "+4d", "+5d", "+6d"];
+// Next 7 days; labels come from formatDayChip ("Today", "Tomorrow", "Wed"…).
+const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6];
 const REPEAT_OPTIONS = [
   { weeks: 1, label: "Just once" },
   { weeks: 4, label: "× 4 weeks" },
@@ -82,6 +84,22 @@ export default function CreateGameScreen() {
   useEffect(() => {
     getCurrentCoords().then((c) => setCoords(c ?? DEFAULT_REGION));
   }, []);
+
+  // Friendly gate — otherwise the RLS denial surfaces as a confusing
+  // "verify your phone" error for a suspended (but verified) account.
+  if (profile?.suspended_at) {
+    return (
+      <Screen>
+        <View style={styles.gate}>
+          <Subheading>Account suspended</Subheading>
+          <Muted>
+            You can browse while suspended, but you can&apos;t host or join. If you think
+            this is a mistake, contact support.
+          </Muted>
+        </View>
+      </Screen>
+    );
+  }
 
   if (!profile?.phone_verified) {
     return (
@@ -227,13 +245,15 @@ export default function CreateGameScreen() {
         <View style={{ gap: spacing(2) }}>
           <Text style={styles.label}>Day</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing(2) }}>
-            {DAY_LABELS.map((label, i) => (
+            {DAY_OFFSETS.map((i) => (
               <Pressable
-                key={label}
+                key={i}
                 onPress={() => setDayOffset(i)}
                 style={[styles.chip, dayOffset === i && styles.chipActive]}
               >
-                <Text style={[styles.chipText, dayOffset === i && styles.chipTextActive]}>{label}</Text>
+                <Text style={[styles.chipText, dayOffset === i && styles.chipTextActive]}>
+                  {formatDayChip(i)}
+                </Text>
               </Pressable>
             ))}
           </ScrollView>

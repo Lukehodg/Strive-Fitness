@@ -31,6 +31,21 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
+        {profile?.suspended_at ? (
+          <Card style={styles.suspendedCard}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) }}>
+              <Ionicons name="alert-circle" size={22} color={colors.danger} />
+              <View style={{ flex: 1 }}>
+                <Subheading>Account suspended</Subheading>
+                <Muted>
+                  You can browse, but hosting, joining, messaging and invites are off.
+                  Contact support if you think this is a mistake.
+                </Muted>
+              </View>
+            </View>
+          </Card>
+        ) : null}
+
         <Card style={styles.verifyRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: spacing(2) }}>
             <Ionicons
@@ -115,6 +130,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   verifyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing(3) },
+  suspendedCard: { borderColor: colors.danger, borderWidth: 1 },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",

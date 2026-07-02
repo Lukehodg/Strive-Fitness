@@ -86,6 +86,13 @@ export default function GameDetailScreen() {
   }
 
   async function onJoin() {
+    if (profile?.suspended_at) {
+      Alert.alert(
+        "Account suspended",
+        "You can browse while suspended, but you can't join. Contact support if you think this is a mistake.",
+      );
+      return;
+    }
     if (!verified) {
       Alert.alert("Verify first", "Verify your phone number before joining games.", [
         { text: "Not now", style: "cancel" },

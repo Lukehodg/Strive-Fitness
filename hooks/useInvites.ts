@@ -68,7 +68,8 @@ export function useInviteToGame(activityId: string) {
       );
       if (error) throw error;
 
-      await notify({
+      // Fire-and-forget: the invite is saved; the push can land when it lands.
+      void notify({
         userIds: [input.inviteeId],
         title: "⚽ Game invite",
         body: `${input.inviterName} invited you to ${input.gameTitle}`,
@@ -186,7 +187,7 @@ export function useRespondToInvite() {
       if (error) throw error;
 
       if (accept) {
-        await notify({
+        void notify({
           userIds: [invite.inviter_id],
           title: "✅ Invite accepted",
           body: `${input.myName} is in for ${invite.game_title}`,
