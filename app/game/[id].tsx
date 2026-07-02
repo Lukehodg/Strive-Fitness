@@ -18,6 +18,7 @@ import {
   type RosterEntry,
 } from "@/hooks/useActivity";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
+import { useJoinWaitlist, useLeaveWaitlist, useWaitlist, type WaitlistEntry } from "@/hooks/useWaitlist";
 import { skillLabel } from "@/lib/activity-format";
 import { activityNoun, isFootball, sportIcon, sportLabel } from "@/lib/sports";
 import { capture } from "@/lib/analytics";
@@ -38,6 +39,9 @@ export default function GameDetailScreen() {
   const block = useBlockUser();
   const report = useReportUser();
   const addConnection = useAddConnection();
+  const { data: waitlist } = useWaitlist(activityId);
+  const joinWaitlist = useJoinWaitlist(activityId);
+  const leaveWaitlist = useLeaveWaitlist(activityId);
 
   useEffect(() => {
     if (activityId) capture("game_viewed", { activityId });
@@ -54,6 +58,12 @@ export default function GameDetailScreen() {
   // Sport-natural noun: "game" / "run" / "ride" / "match" / "session".
   const noun = activityNoun(game.activity_type);
   const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
+
+  // Waitlist position (1-based), or null when not queued.
+  const waitlistPosition = (() => {
+    const i = (waitlist ?? []).findIndex((w: WaitlistEntry) => w.user_id === user?.id);
+    return i >= 0 ? i + 1 : null;
+  })();
 
   async function onShare() {
     if (!game) return;
@@ -112,6 +122,33 @@ export default function GameDetailScreen() {
       await leave.mutateAsync();
     } catch (e) {
       Alert.alert("Couldn't leave", e instanceof Error ? e.message : "Try again.");
+    }
+  }
+
+  async function onJoinWaitlist() {
+    if (profile?.suspended_at) {
+      Alert.alert("Account suspended", "You can't join a waitlist while suspended.");
+      return;
+    }
+    if (!verified) {
+      Alert.alert("Verify first", "Verify your phone number before joining waitlists.", [
+        { text: "Not now", style: "cancel" },
+        { text: "Verify", onPress: () => router.push("/(auth)/verify-phone") },
+      ]);
+      return;
+    }
+    try {
+      await joinWaitlist.mutateAsync();
+    } catch (e) {
+      Alert.alert("Waitlist", e instanceof Error ? e.message : "Try again.");
+    }
+  }
+
+  async function onLeaveWaitlist() {
+    try {
+      await leaveWaitlist.mutateAsync();
+    } catch (e) {
+      Alert.alert("Waitlist", e instanceof Error ? e.message : "Try again.");
     }
   }
 
@@ -272,7 +309,33 @@ export default function GameDetailScreen() {
         ) : isPast ? (
           <Muted>This {noun} has finished.</Muted>
         ) : isFull ? (
-          <Button title={`${Noun} full`} disabled onPress={() => {}} />
+          waitlistPosition ? (
+            <>
+              <Muted>
+                You&apos;re #{waitlistPosition} on the waitlist — if a spot opens, you&apos;re
+                added automatically and we&apos;ll ping you.
+              </Muted>
+              <Button
+                title="Leave waitlist"
+                variant="secondary"
+                onPress={onLeaveWaitlist}
+                loading={leaveWaitlist.isPending}
+              />
+            </>
+          ) : (
+            <>
+              <Muted>
+                {Noun} full
+                {waitlist?.length ? ` · ${waitlist.length} waiting` : ""} — join the
+                waitlist and you&apos;ll be added if a spot opens.
+              </Muted>
+              <Button
+                title="Join waitlist"
+                onPress={onJoinWaitlist}
+                loading={joinWaitlist.isPending}
+              />
+            </>
+          )
         ) : (
           <Button title={`Join ${noun}`} onPress={onJoin} loading={join.isPending} />
         )}

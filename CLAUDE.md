@@ -130,6 +130,10 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   best-effort Strava deauth + avatar cleanup). Profile → "Privacy & data" surfaces
   export, delete, and Privacy/Terms links (`lib/legal.ts`). Starter policy in
   `docs/PRIVACY.md`. In-app deletion is also an App Store requirement.
+- **Waitlist** (`0015`): full games queue on `activity_waitlist`; a DB trigger
+  auto-promotes the earliest entry when a spot opens (+ push via pg_net/Vault,
+  as 0011). Roster inserts/updates are now capacity-checked in RLS (was UI-only).
+  Detail screen shows "#N on the waitlist" + join/leave-waitlist actions.
 - **Production hardening:** pg_cron reminders (`0011`), jittered map pins (`0012`),
   `home_location` column-revoked (`0013`, see `docs/RLS_POLICY_CHECKLIST.md`),
   **Sentry** (app + Edge Functions via `_shared/sentry.ts`), **moderation** (`0014`:

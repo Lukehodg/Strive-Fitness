@@ -120,6 +120,12 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["activity_participants"]["Insert"]>;
         Relationships: [];
       };
+      activity_waitlist: {
+        Row: { activity_id: string; user_id: string; created_at: string };
+        Insert: { activity_id: string; user_id: string };
+        Update: Partial<{ activity_id: string; user_id: string }>;
+        Relationships: [];
+      };
       connections: {
         Row: { user_id: string; connection_id: string; created_at: string };
         Insert: { user_id: string; connection_id: string };

@@ -25,7 +25,7 @@ manual history).
 1. **Enable extensions:** Database → Extensions → enable **`pg_cron`** and
    **`pg_net`** (needed for reminders).
 2. **Apply migrations in order.** For each file in `supabase/migrations/` from
-   `0001` → `0014`: open it, copy the contents, paste into a new SQL Editor
+   `0001` → `0015`: open it, copy the contents, paste into a new SQL Editor
    query, Run.
    - If one errors with *"already exists"*, you've already applied it — skip it.
    - Run them **in numerical order**; later ones depend on earlier ones.

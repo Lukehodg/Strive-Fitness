@@ -113,10 +113,11 @@ export function useJoinActivity(activityId: string) {
         .from("activity_participants")
         .upsert({ activity_id: activityId, user_id: user.id, status: "joined" });
       if (error) {
-        // RLS denial on insert surfaces as a row-level violation — translate it.
+        // RLS denial on insert surfaces as a row-level violation. Since 0015 it
+        // can mean "full" as well as "unverified" — say so.
         if (error.code === "42501" || error.message.includes("row-level security")) {
           throw new Error(
-            "You need to verify your phone number before joining games.",
+            "Couldn't join — the game may be full, or your phone number isn't verified yet.",
           );
         }
         throw error;

@@ -22,7 +22,8 @@ and after any schema change.
 |-------|--------|--------------------------|
 | `profiles` | authenticated, row not blocked; **home_location column revoked** | owner only (`id = auth.uid()`) |
 | `activities` | authenticated, host not blocked | insert/update/delete by host; insert requires `phone_verified` |
-| `activity_participants` | visible activities, both parties unblocked | add/remove **self** only, must be `phone_verified` |
+| `activity_participants` | visible activities, both parties unblocked | add/remove **self** only, must be `phone_verified`, **capacity-checked** (0015) |
+| `activity_waitlist` | visible activities, both parties unblocked | queue/unqueue **self** only, verified + not suspended, game must be full; promotion is trigger-only (service definer) |
 | `messages` | participants of the activity only (`is_participant`) | insert by participants only |
 | `connections` | your side only | insert/delete your side only |
 | `game_invites` | inviter or invitee | insert by a roster member; update by either party |
@@ -39,6 +40,7 @@ and after any schema change.
 - [ ] `select access_token from strava_accounts` → **permission denied**.
 - [ ] Block user B as A; confirm A no longer sees B in discovery, rosters, or chat, and vice-versa.
 - [ ] As an unverified user, try to insert into `activities` / `activity_participants` → **denied**.
+- [ ] Try to join a **full** game directly (insert into `activity_participants`) → **denied**; join its waitlist → allowed; have someone leave → you're auto-promoted.
 - [ ] `nearby_activities(...)` markers are offset from the true venue, but `distance_meters` is accurate.
 
 ## When the schema changes
