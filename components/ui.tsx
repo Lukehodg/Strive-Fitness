@@ -28,8 +28,17 @@ export function Screen({
   );
 }
 
-export function Heading({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.heading}>{children}</Text>;
+/**
+ * Screen heading. `dot` appends the brand's marigold full stop (as in the
+ * "Stride." wordmark) — use it on top-level screen titles, not dynamic text.
+ */
+export function Heading({ children, dot }: { children: React.ReactNode; dot?: boolean }) {
+  return (
+    <Text style={styles.heading}>
+      {children}
+      {dot ? <Text style={styles.headingDot}>.</Text> : null}
+    </Text>
+  );
 }
 
 export function Subheading({ children }: { children: React.ReactNode }) {
@@ -66,7 +75,12 @@ export function Button({
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: bg, opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1 },
+        variant === "primary" && !isDisabled ? styles.buttonPrimaryLift : null,
+        {
+          backgroundColor: bg,
+          opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
+          transform: [{ scale: pressed && !isDisabled ? 0.98 : 1 }],
+        },
         style,
       ]}
     >
@@ -136,6 +150,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayBlack,
     letterSpacing: -0.6,
   },
+  headingDot: { color: colors.primary },
   subheading: {
     color: colors.text,
     fontSize: font.h3,
@@ -156,6 +171,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing(4),
+  },
+  // Warm lift under the one marigold CTA on screen — makes it read as *the* action.
+  buttonPrimaryLift: {
+    shadowColor: "#E67E00",
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   buttonText: { fontSize: font.body, fontFamily: fonts.display, letterSpacing: 0.2 },
   input: {

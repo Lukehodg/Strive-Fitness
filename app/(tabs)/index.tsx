@@ -51,7 +51,7 @@ export default function DiscoverScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Heading>Discover</Heading>
+        <Heading dot>Discover</Heading>
         <Text style={styles.count}>{countLabel}</Text>
       </View>
 

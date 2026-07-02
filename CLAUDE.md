@@ -134,6 +134,12 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   auto-promotes the earliest entry when a spot opens (+ push via pg_net/Vault,
   as 0011). Roster inserts/updates are now capacity-checked in RLS (was UI-only).
   Detail screen shows "#N on the waitlist" + join/leave-waitlist actions.
+- **Unread chat + host kick** (`0016`): `chat_reads` read-markers + a one-shot
+  `unread_counts()` RPC power badges (My Games tab badge, per-game "N NEW
+  MESSAGES" pill, "Open chat (n new)"); chat stamps itself read while open.
+  Hosts can remove a player (delete policy; not a ban — block for that), which
+  waitlist-promotes the next in line. Theme polish: WCAG-fixed `textMuted`,
+  marigold full-stop on screen headings (wordmark echo), primary-CTA lift.
 - **Production hardening:** pg_cron reminders (`0011`), jittered map pins (`0012`),
   `home_location` column-revoked (`0013`, see `docs/RLS_POLICY_CHECKLIST.md`),
   **Sentry** (app + Edge Functions via `_shared/sentry.ts`), **moderation** (`0014`:

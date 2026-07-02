@@ -3,10 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { colors, fonts } from "@/components/theme";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useUnreadTotal } from "@/hooks/useUnread";
 
 export default function TabsLayout() {
   // Register for push once the user is past the auth gate.
   usePushNotifications();
+  const unreadTotal = useUnreadTotal();
 
   return (
     <Tabs
@@ -52,6 +54,13 @@ export default function TabsLayout() {
         options={{
           title: "My Games",
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} />,
+          tabBarBadge: unreadTotal > 0 ? unreadTotal : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: colors.primaryText,
+            fontFamily: fonts.monoBold,
+            fontSize: 10,
+          },
         }}
       />
       <Tabs.Screen

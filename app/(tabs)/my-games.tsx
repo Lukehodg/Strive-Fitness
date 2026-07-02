@@ -8,6 +8,7 @@ import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useMyGames, type MyGame } from "@/hooks/useMyGames";
 import { useMyEvents } from "@/hooks/useEvents";
+import { useUnreadCounts } from "@/hooks/useUnread";
 import type { Event } from "@/types/database";
 
 type Item = MyGame | Event;
@@ -17,12 +18,13 @@ export default function MyGamesScreen() {
   const router = useRouter();
   const games = useMyGames();
   const events = useMyEvents();
+  const { data: unread } = useUnreadCounts();
 
   if (games.isLoading) {
     return (
       <Screen>
         <View style={styles.header}>
-          <Heading>My Games</Heading>
+          <Heading dot>My Games</Heading>
           <Muted>Your activities and events</Muted>
         </View>
         <GameListSkeleton count={3} />
@@ -82,7 +84,11 @@ export default function MyGamesScreen() {
                 />
               </View>
             ) : (
-              <GameRow game={item as MyGame} onPress={() => router.push({ pathname: "/game/[id]", params: { id: item.id } })} />
+              <GameRow
+                game={item as MyGame}
+                unread={unread?.[item.id] ?? 0}
+                onPress={() => router.push({ pathname: "/game/[id]", params: { id: item.id } })}
+              />
             )
           }
         />
@@ -91,7 +97,15 @@ export default function MyGamesScreen() {
   );
 }
 
-function GameRow({ game, onPress }: { game: MyGame; onPress: () => void }) {
+function GameRow({
+  game,
+  unread,
+  onPress,
+}: {
+  game: MyGame;
+  unread: number;
+  onPress: () => void;
+}) {
   return (
     <View style={{ marginBottom: spacing(3.5) }}>
       <GameCard
@@ -107,9 +121,20 @@ function GameRow({ game, onPress }: { game: MyGame; onPress: () => void }) {
         }}
         onPress={onPress}
       />
-      {game.hosting ? (
-        <View style={styles.hostingTag}>
-          <Text style={styles.hostingText}>YOU&apos;RE HOSTING</Text>
+      {game.hosting || unread > 0 ? (
+        <View style={styles.tagRow}>
+          {unread > 0 ? (
+            <View style={styles.unreadTag}>
+              <Text style={styles.unreadText}>
+                {unread} NEW {unread === 1 ? "MESSAGE" : "MESSAGES"}
+              </Text>
+            </View>
+          ) : null}
+          {game.hosting ? (
+            <View style={styles.hostingTag}>
+              <Text style={styles.hostingText}>YOU&apos;RE HOSTING</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -128,13 +153,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing(2.5),
     marginTop: spacing(2),
   },
+  tagRow: { flexDirection: "row", gap: spacing(2), marginTop: spacing(2) },
   hostingTag: {
-    alignSelf: "flex-start",
-    marginTop: spacing(2),
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.sm,
     paddingHorizontal: spacing(2),
     paddingVertical: spacing(1),
   },
   hostingText: { color: colors.ember, fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.5 },
+  unreadTag: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing(2),
+    paddingVertical: spacing(1),
+  },
+  unreadText: { color: colors.primaryText, fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.5 },
 });

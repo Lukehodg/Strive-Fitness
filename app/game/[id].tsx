@@ -13,10 +13,12 @@ import {
   useActivity,
   useCancelActivity,
   useJoinActivity,
+  useKickPlayer,
   useLeaveActivity,
   useRoster,
   type RosterEntry,
 } from "@/hooks/useActivity";
+import { useUnreadCounts } from "@/hooks/useUnread";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
 import { useJoinWaitlist, useLeaveWaitlist, useWaitlist, type WaitlistEntry } from "@/hooks/useWaitlist";
 import { skillLabel } from "@/lib/activity-format";
@@ -42,6 +44,8 @@ export default function GameDetailScreen() {
   const { data: waitlist } = useWaitlist(activityId);
   const joinWaitlist = useJoinWaitlist(activityId);
   const leaveWaitlist = useLeaveWaitlist(activityId);
+  const kick = useKickPlayer(activityId);
+  const { data: unreadMap } = useUnreadCounts();
 
   useEffect(() => {
     if (activityId) capture("game_viewed", { activityId });
@@ -187,6 +191,32 @@ export default function GameDetailScreen() {
       { text: "Report", style: "destructive", onPress: () => onReport(entry.user_id, entry.display_name) },
       { text: "Block", style: "destructive", onPress: () => onBlock(entry.user_id, entry.display_name) },
     ];
+    if (isHost && !isPast && !isCancelled) {
+      buttons.splice(1, 0, {
+        text: `Remove from ${noun}`,
+        style: "destructive",
+        onPress: () => {
+          Alert.alert(
+            `Remove ${entry.display_name}?`,
+            "They'll be taken off the roster (they can rejoin unless you block them). If anyone's waitlisted, the next in line takes the spot.",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Remove",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await kick.mutateAsync({ userId: entry.user_id, gameTitle: game!.title });
+                  } catch (e) {
+                    Alert.alert("Couldn't remove", e instanceof Error ? e.message : "Try again.");
+                  }
+                },
+              },
+            ],
+          );
+        },
+      });
+    }
     if (isPast) {
       buttons.splice(1, 0, {
         text: "Play again (add)",
@@ -292,7 +322,11 @@ export default function GameDetailScreen() {
         ) : amIn ? (
           <>
             <Button
-              title="Open chat"
+              title={
+                unreadMap?.[activityId]
+                  ? `Open chat (${unreadMap[activityId]} new)`
+                  : "Open chat"
+              }
               onPress={() => router.push({ pathname: "/game/chat/[id]", params: { id: activityId } })}
             />
             {isHost ? (

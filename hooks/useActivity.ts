@@ -150,6 +150,36 @@ export function useLeaveActivity(activityId: string) {
 }
 
 /**
+ * Remove a player from the roster (host only — RLS `participants_delete_host`).
+ * Not a ban: they can rejoin unless the host blocks them. Freeing the spot
+ * auto-promotes the next waitlisted player (0015 trigger).
+ */
+export function useKickPlayer(activityId: string) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { userId: string; gameTitle: string }) => {
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase
+        .from("activity_participants")
+        .delete()
+        .eq("activity_id", activityId)
+        .eq("user_id", input.userId);
+      if (error) throw error;
+
+      void notify({
+        userIds: [input.userId],
+        title: "Roster update",
+        body: `The host removed you from ${input.gameTitle}.`,
+        data: { type: "game", activityId },
+      });
+    },
+    onSuccess: () => invalidateActivity(qc, activityId, user?.id),
+  });
+}
+
+/**
  * Cancel a game (host only). Sets status to 'cancelled'; RLS enforces ownership.
  * Lets the roster know it's off via a push (pass the title for a nicer body).
  */

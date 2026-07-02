@@ -126,6 +126,12 @@ export interface Database {
         Update: Partial<{ activity_id: string; user_id: string }>;
         Relationships: [];
       };
+      chat_reads: {
+        Row: { activity_id: string; user_id: string; last_read_at: string };
+        Insert: { activity_id: string; user_id: string; last_read_at?: string };
+        Update: Partial<{ last_read_at: string }>;
+        Relationships: [];
+      };
       connections: {
         Row: { user_id: string; connection_id: string; created_at: string };
         Insert: { user_id: string; connection_id: string };
@@ -299,6 +305,10 @@ export interface Database {
           distance_meters: number;
           joined_count: number;
         }[];
+      };
+      unread_counts: {
+        Args: Record<string, never>;
+        Returns: { activity_id: string; unread: number }[];
       };
       upcoming_events: {
         Args: { lat: number; lng: number };

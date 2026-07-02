@@ -22,8 +22,9 @@ and after any schema change.
 |-------|--------|--------------------------|
 | `profiles` | authenticated, row not blocked; **home_location column revoked** | owner only (`id = auth.uid()`) |
 | `activities` | authenticated, host not blocked | insert/update/delete by host; insert requires `phone_verified` |
-| `activity_participants` | visible activities, both parties unblocked | add/remove **self** only, must be `phone_verified`, **capacity-checked** (0015) |
+| `activity_participants` | visible activities, both parties unblocked | add/remove **self** only, must be `phone_verified`, **capacity-checked** (0015); **hosts may remove others** from their own games (0016) |
 | `activity_waitlist` | visible activities, both parties unblocked | queue/unqueue **self** only, verified + not suspended, game must be full; promotion is trigger-only (service definer) |
+| `chat_reads` | own rows only | own rows only (read-markers are strictly personal) |
 | `messages` | participants of the activity only (`is_participant`) | insert by participants only |
 | `connections` | your side only | insert/delete your side only |
 | `game_invites` | inviter or invitee | insert by a roster member; update by either party |

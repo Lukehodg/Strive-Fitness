@@ -18,6 +18,7 @@ import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMessages, useSendMessage } from "@/hooks/useMessages";
 import { useRoster, type RosterEntry } from "@/hooks/useActivity";
+import { useMarkChatRead } from "@/hooks/useUnread";
 import { capture } from "@/lib/analytics";
 import type { Message } from "@/types/database";
 
@@ -44,6 +45,15 @@ export default function GameChatScreen() {
   useEffect(() => {
     if (activityId) capture("chat_opened", { activityId });
   }, [activityId]);
+
+  // Stamp "read up to now" on open and as messages arrive while on screen,
+  // so the unread badges clear the moment you've actually seen the chat.
+  const markRead = useMarkChatRead(activityId);
+  const { mutate: stampRead } = markRead;
+  const messageCount = messages?.length ?? 0;
+  useEffect(() => {
+    if (activityId && messageCount >= 0) stampRead();
+  }, [activityId, messageCount, stampRead]);
 
   // Newest first for an inverted list.
   const data = useMemo(() => [...(messages ?? [])].reverse(), [messages]);

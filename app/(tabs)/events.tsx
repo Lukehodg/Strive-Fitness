@@ -30,7 +30,7 @@ export default function EventsScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Heading>Events</Heading>
+        <Heading dot>Events</Heading>
         <Text style={styles.count}>{countLabel}</Text>
       </View>
 

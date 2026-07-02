@@ -8,7 +8,9 @@ export const colors = {
   surfaceAlt: "#FFF1DA", // Tint — mono tags, subtle fills
   border: "rgba(23,20,15,0.12)", // Line
   text: "#17140F", // Ink — warm, never cold black
-  textMuted: "#8A847A", // Stone — metadata, captions
+  // Stone — metadata, captions. Darkened from the kit's #8A847A: that was
+  // ~3.1:1 on Bone (fails WCAG AA); this stays warm but reads at ~4.5:1.
+  textMuted: "#6E6759",
   primary: "#FF9F1C", // Marigold — CTAs, join, active
   primaryText: "#17140F", // ink on marigold
   ember: "#E67E00", // pressed marigold, eyebrows, fine accents
