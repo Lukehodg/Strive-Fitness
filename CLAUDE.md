@@ -140,6 +140,12 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   Hosts can remove a player (delete policy; not a ban — block for that), which
   waitlist-promotes the next in line. Theme polish: WCAG-fixed `textMuted`,
   marigold full-stop on screen headings (wordmark echo), primary-CTA lift.
+- **Player stats + leaderboard** (`0017`): competitive layer. `player_stats(target)`
+  RPC (friends-gated: owner or connection only, blocks respected) powers stat
+  tiles on your own Profile and on the new `/user/[id]` player screen (basics
+  public; stats + recent Strava training locked behind connection).
+  `connections_leaderboard()` ranks your circle by games this month — shown atop
+  Connections. Rosters and connections rows link to player profiles.
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm

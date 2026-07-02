@@ -116,6 +116,10 @@ function RootNavigator() {
         name="connections"
         options={{ headerShown: true, title: "Connections", presentation: "card" }}
       />
+      <Stack.Screen
+        name="user/[id]"
+        options={{ headerShown: true, title: "Player", presentation: "card" }}
+      />
     </Stack>
   );
 }

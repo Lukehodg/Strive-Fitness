@@ -310,6 +310,28 @@ export interface Database {
         Args: Record<string, never>;
         Returns: { activity_id: string; unread: number }[];
       };
+      player_stats: {
+        Args: { target: string };
+        Returns: {
+          games_played: number;
+          games_hosted: number;
+          games_this_month: number;
+          sports_count: number;
+          top_sport: ActivityType | null;
+          top_sport_count: number;
+          last_played_at: string | null;
+        }[];
+      };
+      connections_leaderboard: {
+        Args: Record<string, never>;
+        Returns: {
+          user_id: string;
+          display_name: string;
+          avatar_url: string | null;
+          games_this_month: number;
+          games_all_time: number;
+        }[];
+      };
       upcoming_events: {
         Args: { lat: number; lng: number };
         Returns: {
@@ -350,3 +372,6 @@ export type Message = Database["public"]["Tables"]["messages"]["Row"];
 export type GameInvite = Database["public"]["Tables"]["game_invites"]["Row"];
 export type StravaAccount = Database["public"]["Tables"]["strava_accounts"]["Row"];
 export type StravaActivity = Database["public"]["Tables"]["strava_activities"]["Row"];
+export type PlayerStats = Database["public"]["Functions"]["player_stats"]["Returns"][number];
+export type LeaderboardRow =
+  Database["public"]["Functions"]["connections_leaderboard"]["Returns"][number];

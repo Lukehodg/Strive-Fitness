@@ -11,12 +11,15 @@ import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyProfile } from "@/hooks/useProfile";
 import { usePendingInviteCount } from "@/hooks/useInvites";
+import { usePlayerStats } from "@/hooks/useStats";
+import { StatTiles } from "@/components/StatTiles";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
   const { data: pendingInvites } = usePendingInviteCount();
+  const { data: myStats } = usePlayerStats(user?.id);
 
   if (isLoading) return <Loading />;
 
@@ -76,6 +79,8 @@ export default function ProfileScreen() {
             <Muted>{profile.bio}</Muted>
           </Card>
         ) : null}
+
+        {myStats ? <StatTiles stats={myStats} /> : null}
 
         <StravaSection />
 

@@ -188,6 +188,11 @@ export default function GameDetailScreen() {
     if (entry.user_id === user?.id) return;
     const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [
       { text: "Cancel", style: "cancel" },
+      {
+        text: "View profile",
+        onPress: () =>
+          router.push({ pathname: "/user/[id]", params: { id: entry.user_id } }),
+      },
       { text: "Report", style: "destructive", onPress: () => onReport(entry.user_id, entry.display_name) },
       { text: "Block", style: "destructive", onPress: () => onBlock(entry.user_id, entry.display_name) },
     ];
