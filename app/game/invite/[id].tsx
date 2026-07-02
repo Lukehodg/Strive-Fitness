@@ -1,12 +1,13 @@
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState, Loading, Muted, Screen } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { colors, fonts, radius, spacing } from "@/components/theme";
 import { useActivity, useRoster, type RosterEntry } from "@/hooks/useActivity";
 import { useConnections, type Connection } from "@/hooks/useConnections";
-import { useGameInviteStatuses, useInviteToGame } from "@/hooks/useInvites";
+import { useGameInviteStatuses, useInviteToGame, useRallyCrew } from "@/hooks/useInvites";
 import { useMyProfile } from "@/hooks/useProfile";
 import type { InviteStatus } from "@/types/database";
 
@@ -22,6 +23,7 @@ export default function InviteScreen() {
   const { data: roster } = useRoster(activityId);
   const { data: inviteStatuses } = useGameInviteStatuses(activityId);
   const invite = useInviteToGame(activityId);
+  const rally = useRallyCrew(activityId);
 
   if (connections.isLoading) return <Loading />;
 
@@ -31,6 +33,38 @@ export default function InviteScreen() {
   function stateFor(c: Connection): CandidateState {
     if (rosterIds.has(c.id)) return "on_roster";
     return inviteStatuses?.[c.id] ?? "none";
+  }
+
+  // Everyone you could still invite: not on the roster, no live invite.
+  const candidates = list.filter((c: Connection) => {
+    const s = stateFor(c);
+    return s === "none" || s === "declined" || s === "cancelled";
+  });
+
+  function onRally() {
+    if (!game || candidates.length === 0) return;
+    Alert.alert(
+      "Rally the crew?",
+      `Invite all ${candidates.length} of your connections who aren't in yet — one push each.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: `Invite ${candidates.length}`,
+          onPress: async () => {
+            try {
+              const n = await rally.mutateAsync({
+                inviteeIds: candidates.map((c: Connection) => c.id),
+                gameTitle: game.title,
+                inviterName: profile?.display_name ?? "A mate",
+              });
+              Alert.alert("Sent", `${n} ${n === 1 ? "invite" : "invites"} on their way.`);
+            } catch (e) {
+              Alert.alert("Couldn't rally", e instanceof Error ? e.message : "Try again.");
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function onInvite(c: Connection) {
@@ -65,9 +99,31 @@ export default function InviteScreen() {
         keyExtractor={(c: Connection) => c.id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <Muted>
-            {game ? `Invite a connection to ${game.title}.` : "Invite a connection."}
-          </Muted>
+          <View style={{ gap: spacing(3) }}>
+            {candidates.length > 1 ? (
+              <Pressable
+                style={({ pressed }) => [styles.rally, { opacity: pressed || rally.isPending ? 0.85 : 1 }]}
+                onPress={onRally}
+                disabled={rally.isPending}
+              >
+                <View style={styles.rallyIcon}>
+                  <Ionicons name="megaphone" size={18} color={colors.primaryText} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rallyTitle}>
+                    {rally.isPending ? "Rallying…" : "Rally the crew"}
+                  </Text>
+                  <Text style={styles.rallySub}>
+                    Invite all {candidates.length} who aren&apos;t in yet
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.primaryText} />
+              </Pressable>
+            ) : null}
+            <Muted>
+              {game ? `Invite a connection to ${game.title}.` : "Invite a connection."}
+            </Muted>
+          </View>
         }
         renderItem={({ item }: { item: Connection }) => {
           const state = stateFor(item);
@@ -141,6 +197,24 @@ function Pill({
 
 const styles = StyleSheet.create({
   list: { padding: spacing(5), gap: spacing(3) },
+  rally: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(3),
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    padding: spacing(3.5),
+  },
+  rallyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(23,20,15,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rallyTitle: { color: colors.primaryText, fontFamily: fonts.display, fontSize: 16, letterSpacing: -0.2 },
+  rallySub: { color: colors.primaryText, fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.4, textTransform: "uppercase", opacity: 0.75, marginTop: 2 },
   row: {
     flexDirection: "row",
     alignItems: "center",

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { capture } from "@/lib/analytics";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import type { ActivityStatus, InviteStatus } from "@/types/database";
@@ -75,6 +76,50 @@ export function useInviteToGame(activityId: string) {
         body: `${input.inviterName} invited you to ${input.gameTitle}`,
         data: { type: "invite" },
       });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: gameInvitesKey(activityId) });
+    },
+  });
+}
+
+/**
+ * Rally the crew: invite a whole list of connections in one go (one upsert,
+ * one push). The screen passes only invitable candidates — people not already
+ * on the roster or holding a pending/accepted invite.
+ */
+export function useRallyCrew(activityId: string) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      inviteeIds: string[];
+      gameTitle: string;
+      inviterName: string;
+    }): Promise<number> => {
+      if (!user) throw new Error("Not signed in");
+      if (input.inviteeIds.length === 0) return 0;
+
+      const rows = input.inviteeIds.map((invitee_id) => ({
+        activity_id: activityId,
+        inviter_id: user.id,
+        invitee_id,
+        status: "pending" as const,
+      }));
+      const { error } = await supabase
+        .from("game_invites")
+        .upsert(rows, { onConflict: "activity_id,invitee_id" });
+      if (error) throw error;
+
+      void notify({
+        userIds: input.inviteeIds,
+        title: "⚽ Game invite",
+        body: `${input.inviterName} invited you to ${input.gameTitle}`,
+        data: { type: "invite" },
+      });
+      capture("crew_rallied", { activityId, count: input.inviteeIds.length });
+      return input.inviteeIds.length;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: gameInvitesKey(activityId) });
