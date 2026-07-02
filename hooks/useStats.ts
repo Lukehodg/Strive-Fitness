@@ -44,6 +44,20 @@ export function usePlayerStats(userId: string | undefined) {
   });
 }
 
+/** How many past games you and this user were both on (0 for yourself). */
+export function usePlayedTogether(userId: string | undefined) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["played-together", userId ?? "anon"],
+    enabled: !!userId && !!user && userId !== user.id,
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.rpc("played_together", { target: userId! });
+      if (error) throw error;
+      return data ?? 0;
+    },
+  });
+}
+
 /** You + your connections, ranked by games in the last 30 days. */
 export function useConnectionsLeaderboard() {
   const { user } = useAuth();

@@ -4,9 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Card, Heading, Loading, Muted, Screen, Subheading } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
+import { BadgeRow } from "@/components/BadgeRow";
 import { StatTiles } from "@/components/StatTiles";
 import { colors, fonts, radius, spacing } from "@/components/theme";
-import { usePlayerStats, useUserProfile } from "@/hooks/useStats";
+import { usePlayedTogether, usePlayerStats, useUserProfile } from "@/hooks/useStats";
 import { useStravaActivities } from "@/hooks/useStrava";
 import {
   STRAVA_ORANGE,
@@ -26,6 +27,7 @@ export default function UserProfileScreen() {
   const { data: profile, isLoading } = useUserProfile(id);
   const { data: stats, isLoading: statsLoading } = usePlayerStats(id);
   const { data: stravaActivities } = useStravaActivities(id);
+  const { data: together } = usePlayedTogether(id);
 
   if (isLoading) return <Loading />;
 
@@ -54,6 +56,14 @@ export default function UserProfileScreen() {
           <Text style={styles.metaLine}>
             {[profile.area_label, `Since ${since}`].filter(Boolean).join("  ·  ")}
           </Text>
+          {together ? (
+            <View style={styles.togetherPill}>
+              <Ionicons name="people" size={12} color={colors.ember} />
+              <Text style={styles.togetherText}>
+                Played together {together} {together === 1 ? "time" : "times"}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {profile.bio ? (
@@ -64,7 +74,10 @@ export default function UserProfileScreen() {
 
         <Subheading>Stats</Subheading>
         {statsLoading ? null : stats ? (
-          <StatTiles stats={stats} />
+          <>
+            <StatTiles stats={stats} />
+            <BadgeRow stats={stats} />
+          </>
         ) : (
           <Card style={styles.lockedCard}>
             <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
@@ -112,6 +125,23 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono,
     fontSize: 11,
     letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  togetherPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing(1.5),
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing(3),
+    paddingVertical: spacing(1.5),
+    marginTop: spacing(1),
+  },
+  togetherText: {
+    color: colors.ember,
+    fontFamily: fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
   },
   lockedCard: { flexDirection: "row", alignItems: "center", gap: spacing(3) },

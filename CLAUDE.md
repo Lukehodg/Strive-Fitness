@@ -146,6 +146,13 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   public; stats + recent Strava training locked behind connection).
   `connections_leaderboard()` ranks your circle by games this month — shown atop
   Connections. Rosters and connections rows link to player profiles.
+- **Rally + check-ins + badges** (`0018`): "Rally the crew" bulk-invites every
+  not-yet-in connection from the invite screen (one upsert, one push). A second
+  pg_cron job sends "Still in for tomorrow?" ~24h before kickoff (drop-outs free
+  spots to the waitlist). `player_stats` gained `current_streak_weeks`;
+  `lib/badges.ts` derives achievement chips (nothing stored) shown via
+  `BadgeRow` on profiles (own profile shows the next locked one).
+  `played_together(target)` powers a head-to-head pill on player profiles.
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm

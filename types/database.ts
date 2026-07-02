@@ -320,7 +320,12 @@ export interface Database {
           top_sport: ActivityType | null;
           top_sport_count: number;
           last_played_at: string | null;
+          current_streak_weeks: number;
         }[];
+      };
+      played_together: {
+        Args: { target: string };
+        Returns: number;
       };
       connections_leaderboard: {
         Args: Record<string, never>;

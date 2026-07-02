@@ -13,6 +13,7 @@ import { useMyProfile } from "@/hooks/useProfile";
 import { usePendingInviteCount } from "@/hooks/useInvites";
 import { usePlayerStats } from "@/hooks/useStats";
 import { StatTiles } from "@/components/StatTiles";
+import { BadgeRow } from "@/components/BadgeRow";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -80,7 +81,12 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
 
-        {myStats ? <StatTiles stats={myStats} /> : null}
+        {myStats ? (
+          <>
+            <StatTiles stats={myStats} />
+            <BadgeRow stats={myStats} showNext />
+          </>
+        ) : null}
 
         <StravaSection />
 
