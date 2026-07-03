@@ -34,7 +34,7 @@ export async function addGameToCalendar(input: {
     location: input.venueLabel,
     startDate: start,
     endDate: end,
-    notes: "Added from Stride",
+    notes: "Added from Turnout",
   });
   return true;
 }

@@ -1,4 +1,4 @@
-# Stride — Privacy Policy (DRAFT)
+# Turnout — Privacy Policy (DRAFT)
 
 > ⚠️ **Template, not legal advice.** This is a starting point that reflects how
 > the app actually handles data. Have it reviewed by a qualified person and host
@@ -6,7 +6,7 @@
 
 _Last updated: {DATE}_
 
-Stride ("we") helps men connect around real-world activities. This policy
+Turnout ("we") helps men connect around real-world activities. This policy
 explains what we collect, why, and the choices you have.
 
 ## What we collect
@@ -54,7 +54,7 @@ records may be retained where required.
 - Contact us at the email in `SUPPORT_EMAIL` for any request.
 
 ## Children
-Stride is for adults (18+) only.
+Turnout is for adults (18+) only.
 
 ## Changes
 We'll update this page and the "last updated" date when this policy changes.

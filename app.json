@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Stride",
+    "name": "Turnout",
     "slug": "strive",
-    "scheme": "strive",
+    "scheme": "turnout",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,15 +18,15 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.lukehodg.strive",
+      "bundleIdentifier": "com.lukehodg.turnout",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Stride uses your location to find activities near you.",
+        "NSLocationWhenInUseUsageDescription": "Turnout uses your location to find activities near you.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "usesAppleSignIn": true
     },
     "android": {
-      "package": "com.lukehodg.strive",
+      "package": "com.lukehodg.turnout",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FF9F1C"
@@ -48,25 +48,25 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Stride uses your location to find activities near you."
+          "locationWhenInUsePermission": "Turnout uses your location to find activities near you."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Stride needs photo access so you can set a profile picture."
+          "photosPermission": "Turnout needs photo access so you can set a profile picture."
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Stride adds games you join to your calendar."
+          "calendarPermission": "Turnout adds games you join to your calendar."
         }
       ],
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Stride shows your recent workouts on your profile so your crew can see what you've been training.",
+          "NSHealthShareUsageDescription": "Turnout shows your recent workouts on your profile so your crew can see what you've been training.",
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }

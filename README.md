@@ -1,4 +1,4 @@
-# Strive
+# Turnout
 
 Men-only, activity-first app to connect around real-world **pickup football**.
 Activity-first, not profile-first — verification-led for trust and safety.

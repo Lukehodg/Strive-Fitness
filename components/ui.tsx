@@ -30,7 +30,7 @@ export function Screen({
 
 /**
  * Screen heading. `dot` appends the brand's marigold full stop (as in the
- * "Stride." wordmark) — use it on top-level screen titles, not dynamic text.
+ * "Turnout." wordmark) — use it on top-level screen titles, not dynamic text.
  */
 export function Heading({ children, dot }: { children: React.ReactNode; dot?: boolean }) {
   return (

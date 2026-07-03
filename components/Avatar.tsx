@@ -2,7 +2,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 
 import { colors, fonts } from "@/components/theme";
 
-// Brand-palette backgrounds for initial avatars (from the Stride kit).
+// Brand-palette backgrounds for initial avatars (from the brand kit).
 // fg is theme-derived so the pairs stay readable in dark mode too (e.g. the
 // `colors.text` chip flips ink-on-bone → bone-on-ink instead of bone-on-bone).
 const PALETTE = [

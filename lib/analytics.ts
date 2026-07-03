@@ -47,7 +47,7 @@ export function capture(event: string, properties?: Record<string, unknown>) {
       api_key: env.posthogKey,
       event,
       distinct_id: distinctId ?? "anonymous",
-      properties: { ...(properties ?? {}), $lib: "stride-react-native" },
+      properties: { ...(properties ?? {}), $lib: "turnout-react-native" },
       timestamp: new Date().toISOString(),
     }),
   }).catch(() => {

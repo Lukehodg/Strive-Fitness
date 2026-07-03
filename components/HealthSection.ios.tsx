@@ -124,7 +124,7 @@ export function HealthSection() {
         workouts.map((w) => <WorkoutRow key={w.uuid} workout={w} />)
       ) : (
         <Text style={styles.muted}>
-          No recent workouts found. Record one in Apple Health, or check Stride&apos;s
+          No recent workouts found. Record one in Apple Health, or check Turnout&apos;s
           access in Settings → Health.
         </Text>
       )}

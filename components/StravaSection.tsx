@@ -82,7 +82,7 @@ function ConnectCta() {
 /** Isolated so `useAuthRequest` only runs when Strava is configured + unlinked. */
 function StravaConnectButton() {
   const connect = useConnectStrava();
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: "strive", path: "strava" });
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: "turnout", path: "strava" });
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {

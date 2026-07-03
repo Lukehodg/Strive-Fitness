@@ -15,7 +15,7 @@ export function AccountDataSection() {
     try {
       const data = await exportData.mutateAsync();
       await Share.share({
-        title: "My Stride data",
+        title: "My Turnout data",
         message: JSON.stringify(data, null, 2),
       });
     } catch (e) {

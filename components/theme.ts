@@ -1,7 +1,7 @@
 import { Appearance } from "react-native";
 
 /**
- * Stride brand tokens — "floodlights at dusk".
+ * Turnout brand tokens — "floodlights at dusk".
  * Light: bone surfaces, ink text, marigold the one call to action.
  * Dark: the night-game version — warm ink surfaces, bone text, marigold as the
  * floodlight. Same hierarchy, inverted ground.

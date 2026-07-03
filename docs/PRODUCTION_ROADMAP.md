@@ -1,4 +1,4 @@
-# Strive — Production Readiness Roadmap
+# Turnout — Production Readiness Roadmap
 
 How we get from the current scaffold to a real app in the App Store / Play Store,
 serving real men playing real football in the Surrey beachhead.

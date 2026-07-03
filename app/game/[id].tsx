@@ -81,7 +81,7 @@ export default function GameDetailScreen() {
       await Share.share({
         message:
           `${game.title} — ${game.venue_label}\n${formatStartTime(game.starts_at)}\n` +
-          `Join me on Stride: strive://game/${activityId}`,
+          `Join me on Turnout: turnout://game/${activityId}`,
       });
     } catch {
       // user dismissed the share sheet — nothing to do
@@ -99,7 +99,7 @@ export default function GameDetailScreen() {
       });
       Alert.alert(
         ok ? "Added to calendar" : "Calendar",
-        ok ? "See you there." : "Couldn't access your calendar — check Stride's permission in Settings.",
+        ok ? "See you there." : "Couldn't access your calendar — check Turnout's permission in Settings.",
       );
     } catch (e) {
       Alert.alert("Calendar", e instanceof Error ? e.message : "Couldn't add the event.");

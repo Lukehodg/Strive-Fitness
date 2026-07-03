@@ -40,7 +40,7 @@ dropped; there are no third-party keys to configure.
 ## 4. Strava (Recent activity on profiles)
 1. Create an API application at https://www.strava.com/settings/api.
 2. **Authorization Callback Domain:** set it to match the app's redirect. For a
-   dev/standalone build the redirect is `strive://strava`, so use `strive` as the
+   dev/standalone build the redirect is `turnout://strava`, so use `turnout` as the
    domain. (For Expo Go / web you'll get a different host — check what
    `AuthSession.makeRedirectUri` logs and register that.)
 3. Put the **Client ID** (public) in `.env` as `EXPO_PUBLIC_STRAVA_CLIENT_ID` (and

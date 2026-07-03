@@ -167,6 +167,12 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   keep the exact original kickoff (dirty-flag), the pin is deliberately not
   editable, and the roster gets a "Game updated" push. My Games gained an
   error/retry state.
+- **Rebrand: Stride → Turnout** (pre-submission, so identifiers changed too):
+  display name "Turnout", wordmark "Turnout.", scheme `turnout://`, bundle
+  id/package `com.lukehodg.turnout`, all copy/permission strings, legal URL
+  placeholders (`turnout.app`). The EAS **slug stays `strive`** (project is
+  keyed to it — internal only). Visual identity (marigold/bone/ink) unchanged.
+  Earlier "Stride" mentions in this doc are historical.
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm

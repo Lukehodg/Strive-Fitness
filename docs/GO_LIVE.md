@@ -87,7 +87,7 @@ the exact error** — this is the first time any of it runs end to end.
 ---
 
 ## Optional integrations (layer in after the core works — all no-op until keyed)
-- **Strava:** create the app, set callback domain `strive`, put the Client ID in
+- **Strava:** create the app, set callback domain `turnout`, put the Client ID in
   `app.json` `extra.stravaClientId`, set the two secrets (Stage 2), rebuild.
 - **Apple Health:** already wired — just needs the rebuild (Stage 4).
 - **Sentry / PostHog:** set `EXPO_PUBLIC_SENTRY_DSN` / `EXPO_PUBLIC_POSTHOG_KEY`
