@@ -5,6 +5,7 @@ import { notify } from "@/lib/notify";
 import { capture } from "@/lib/analytics";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { saveVenueQuiet } from "@/hooks/useVenues";
 import type { Activity, ActivityType, GameFormat, SkillLevel } from "@/types/database";
 
 export type RosterEntry = {
@@ -257,6 +258,10 @@ export function useCreateActivity() {
         }
         throw error;
       }
+
+      // Remember the venue for next time (best-effort, never blocks creation).
+      void saveVenueQuiet(user.id, rest.venue_label, location);
+
       // Return the earliest (this week's) game to navigate to.
       const sorted = (data ?? []).sort((a, b) => +new Date(a.starts_at) - +new Date(b.starts_at));
       return sorted[0]!;
@@ -264,6 +269,7 @@ export function useCreateActivity() {
     onSuccess: (game) => {
       capture("game_created", { sport: game.activity_type });
       qc.invalidateQueries({ queryKey: ["nearby"] });
+      qc.invalidateQueries({ queryKey: ["venues"] });
       if (user) qc.invalidateQueries({ queryKey: queryKeys.myGames(user.id) });
     },
   });

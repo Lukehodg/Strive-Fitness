@@ -132,6 +132,47 @@ export interface Database {
         Update: Partial<{ last_read_at: string }>;
         Relationships: [];
       };
+      activity_results: {
+        Row: {
+          activity_id: string;
+          score_a: number;
+          score_b: number;
+          note: string | null;
+          recorded_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          activity_id: string;
+          score_a: number;
+          score_b: number;
+          note?: string | null;
+          recorded_by: string;
+        };
+        Update: Partial<{ score_a: number; score_b: number; note: string | null }>;
+        Relationships: [];
+      };
+      venues: {
+        Row: {
+          id: string;
+          owner_id: string;
+          label: string;
+          lat: number;
+          lng: number;
+          used_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          label: string;
+          lat: number;
+          lng: number;
+          used_at?: string;
+        };
+        Update: Partial<{ label: string; lat: number; lng: number; used_at: string }>;
+        Relationships: [];
+      };
       connections: {
         Row: { user_id: string; connection_id: string; created_at: string };
         Insert: { user_id: string; connection_id: string };
@@ -377,6 +418,8 @@ export type Message = Database["public"]["Tables"]["messages"]["Row"];
 export type GameInvite = Database["public"]["Tables"]["game_invites"]["Row"];
 export type StravaAccount = Database["public"]["Tables"]["strava_accounts"]["Row"];
 export type StravaActivity = Database["public"]["Tables"]["strava_activities"]["Row"];
+export type ActivityResult = Database["public"]["Tables"]["activity_results"]["Row"];
+export type Venue = Database["public"]["Tables"]["venues"]["Row"];
 export type PlayerStats = Database["public"]["Functions"]["player_stats"]["Returns"][number];
 export type LeaderboardRow =
   Database["public"]["Functions"]["connections_leaderboard"]["Returns"][number];

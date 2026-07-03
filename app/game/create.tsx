@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +8,8 @@ import { Button, Field, Muted, Screen, Subheading } from "@/components/ui";
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
 import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
+import { useDeleteVenue, useVenues } from "@/hooks/useVenues";
+import type { Venue } from "@/types/database";
 import { formatDayChip } from "@/lib/format";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import { SPORTS, SPORT_META, isFootball, sportDefaults } from "@/lib/sports";
@@ -48,6 +50,9 @@ export default function CreateGameScreen() {
   const router = useRouter();
   const { data: profile } = useMyProfile();
   const create = useCreateActivity();
+  const { data: venues } = useVenues();
+  const deleteVenue = useDeleteVenue();
+  const mapRef = useRef<MapView>(null);
 
   // Opened from a sport-filtered Discover? Start on that sport.
   const { sport: sportParam } = useLocalSearchParams<{ sport?: string }>();
@@ -184,6 +189,45 @@ export default function CreateGameScreen() {
         />
         <Field label="Venue" value={venue} onChangeText={setVenue} placeholder="Weybridge Sports Hub" />
 
+        {venues && venues.length > 0 ? (
+          <View style={{ gap: spacing(2) }}>
+            <Text style={styles.label}>Saved venues — tap to use, hold to remove</Text>
+            <View style={styles.repeatRow}>
+              {venues.map((v: Venue) => (
+                <Pressable
+                  key={v.id}
+                  onPress={() => {
+                    setVenue(v.label);
+                    setCoords({ latitude: v.lat, longitude: v.lng });
+                    mapRef.current?.animateToRegion(
+                      { latitude: v.lat, longitude: v.lng, latitudeDelta: 0.02, longitudeDelta: 0.02 },
+                      300,
+                    );
+                  }}
+                  onLongPress={() =>
+                    Alert.alert("Remove venue?", `Forget "${v.label}"?`, [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Remove",
+                        style: "destructive",
+                        onPress: () => deleteVenue.mutateAsync(v.id).catch(() => {}),
+                      },
+                    ])
+                  }
+                  style={[styles.chip, venue === v.label && styles.chipActive]}
+                >
+                  <Text
+                    style={[styles.chipText, venue === v.label && styles.chipTextActive]}
+                    numberOfLines={1}
+                  >
+                    {v.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {football ? (
           <>
             <View style={{ gap: spacing(2) }}>
@@ -227,6 +271,7 @@ export default function CreateGameScreen() {
           <View style={styles.mapWrap}>
             {coords ? (
               <MapView
+                ref={mapRef}
                 style={StyleSheet.absoluteFillObject}
                 initialRegion={{
                   latitude: coords.latitude,

@@ -153,6 +153,10 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   `lib/badges.ts` derives achievement chips (nothing stored) shown via
   `BadgeRow` on profiles (own profile shows the next locked one).
   `played_together(target)` powers a head-to-head pill on player profiles.
+- **Results + venue book** (`0019`): hosts record a final score on past games
+  (score sports only — `sportHasScore`); shown as a FULL TIME card to everyone,
+  roster gets a push. `venues` is a personal, owner-only book auto-saved on
+  create; Create offers saved venues as tap-to-use chips (hold to remove).
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm

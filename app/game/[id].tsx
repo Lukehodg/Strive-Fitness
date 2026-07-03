@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -19,10 +19,11 @@ import {
   type RosterEntry,
 } from "@/hooks/useActivity";
 import { useUnreadCounts } from "@/hooks/useUnread";
+import { useResult, useSaveResult } from "@/hooks/useResults";
 import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety";
 import { useJoinWaitlist, useLeaveWaitlist, useWaitlist, type WaitlistEntry } from "@/hooks/useWaitlist";
 import { skillLabel } from "@/lib/activity-format";
-import { activityNoun, isFootball, sportIcon, sportLabel } from "@/lib/sports";
+import { activityNoun, isFootball, sportHasScore, sportIcon, sportLabel } from "@/lib/sports";
 import { capture } from "@/lib/analytics";
 import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
@@ -46,6 +47,10 @@ export default function GameDetailScreen() {
   const leaveWaitlist = useLeaveWaitlist(activityId);
   const kick = useKickPlayer(activityId);
   const { data: unreadMap } = useUnreadCounts();
+  const { data: result } = useResult(activityId);
+  const saveResult = useSaveResult(activityId);
+  const [scoreA, setScoreA] = useState("");
+  const [scoreB, setScoreB] = useState("");
 
   useEffect(() => {
     if (activityId) capture("game_viewed", { activityId });
@@ -153,6 +158,20 @@ export default function GameDetailScreen() {
       await leaveWaitlist.mutateAsync();
     } catch (e) {
       Alert.alert("Waitlist", e instanceof Error ? e.message : "Try again.");
+    }
+  }
+
+  async function onSaveResult() {
+    const a = parseInt(scoreA, 10);
+    const b = parseInt(scoreB, 10);
+    if (Number.isNaN(a) || Number.isNaN(b) || a < 0 || b < 0) {
+      Alert.alert("Add the score", "Enter both scores as numbers.");
+      return;
+    }
+    try {
+      await saveResult.mutateAsync({ scoreA: a, scoreB: b, gameTitle: game!.title });
+    } catch (e) {
+      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Try again.");
     }
   }
 
@@ -273,6 +292,47 @@ export default function GameDetailScreen() {
           <Row icon="people" text={formatRoster(game.joined_count, game.max_players)} />
           <Row icon="person" text={`Hosted by ${game.host_name}`} />
         </Card>
+
+        {result ? (
+          <Card style={styles.resultCard}>
+            <Text style={styles.resultEyebrow}>FULL TIME</Text>
+            <Text style={styles.resultScore}>
+              {result.score_a} — {result.score_b}
+            </Text>
+            {result.note ? <Muted>{result.note}</Muted> : null}
+          </Card>
+        ) : isPast && isHost && sportHasScore(game.activity_type) ? (
+          <Card style={{ gap: spacing(3) }}>
+            <Text style={styles.resultEyebrow}>RECORD THE RESULT</Text>
+            <View style={styles.scoreRow}>
+              <TextInput
+                style={styles.scoreInput}
+                value={scoreA}
+                onChangeText={setScoreA}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+                maxLength={3}
+              />
+              <Text style={styles.scoreDash}>—</Text>
+              <TextInput
+                style={styles.scoreInput}
+                value={scoreB}
+                onChangeText={setScoreB}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+                maxLength={3}
+              />
+            </View>
+            <Button
+              title="Save result"
+              onPress={onSaveResult}
+              loading={saveResult.isPending}
+              style={{ height: 44 }}
+            />
+          </Card>
+        ) : null}
 
         {game.notes ? (
           <Card>
@@ -418,6 +478,33 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.bg,
+  },
+  resultCard: { alignItems: "center", gap: spacing(1) },
+  resultEyebrow: {
+    color: colors.ember,
+    fontFamily: fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  resultScore: {
+    color: colors.text,
+    fontFamily: fonts.displayBlack,
+    fontSize: 40,
+    letterSpacing: -1,
+  },
+  scoreRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing(3) },
+  scoreDash: { color: colors.textMuted, fontFamily: fonts.display, fontSize: 22 },
+  scoreInput: {
+    width: 72,
+    height: 56,
+    textAlign: "center",
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    fontFamily: fonts.displayBlack,
+    fontSize: 26,
   },
   badge: { backgroundColor: colors.surfaceAlt, borderRadius: radius.sm, paddingHorizontal: spacing(2.5), paddingVertical: spacing(1) },
   badgeFull: { backgroundColor: colors.primary },

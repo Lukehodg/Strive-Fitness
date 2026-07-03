@@ -102,3 +102,8 @@ export function activityNoun(type: ActivityType): string {
 export function isFootball(type: ActivityType): boolean {
   return type === "football";
 }
+
+/** Sports where a final score makes sense (hosts can record a result). */
+export function sportHasScore(type: ActivityType): boolean {
+  return type === "football" || type === "basketball" || type === "tennis" || type === "padel";
+}
