@@ -1,4 +1,5 @@
 import {
+  dateFromDayOffset,
   formatCountdown,
   formatDayChip,
   formatDistance,
@@ -74,6 +75,24 @@ describe("formatStartTime", () => {
     const label = formatStartTime(at(d));
     expect(label).not.toMatch(/^Today |^Tomorrow /);
     expect(label).toMatch(/,/); // "Sat 21 Jun, 18:30"
+  });
+});
+
+describe("dateFromDayOffset", () => {
+  it("builds a date at the given offset and time", () => {
+    const d = dateFromDayOffset(2, "18:30");
+    expect(d).not.toBeNull();
+    expect(d!.getHours()).toBe(18);
+    expect(d!.getMinutes()).toBe(30);
+    const expected = new Date();
+    expected.setDate(expected.getDate() + 2);
+    expect(d!.getDate()).toBe(expected.getDate());
+  });
+
+  it("rejects invalid times", () => {
+    expect(dateFromDayOffset(0, "25:00")).toBeNull();
+    expect(dateFromDayOffset(0, "18:75")).toBeNull();
+    expect(dateFromDayOffset(0, "not-a-time")).toBeNull();
   });
 });
 

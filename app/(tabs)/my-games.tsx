@@ -1,7 +1,7 @@
 import { SectionList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { EmptyState, Heading, Muted, Screen } from "@/components/ui";
+import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { EventCard } from "@/components/EventCard";
 import { GameListSkeleton } from "@/components/Skeleton";
@@ -28,6 +28,24 @@ export default function MyGamesScreen() {
           <Muted>Your activities and events</Muted>
         </View>
         <GameListSkeleton count={3} />
+      </Screen>
+    );
+  }
+
+  if (games.isError) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <Heading dot>My Games</Heading>
+        </View>
+        <View style={{ flex: 1, padding: spacing(6), gap: spacing(4) }}>
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Couldn't load your games"
+            message="Check your connection and try again."
+          />
+          <Button title="Retry" onPress={() => games.refetch()} />
+        </View>
       </Screen>
     );
   }

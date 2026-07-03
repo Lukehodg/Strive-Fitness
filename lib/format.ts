@@ -36,6 +36,18 @@ export function formatRoster(joined: number, max: number): string {
   return `${joined} / ${max} going`;
 }
 
+/** Build a Date n days from today at "HH:MM", or null if the time is invalid. */
+export function dateFromDayOffset(dayOffset: number, time: string): Date | null {
+  const parts = time.split(":");
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h > 23 || m > 59) return null;
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
 /** Day-picker chip label: "Today", "Tomorrow", then the real weekday ("Wed"). */
 export function formatDayChip(dayOffset: number): string {
   if (dayOffset === 0) return "Today";

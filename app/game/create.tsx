@@ -10,22 +10,10 @@ import { useMyProfile } from "@/hooks/useProfile";
 import { useCreateActivity } from "@/hooks/useActivity";
 import { useDeleteVenue, useVenues } from "@/hooks/useVenues";
 import type { Venue } from "@/types/database";
-import { formatDayChip } from "@/lib/format";
+import { dateFromDayOffset, formatDayChip } from "@/lib/format";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import { SPORTS, SPORT_META, isFootball, sportDefaults } from "@/lib/sports";
 import type { ActivityType, GameFormat, SkillLevel } from "@/types/database";
-
-/** Build a Date n days from today at the given HH:MM. */
-function dateFrom(dayOffset: number, time: string): Date | null {
-  const parts = time.split(":");
-  const h = Number(parts[0]);
-  const m = Number(parts[1]);
-  if (!Number.isFinite(h) || !Number.isFinite(m) || h > 23 || m > 59) return null;
-  const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
 
 // Next 7 days; labels come from formatDayChip ("Today", "Tomorrow", "Wed"…).
 const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6];
@@ -119,7 +107,7 @@ export default function CreateGameScreen() {
   }
 
   async function onCreate() {
-    const startsAt = dateFrom(dayOffset, time);
+    const startsAt = dateFromDayOffset(dayOffset, time);
     const max = parseInt(maxPlayers, 10);
     const dur = parseInt(duration, 10);
 

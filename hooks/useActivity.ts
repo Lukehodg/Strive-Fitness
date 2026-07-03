@@ -6,6 +6,7 @@ import { capture } from "@/lib/analytics";
 import { queryKeys } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { saveVenueQuiet } from "@/hooks/useVenues";
+import { formatStartTime } from "@/lib/format";
 import type { Activity, ActivityType, GameFormat, SkillLevel } from "@/types/database";
 
 export type RosterEntry = {
@@ -145,6 +146,54 @@ export function useLeaveActivity(activityId: string) {
         .eq("activity_id", activityId)
         .eq("user_id", user.id);
       if (error) throw error;
+    },
+    onSuccess: () => invalidateActivity(qc, activityId, user?.id),
+  });
+}
+
+export type UpdateActivityInput = {
+  title: string;
+  venue_label: string;
+  starts_at: string; // ISO
+  duration_minutes: number;
+  max_players: number;
+  notes?: string | null;
+};
+
+/**
+ * Edit a game's details (host only — RLS). The pin/location is deliberately
+ * not editable: for a different place, cancel and create. Raising max_players
+ * auto-promotes from the waitlist (0015 trigger); the roster gets a push.
+ */
+export function useUpdateActivity(activityId: string) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateActivityInput) => {
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase
+        .from("activities")
+        .update({
+          title: input.title,
+          venue_label: input.venue_label,
+          starts_at: input.starts_at,
+          duration_minutes: input.duration_minutes,
+          max_players: input.max_players,
+          notes: input.notes?.trim() || null,
+        })
+        .eq("id", activityId)
+        .eq("host_id", user.id);
+      if (error) throw error;
+
+      void notify({
+        activityId,
+        excludeUserId: user.id,
+        title: "Game updated",
+        body: `${input.title} — now ${formatStartTime(input.starts_at)} at ${input.venue_label}`,
+        data: { type: "game", activityId },
+      });
+      capture("game_updated", { activityId });
     },
     onSuccess: () => invalidateActivity(qc, activityId, user?.id),
   });

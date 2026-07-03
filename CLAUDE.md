@@ -162,6 +162,11 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   (unguessable paths — same trade-off as avatars, noted in the migration).
   Chat gets a picker button + image bubbles. "Add to calendar" icon on game
   detail via expo-calendar (native — needs the next build).
+- **Edit game** (no migration — host-update RLS existed since 0001): hosts
+  reschedule/retitle/resize a game from the detail screen; untouched schedules
+  keep the exact original kickoff (dirty-flag), the pin is deliberately not
+  editable, and the roster gets a "Game updated" push. My Games gained an
+  error/retry state.
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm

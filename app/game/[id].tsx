@@ -421,6 +421,15 @@ export default function GameDetailScreen() {
               }
               onPress={() => router.push({ pathname: "/game/chat/[id]", params: { id: activityId } })}
             />
+            {isHost && !isPast ? (
+              <Button
+                title="Edit details"
+                variant="secondary"
+                onPress={() =>
+                  router.push({ pathname: "/game/edit/[id]", params: { id: activityId } })
+                }
+              />
+            ) : null}
             {isHost ? (
               <Button
                 title={`Cancel ${noun}`}
