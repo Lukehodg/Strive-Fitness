@@ -37,6 +37,9 @@ export function usePushNotifications() {
       };
       if (data?.type === "invite") {
         router.push("/invites");
+      } else if (data?.type === "discover") {
+        // Weekly digest / streak guard land on the Discover tab.
+        router.push("/(tabs)");
       } else if (data?.activityId) {
         router.push({ pathname: "/game/[id]", params: { id: data.activityId } });
       }

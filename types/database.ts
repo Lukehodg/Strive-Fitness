@@ -84,6 +84,9 @@ export interface Database {
           format: GameFormat;
           skill_level: SkillLevel;
           notes: string | null;
+          reminder_sent_at: string | null;
+          checkin_sent_at: string | null;
+          rebook_prompted_at: string | null;
           created_at: string;
           updated_at: string;
         };

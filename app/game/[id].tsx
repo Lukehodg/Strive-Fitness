@@ -15,6 +15,7 @@ import {
   useJoinActivity,
   useKickPlayer,
   useLeaveActivity,
+  useRebookActivity,
   useRoster,
   type RosterEntry,
 } from "@/hooks/useActivity";
@@ -47,6 +48,7 @@ export default function GameDetailScreen() {
   const joinWaitlist = useJoinWaitlist(activityId);
   const leaveWaitlist = useLeaveWaitlist(activityId);
   const kick = useKickPlayer(activityId);
+  const rebook = useRebookActivity();
   const { data: unreadMap } = useUnreadCounts();
   const { data: result } = useResult(activityId);
   const saveResult = useSaveResult(activityId);
@@ -178,6 +180,32 @@ export default function GameDetailScreen() {
     } catch (e) {
       Alert.alert("Waitlist", e instanceof Error ? e.message : "Try again.");
     }
+  }
+
+  function onRebook() {
+    if (!game) return;
+    const nextKickoff = new Date(+new Date(game.starts_at) + 7 * 86_400_000);
+    Alert.alert(
+      "Run it back?",
+      `Book ${game.title} again for ${formatStartTime(nextKickoff.toISOString())} and invite the same crew.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Book it",
+          onPress: async () => {
+            try {
+              const next = await rebook.mutateAsync({
+                game,
+                rosterIds: (roster ?? []).map((r: RosterEntry) => r.user_id),
+              });
+              router.push({ pathname: "/game/[id]", params: { id: next.id } });
+            } catch (e) {
+              Alert.alert("Couldn't rebook", e instanceof Error ? e.message : "Try again.");
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function onSaveResult() {
@@ -442,7 +470,18 @@ export default function GameDetailScreen() {
             )}
           </>
         ) : isPast ? (
-          <Muted>This {noun} has finished.</Muted>
+          isHost ? (
+            <>
+              <Button
+                title="Run it back — next week"
+                onPress={onRebook}
+                loading={rebook.isPending}
+              />
+              <Muted>Same time, same pin — last {noun}&apos;s crew gets invited.</Muted>
+            </>
+          ) : (
+            <Muted>This {noun} has finished.</Muted>
+          )
         ) : isFull ? (
           waitlistPosition ? (
             <>

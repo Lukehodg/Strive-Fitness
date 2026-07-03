@@ -151,6 +151,83 @@ export function useLeaveActivity(activityId: string) {
   });
 }
 
+/**
+ * "Run it back": duplicate a finished game one week later (same venue pin,
+ * format, size) and re-invite last time's roster. One good game becomes a
+ * standing fixture — the supply-side habit loop.
+ */
+export function useRebookActivity() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      game: ActivityDetail;
+      rosterIds: string[];
+    }): Promise<Activity> => {
+      if (!user) throw new Error("Not signed in");
+      const { game, rosterIds } = input;
+      const nextStart = new Date(+new Date(game.starts_at) + 7 * 86_400_000).toISOString();
+
+      const { data, error } = await supabase
+        .from("activities")
+        .insert({
+          host_id: user.id,
+          activity_type: game.activity_type,
+          title: game.title,
+          venue_label: game.venue_label,
+          // The WKB location string from select("*") round-trips into geography.
+          location: game.location,
+          starts_at: nextStart,
+          duration_minutes: game.duration_minutes,
+          max_players: game.max_players,
+          format: game.format,
+          skill_level: game.skill_level,
+          notes: game.notes,
+        })
+        .select("*")
+        .single();
+      if (error) {
+        if (error.code === "42501" || error.message.includes("row-level security")) {
+          throw new Error("Verify your phone number before hosting a game.");
+        }
+        throw error;
+      }
+      const newGame = data as Activity;
+
+      // Re-invite last time's roster (minus the host). Best-effort — the game
+      // exists either way; failures just mean inviting by hand.
+      const invitees = rosterIds.filter((id) => id !== user.id);
+      if (invitees.length > 0) {
+        const rows = invitees.map((invitee_id) => ({
+          activity_id: newGame.id,
+          inviter_id: user.id,
+          invitee_id,
+          status: "pending" as const,
+        }));
+        const { error: invErr } = await supabase
+          .from("game_invites")
+          .upsert(rows, { onConflict: "activity_id,invitee_id" });
+        if (!invErr) {
+          void notify({
+            userIds: invitees,
+            title: "Same time next week?",
+            body: `${game.title} is running back — you're invited.`,
+            data: { type: "invite" },
+          });
+        }
+      }
+
+      capture("game_rebooked", { fromActivityId: game.id });
+      return newGame;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["nearby"] });
+      if (user) qc.invalidateQueries({ queryKey: queryKeys.myGames(user.id) });
+    },
+  });
+}
+
 export type UpdateActivityInput = {
   title: string;
   venue_label: string;

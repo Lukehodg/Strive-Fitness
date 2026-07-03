@@ -167,6 +167,13 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   keep the exact original kickoff (dirty-flag), the pin is deliberately not
   editable, and the roster gets a "Game updated" push. My Games gained an
   error/retry state.
+- **Retention pushes + Run it back** (`0021`): the proactive hook engine —
+  Monday **weekly digest** ("N games near you — your crew's in M"), Thursday
+  **streak guard** (2+ week streak, nothing booked → loss-aversion nudge), and
+  a post-game **"Run it back?"** prompt to the host. Past games get a one-tap
+  rebook (`useRebookActivity`): duplicates the game +7 days and re-invites last
+  time's roster. Shared `push_to_users()` SQL helper (internal-only). Digest/
+  streak pushes deep-link to Discover (`type: "discover"`).
 - **Visual refresh — "ink & amber":** the warm bone/marigold kit gave way to a
   more professional system: cool Paper ground (`#F6F7F9`), Ink Navy text
   (`#101828`), refined Amber CTA (`#E8A317`, `#F2B024` in dark), Slate muted,
