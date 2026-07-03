@@ -24,6 +24,7 @@ import { useAddConnection, useBlockUser, useReportUser } from "@/hooks/useSafety
 import { useJoinWaitlist, useLeaveWaitlist, useWaitlist, type WaitlistEntry } from "@/hooks/useWaitlist";
 import { skillLabel } from "@/lib/activity-format";
 import { activityNoun, isFootball, sportHasScore, sportIcon, sportLabel } from "@/lib/sports";
+import { addGameToCalendar } from "@/lib/calendar";
 import { capture } from "@/lib/analytics";
 import { formatCountdown, formatRoster, formatStartTime } from "@/lib/format";
 
@@ -84,6 +85,24 @@ export default function GameDetailScreen() {
       });
     } catch {
       // user dismissed the share sheet — nothing to do
+    }
+  }
+
+  async function onAddToCalendar() {
+    if (!game) return;
+    try {
+      const ok = await addGameToCalendar({
+        title: game.title,
+        venueLabel: game.venue_label,
+        startsAt: game.starts_at,
+        durationMinutes: game.duration_minutes,
+      });
+      Alert.alert(
+        ok ? "Added to calendar" : "Calendar",
+        ok ? "See you there." : "Couldn't access your calendar — check Stride's permission in Settings.",
+      );
+    } catch (e) {
+      Alert.alert("Calendar", e instanceof Error ? e.message : "Couldn't add the event.");
     }
   }
 
@@ -259,6 +278,14 @@ export default function GameDetailScreen() {
         <View style={styles.titleRow}>
           <Heading>{game.title}</Heading>
           <View style={styles.titleActions}>
+            {!isPast && !isCancelled ? (
+              <Ionicons
+                name="calendar-outline"
+                size={22}
+                color={colors.textMuted}
+                onPress={onAddToCalendar}
+              />
+            ) : null}
             <Ionicons
               name="share-outline"
               size={22}

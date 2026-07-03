@@ -58,6 +58,12 @@
         }
       ],
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "Stride adds games you join to your calendar."
+        }
+      ],
+      [
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Stride shows your recent workouts on your profile so your crew can see what you've been training.",

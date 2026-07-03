@@ -157,6 +157,11 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   (score sports only — `sportHasScore`); shown as a FULL TIME card to everyone,
   roster gets a push. `venues` is a personal, owner-only book auto-saved on
   create; Create offers saved venues as tap-to-use chips (hold to remove).
+- **Chat photos + calendar** (`0020`): messages gain `image_url` (text, photo,
+  or both — never neither); photos upload to the public `chat-photos` bucket
+  (unguessable paths — same trade-off as avatars, noted in the migration).
+  Chat gets a picker button + image bubbles. "Add to calendar" icon on game
+  detail via expo-calendar (native — needs the next build).
 - **Dark mode:** palette resolved once at launch from the system setting
   (`Appearance.getColorScheme()` in `components/theme.ts` — static StyleSheets,
   so an OS theme flip applies on next app open; deliberate trade-off). Warm
