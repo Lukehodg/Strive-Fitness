@@ -33,8 +33,8 @@ type SportMeta = {
 };
 
 export const SPORT_META: Record<Sport, SportMeta> = {
-  football: { label: "Football", icon: "football", color: "#E67E00" },
-  running: { label: "Running", icon: "walk", color: "#1F4D3B" },
+  football: { label: "Football", icon: "football", color: "#B87A0D" },
+  running: { label: "Running", icon: "walk", color: "#1E5A44" },
   cycling: { label: "Cycling", icon: "bicycle", color: "#2D6CDF" },
   gym: { label: "Gym", icon: "barbell", color: "#7A3BB2" },
   tennis: { label: "Tennis", icon: "tennisball", color: "#5C8A1B" },

@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#17140F"
+      "backgroundColor": "#0C111A"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -29,7 +29,7 @@
       "package": "com.lukehodg.turnout",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF9F1C"
+        "backgroundColor": "#E8A317"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",

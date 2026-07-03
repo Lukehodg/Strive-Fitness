@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radius.pill,
-    backgroundColor: "rgba(23,20,15,0.12)",
+    backgroundColor: "rgba(16,24,40,0.12)",
     alignItems: "center",
     justifyContent: "center",
   },

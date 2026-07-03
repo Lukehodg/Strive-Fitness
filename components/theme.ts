@@ -1,10 +1,10 @@
 import { Appearance } from "react-native";
 
 /**
- * Turnout brand tokens — "floodlights at dusk".
- * Light: bone surfaces, ink text, marigold the one call to action.
- * Dark: the night-game version — warm ink surfaces, bone text, marigold as the
- * floodlight. Same hierarchy, inverted ground.
+ * Turnout brand tokens — "ink & amber": club colours under stadium lights.
+ * Light: crisp cool paper, ink-navy text, one refined amber call to action.
+ * Dark: the floodlit-night version — deep ink-navy ground, paper text, amber
+ * turned up a stop. Same hierarchy, inverted ground.
  *
  * The palette is resolved ONCE at launch from the system setting: styles across
  * the app are static StyleSheets, so a mid-session OS theme change applies the
@@ -13,35 +13,33 @@ import { Appearance } from "react-native";
  * dark mode ships with the next build).
  */
 const light = {
-  bg: "#F3EEE5", // Bone — app background
+  bg: "#F6F7F9", // Paper — cool off-white ground
   surface: "#FFFFFF", // white cards
-  surfaceAlt: "#FFF1DA", // Tint — mono tags, subtle fills
-  border: "rgba(23,20,15,0.12)", // Line
-  text: "#17140F", // Ink — warm, never cold black
-  // Stone — metadata, captions. Darkened from the kit's #8A847A: that was
-  // ~3.1:1 on Bone (fails WCAG AA); this stays warm but reads at ~4.5:1.
-  textMuted: "#6E6759",
-  primary: "#FF9F1C", // Marigold — CTAs, join, active
-  primaryText: "#17140F", // ink on marigold
-  ember: "#E67E00", // pressed marigold, eyebrows, fine accents
-  pine: "#1F4D3B", // outdoors / success / grounding
+  surfaceAlt: "#F3EEE2", // Linen — quiet amber wash for mono tags/fills
+  border: "rgba(16,24,40,0.12)", // ink-navy line
+  text: "#101828", // Ink Navy — professional, never flat black
+  textMuted: "#5B6472", // Slate — metadata, captions (~5:1 on Paper)
+  primary: "#E8A317", // Amber — the one call to action
+  primaryText: "#101828", // ink on amber
+  ember: "#A97108", // burnished amber — eyebrows, fine accents (~4.8:1)
+  pine: "#1E5A44", // outdoors / success / grounding
   danger: "#B23B2C",
-  warning: "#E67E00",
+  warning: "#A97108",
 };
 
 const dark: typeof light = {
-  bg: "#14110B", // deep warm ink, a shade under the brand Ink
-  surface: "#201C14", // warm charcoal cards
-  surfaceAlt: "#2E2513", // warm tint for mono tags
-  border: "rgba(243,238,229,0.14)",
-  text: "#F3EEE5", // Bone
-  textMuted: "#A89F8F", // light stone — comfortably AA on the dark ground
-  primary: "#FF9F1C", // marigold unchanged — it IS the floodlight
-  primaryText: "#17140F",
-  ember: "#FFB042", // eyebrow accents need more lumen on dark
-  pine: "#2F6B4F", // still a chip background; bone text stays readable
+  bg: "#0C111A", // deep ink-navy ground
+  surface: "#151C28", // navy charcoal cards
+  surfaceAlt: "#2B2415", // warm amber-tinted chip fill
+  border: "rgba(237,240,245,0.14)",
+  text: "#EDF0F5", // Paper
+  textMuted: "#9AA3B2", // light slate — comfortably AA on the dark ground
+  primary: "#F2B024", // amber up a stop — it IS the floodlight
+  primaryText: "#101828",
+  ember: "#E4A83C", // eyebrow accents need more lumen on dark
+  pine: "#3E8A68", // still a chip background; paper text stays readable
   danger: "#E06A57",
-  warning: "#FFB042",
+  warning: "#E4A83C",
 };
 
 /** Resolved at launch (see note above). */

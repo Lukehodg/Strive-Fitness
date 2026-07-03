@@ -7,8 +7,8 @@ import { colors, fonts } from "@/components/theme";
 // `colors.text` chip flips ink-on-bone → bone-on-ink instead of bone-on-bone).
 const PALETTE = [
   { bg: colors.primary, fg: colors.primaryText },
-  { bg: colors.pine, fg: "#F3EEE5" },
-  { bg: colors.ember, fg: "#17140F" },
+  { bg: colors.pine, fg: "#EDF0F5" },
+  { bg: colors.ember, fg: "#101828" },
   { bg: colors.text, fg: colors.bg },
   { bg: colors.textMuted, fg: colors.bg },
 ];

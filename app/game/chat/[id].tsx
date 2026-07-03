@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     marginTop: 2,
   },
-  timeMine: { color: "rgba(23,20,15,0.55)" },
+  timeMine: { color: "rgba(16,24,40,0.55)" },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",

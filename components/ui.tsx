@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   // Warm lift under the one marigold CTA on screen — makes it read as *the* action.
   buttonPrimaryLift: {
-    shadowColor: "#E67E00",
+    shadowColor: "#B87A0D",
     shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing(4),
-    shadowColor: "#17140F",
+    shadowColor: "#101828",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },

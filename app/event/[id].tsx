@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing(2.5),
     paddingVertical: spacing(1),
   },
-  typeTagText: { color: "#F3EEE5", fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 0.6 },
+  typeTagText: { color: "#EDF0F5", fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 0.6 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing(2.5) },
   metaText: { color: colors.text, fontSize: font.body, fontFamily: fonts.body },
   footer: {

@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing(4),
     gap: spacing(2),
-    shadowColor: "#17140F",
+    shadowColor: "#101828",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   // Events lean on pine (the "outdoors" brand colour) to distinguish from games.
   tagAccent: { backgroundColor: colors.pine },
   tagText: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.6, color: colors.ember },
-  tagTextAccent: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.6, color: "#F3EEE5" },
+  tagTextAccent: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.6, color: "#EDF0F5" },
   title: { color: colors.text, fontSize: font.h3, fontFamily: fonts.display, letterSpacing: -0.3 },
   meta: { color: colors.textMuted, fontSize: font.small, fontFamily: fonts.body },
 });

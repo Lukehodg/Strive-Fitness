@@ -167,6 +167,13 @@ Anything on this list = "later." If a task drifts toward these, stop and flag it
   keep the exact original kickoff (dirty-flag), the pin is deliberately not
   editable, and the roster gets a "Game updated" push. My Games gained an
   error/retry state.
+- **Visual refresh — "ink & amber":** the warm bone/marigold kit gave way to a
+  more professional system: cool Paper ground (`#F6F7F9`), Ink Navy text
+  (`#101828`), refined Amber CTA (`#E8A317`, `#F2B024` in dark), Slate muted,
+  Linen chips. Dark mode is deep ink-navy. All in `components/theme.ts` (plus a
+  sweep of hardcoded hexes: shadows, splash/adaptive-icon, avatar pairs, chips).
+  ⚠️ `assets/icon.png` / `splash.png` still carry the old marigold art — needs
+  a design pass before store submission.
 - **Rebrand: Stride → Turnout** (pre-submission, so identifiers changed too):
   display name "Turnout", wordmark "Turnout.", scheme `turnout://`, bundle
   id/package `com.lukehodg.turnout`, all copy/permission strings, legal URL
