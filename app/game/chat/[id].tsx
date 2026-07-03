@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,12 +14,13 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 import { EmptyState, Loading, Screen } from "@/components/ui";
 import { Avatar } from "@/components/Avatar";
 import { colors, font, fonts, isDark, radius, spacing } from "@/components/theme";
 import { useAuth } from "@/hooks/useAuth";
-import { useMessages, useSendMessage } from "@/hooks/useMessages";
+import { useMessages, useSendMessage, useSendPhoto } from "@/hooks/useMessages";
 import { useRoster, type RosterEntry } from "@/hooks/useActivity";
 import { useMarkChatRead } from "@/hooks/useUnread";
 import { capture } from "@/lib/analytics";
@@ -41,6 +45,22 @@ export default function GameChatScreen() {
 
   const myName = user ? people.get(user.id)?.name : undefined;
   const send = useSendMessage(activityId, myName);
+  const sendPhoto = useSendPhoto(activityId, myName);
+
+  async function onPickPhoto() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      allowsMultipleSelection: false,
+    });
+    const uri = result.assets?.[0]?.uri;
+    if (result.canceled || !uri) return;
+    try {
+      await sendPhoto.mutateAsync(uri);
+    } catch (e) {
+      Alert.alert("Couldn't send photo", e instanceof Error ? e.message : "Try again.");
+    }
+  }
 
   useEffect(() => {
     if (activityId) capture("chat_opened", { activityId });
@@ -90,7 +110,12 @@ export default function GameChatScreen() {
                   {!mine ? <Avatar name={person?.name ?? "Player"} url={person?.avatar} size={28} /> : null}
                   <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
                     {!mine ? <Text style={styles.sender}>{person?.name ?? "Player"}</Text> : null}
-                    <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
+                    {item.image_url ? (
+                      <Image source={{ uri: item.image_url }} style={styles.photo} />
+                    ) : null}
+                    {item.body ? (
+                      <Text style={[styles.body, mine && styles.bodyMine]}>{item.body}</Text>
+                    ) : null}
                     <Text style={[styles.time, mine && styles.timeMine]}>
                       {new Date(item.created_at).toLocaleTimeString(undefined, {
                         hour: "2-digit",
@@ -105,6 +130,13 @@ export default function GameChatScreen() {
         )}
 
         <View style={styles.inputBar}>
+          <Pressable style={styles.photoBtn} onPress={onPickPhoto} disabled={sendPhoto.isPending}>
+            {sendPhoto.isPending ? (
+              <ActivityIndicator size="small" color={colors.textMuted} />
+            ) : (
+              <Ionicons name="image-outline" size={22} color={colors.textMuted} />
+            )}
+          </Pressable>
           <TextInput
             style={styles.input}
             value={text}
@@ -139,6 +171,19 @@ const styles = StyleSheet.create({
   sender: { fontFamily: fonts.monoBold, fontSize: 10, letterSpacing: 0.5, color: colors.ember, marginBottom: 2 },
   body: { fontFamily: fonts.body, fontSize: font.body, color: colors.text },
   bodyMine: { color: colors.primaryText },
+  photo: {
+    width: 200,
+    height: 200,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceAlt,
+    marginBottom: 2,
+  },
+  photoBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   time: {
     fontFamily: fonts.mono,
     fontSize: 9,

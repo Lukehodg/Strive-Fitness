@@ -254,11 +254,17 @@ export interface Database {
           id: string;
           activity_id: string;
           user_id: string;
-          body: string;
+          body: string | null;
+          image_url: string | null;
           created_at: string;
         };
-        Insert: { activity_id: string; user_id: string; body: string };
-        Update: Partial<{ body: string }>;
+        Insert: {
+          activity_id: string;
+          user_id: string;
+          body?: string | null;
+          image_url?: string | null;
+        };
+        Update: Partial<{ body: string | null }>;
         Relationships: [];
       };
       game_invites: {

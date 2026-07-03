@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { uploadChatPhoto } from "@/lib/storage";
 import { useAuth } from "@/hooks/useAuth";
 import type { Message } from "@/types/database";
 
@@ -88,6 +89,30 @@ export function useSendMessage(activityId: string, senderName?: string) {
         excludeUserId: user.id,
         title: senderName ?? "New message",
         body: trimmed.length > 140 ? `${trimmed.slice(0, 139)}…` : trimmed,
+        data: { type: "chat", activityId },
+      });
+    },
+  });
+}
+
+/** Send a photo: upload to storage, then insert an image message. */
+export function useSendPhoto(activityId: string, senderName?: string) {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (localUri: string) => {
+      if (!user) throw new Error("Not signed in");
+      const imageUrl = await uploadChatPhoto(user.id, localUri);
+      const { error } = await supabase
+        .from("messages")
+        .insert({ activity_id: activityId, user_id: user.id, image_url: imageUrl });
+      if (error) throw error;
+
+      void notify({
+        activityId,
+        excludeUserId: user.id,
+        title: senderName ?? "New message",
+        body: "📷 Photo",
         data: { type: "chat", activityId },
       });
     },
