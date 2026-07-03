@@ -29,7 +29,7 @@
       "package": "com.lukehodg.turnout",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8A317"
+        "backgroundColor": "#0C111A"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
