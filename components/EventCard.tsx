@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, font, fonts, radius, spacing } from "@/components/theme";
-import { formatDistance, formatStartTime } from "@/lib/format";
+import { formatClock, formatDayShort, formatDistance } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/event-format";
 import type { EventType } from "@/types/database";
 
@@ -15,6 +15,10 @@ export type EventCardData = {
   distance_meters?: number | null;
 };
 
+/**
+ * Fixture-card anatomy shared with GameCard: the kickoff rail leads. Events
+ * keep their pine accent — the organised-event colour — on the type tag.
+ */
 export function EventCard({ event, onPress }: { event: EventCardData; onPress: () => void }) {
   const distance =
     event.distance_meters != null
@@ -29,46 +33,72 @@ export function EventCard({ event, onPress }: { event: EventCardData; onPress: (
         { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] },
       ]}
     >
-      <View style={styles.tags}>
-        <View style={[styles.tag, styles.tagAccent]}>
-          <Text style={styles.tagTextAccent}>{eventTypeLabel(event.event_type)}</Text>
-        </View>
-        <View style={styles.tag}>
-          <Text style={styles.tagText}>{formatStartTime(event.starts_at).toUpperCase()}</Text>
-        </View>
-        {distance ? (
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>{distance}</Text>
-          </View>
-        ) : null}
+      <View style={styles.rail}>
+        <Text style={styles.railDay}>{formatDayShort(event.starts_at)}</Text>
+        <Text style={styles.railClock}>{formatClock(event.starts_at)}</Text>
       </View>
 
-      <Text style={styles.title} numberOfLines={2}>
-        {event.title}
-      </Text>
-      <Text style={styles.meta} numberOfLines={1}>
-        {event.venue_label}
-        {event.distance_km != null ? ` · ${event.distance_km} km` : ""}
-      </Text>
+      <View style={styles.body}>
+        <Text style={styles.title} numberOfLines={2}>
+          {event.title}
+        </Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {event.venue_label}
+          {event.distance_km != null ? ` · ${event.distance_km} km` : ""}
+        </Text>
+        <View style={styles.tags}>
+          <View style={[styles.tag, styles.tagAccent]}>
+            <Text style={styles.tagTextAccent}>{eventTypeLabel(event.event_type)}</Text>
+          </View>
+          {distance ? (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{distance}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: "row",
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing(4),
-    gap: spacing(2),
+    gap: spacing(4),
     shadowColor: "#101828",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
   },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing(1.5) },
+  rail: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 2,
+    minWidth: 56,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+    paddingRight: spacing(4),
+  },
+  railDay: {
+    color: colors.pine,
+    fontFamily: fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  railClock: {
+    color: colors.text,
+    fontFamily: fonts.display,
+    fontSize: 20,
+    letterSpacing: -0.3,
+  },
+  body: { flex: 1, gap: spacing(1.5), justifyContent: "center" },
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: spacing(1.5), marginTop: spacing(0.5) },
   tag: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.sm,

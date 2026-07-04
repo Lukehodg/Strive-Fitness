@@ -36,6 +36,27 @@ export function formatRoster(joined: number, max: number): string {
   return `${joined} / ${max} going`;
 }
 
+/**
+ * Fixture-rail day label: "TODAY", "TMRW", then the weekday ("SAT").
+ * Pairs with formatClock — together they lead every fixture card.
+ */
+export function formatDayShort(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round(
+    (startOfDay(date).getTime() - startOfDay(now).getTime()) / 86_400_000,
+  );
+  if (dayDiff === 0) return "TODAY";
+  if (dayDiff === 1) return "TMRW";
+  return date.toLocaleDateString(undefined, { weekday: "short" }).toUpperCase();
+}
+
+/** Fixture-rail kickoff clock: "18:30". */
+export function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 /** Build a Date n days from today at "HH:MM", or null if the time is invalid. */
 export function dateFromDayOffset(dayOffset: number, time: string): Date | null {
   const parts = time.split(":");

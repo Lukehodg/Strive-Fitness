@@ -1,7 +1,9 @@
 import {
   dateFromDayOffset,
+  formatClock,
   formatCountdown,
   formatDayChip,
+  formatDayShort,
   formatDistance,
   formatRoster,
   formatStartTime,
@@ -75,6 +77,31 @@ describe("formatStartTime", () => {
     const label = formatStartTime(at(d));
     expect(label).not.toMatch(/^Today |^Tomorrow /);
     expect(label).toMatch(/,/); // "Sat 21 Jun, 18:30"
+  });
+});
+
+describe("fixture rail (formatDayShort / formatClock)", () => {
+  const at = (offsetDays: number, h = 18, m = 30) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  };
+
+  it("labels today and tomorrow", () => {
+    expect(formatDayShort(at(0))).toBe("TODAY");
+    expect(formatDayShort(at(1))).toBe("TMRW");
+  });
+
+  it("labels further days with the uppercase weekday", () => {
+    const label = formatDayShort(at(4));
+    expect(label).toMatch(/^[A-Z]{3}/);
+    expect(label).not.toBe("TODAY");
+    expect(label).not.toBe("TMRW");
+  });
+
+  it("formats the kickoff clock", () => {
+    expect(formatClock(at(0, 18, 30))).toMatch(/18:30|6:30/); // locale-tolerant
   });
 });
 

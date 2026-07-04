@@ -78,11 +78,14 @@ export default function SignInScreen() {
     <Screen>
       <View style={styles.container}>
         <View style={styles.hero}>
+          <Text style={styles.eyebrow}>PICKUP SPORT · SURREY</Text>
           <Wordmark size={72} />
-          <Text style={styles.tag}>Move with your crew.</Text>
+          <Text style={styles.tag}>
+            Turning up is the whole game<Text style={styles.tagDot}>.</Text>
+          </Text>
           <Muted>
-            For men who&apos;d rather not kick a ball alone. Find a game near you, show
-            up, and build something in the doing.
+            Find a game near you, get on the roster, and be there when it counts.
+            Built for men who&apos;d rather not train alone.
           </Muted>
         </View>
 
@@ -128,7 +131,14 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing(6), justifyContent: "space-between" },
-  hero: { marginTop: spacing(16), gap: spacing(3) },
+  hero: { marginTop: spacing(14), gap: spacing(3) },
+  eyebrow: {
+    color: colors.ember,
+    fontFamily: fonts.monoBold,
+    fontSize: 11,
+    letterSpacing: 2,
+  },
   tag: { fontFamily: fonts.display, fontSize: 24, color: colors.text, letterSpacing: -0.4 },
+  tagDot: { color: colors.primary },
   actions: { gap: spacing(3), marginBottom: spacing(8) },
 });

@@ -3,7 +3,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-n
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { Button, EmptyState, Heading, Screen } from "@/components/ui";
+import { Button, EmptyState, Eyebrow, Heading, Screen } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { GameListSkeleton } from "@/components/Skeleton";
 import { colors, fonts, radius, spacing } from "@/components/theme";
@@ -51,8 +51,8 @@ export default function DiscoverScreen() {
   return (
     <Screen>
       <View style={styles.header}>
+        <Eyebrow>{countLabel}</Eyebrow>
         <Heading dot>Discover</Heading>
-        <Text style={styles.count}>{countLabel}</Text>
       </View>
 
       <ScrollView
@@ -155,13 +155,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing(2),
     paddingBottom: spacing(2.5),
     gap: spacing(1),
-  },
-  count: {
-    color: colors.textMuted,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
   },
   // flexGrow:0 keeps the row at its natural height; alignItems centres the
   // chips so they don't stretch to fill vertical space.

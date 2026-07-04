@@ -49,6 +49,28 @@ export function Muted({ children }: { children: React.ReactNode }) {
   return <Text style={styles.muted}>{children}</Text>;
 }
 
+/**
+ * Editorial eyebrow — the live fact above a screen title ("3 GAMES NEAR YOU").
+ * Mono, burnished amber, uppercase. Only use it to say something true and
+ * current about the screen, never as decoration.
+ */
+export function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.eyebrow}>{children}</Text>;
+}
+
+/**
+ * Section label with the brand's amber full stop leading it — the mark of
+ * commitment, echoed from the wordmark. For list sections ("UPCOMING").
+ */
+export function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <View style={styles.sectionLabelDot} />
+      <Text style={styles.sectionLabelText}>{children}</Text>
+    </View>
+  );
+}
+
 export function Button({
   title,
   onPress,
@@ -65,8 +87,10 @@ export function Button({
   style?: ViewStyle;
 }) {
   const isDisabled = disabled || loading;
+  // Secondary is quiet — surface + hairline, so linen stays a data-chip material
+  // and amber stays the only loud thing on screen.
   const bg =
-    variant === "primary" ? colors.primary : variant === "danger" ? colors.danger : colors.surfaceAlt;
+    variant === "primary" ? colors.primary : variant === "danger" ? colors.danger : colors.surface;
   const fg = variant === "secondary" ? colors.text : variant === "danger" ? "#fff" : colors.primaryText;
 
   return (
@@ -76,6 +100,7 @@ export function Button({
       style={({ pressed }) => [
         styles.button,
         variant === "primary" && !isDisabled ? styles.buttonPrimaryLift : null,
+        variant === "secondary" ? styles.buttonSecondary : null,
         {
           backgroundColor: bg,
           opacity: isDisabled ? 0.5 : pressed ? 0.85 : 1,
@@ -159,6 +184,27 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   muted: { color: colors.textMuted, fontSize: font.body, fontFamily: fonts.body },
+  eyebrow: {
+    color: colors.ember,
+    fontSize: 11,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  sectionLabelRow: { flexDirection: "row", alignItems: "center", gap: spacing(1.5) },
+  sectionLabelDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 1.5,
+    backgroundColor: colors.primary,
+  },
+  sectionLabelText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.monoBold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   label: {
     color: colors.textMuted,
     fontSize: font.small,
@@ -173,7 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing(4),
   },
-  // Warm lift under the one marigold CTA on screen — makes it read as *the* action.
+  // Warm lift under the one amber CTA on screen — makes it read as *the* action.
   buttonPrimaryLift: {
     shadowColor: "#B87A0D",
     shadowOpacity: 0.35,
@@ -181,6 +227,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
+  buttonSecondary: { borderWidth: 1, borderColor: colors.border },
   buttonText: { fontSize: font.body, fontFamily: fonts.display, letterSpacing: 0.2 },
   input: {
     backgroundColor: colors.surface,

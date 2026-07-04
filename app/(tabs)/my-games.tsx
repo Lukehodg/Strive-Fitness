@@ -1,7 +1,7 @@
 import { SectionList, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { Button, EmptyState, Heading, Muted, Screen } from "@/components/ui";
+import { Button, EmptyState, Eyebrow, Heading, Screen, SectionLabel } from "@/components/ui";
 import { GameCard } from "@/components/GameCard";
 import { EventCard } from "@/components/EventCard";
 import { GameListSkeleton } from "@/components/Skeleton";
@@ -24,8 +24,8 @@ export default function MyGamesScreen() {
     return (
       <Screen>
         <View style={styles.header}>
+          <Eyebrow>Your week</Eyebrow>
           <Heading dot>My Games</Heading>
-          <Muted>Your activities and events</Muted>
         </View>
         <GameListSkeleton count={3} />
       </Screen>
@@ -68,11 +68,16 @@ export default function MyGamesScreen() {
     events.refetch();
   };
 
+  const eyebrow =
+    upcoming.length > 0
+      ? `${upcoming.length} coming up`
+      : "Your week";
+
   return (
     <Screen>
       <View style={styles.header}>
-        <Heading>My Games</Heading>
-        <Muted>Your activities and events</Muted>
+        <Eyebrow>{eyebrow}</Eyebrow>
+        <Heading dot>My Games</Heading>
       </View>
 
       {sections.length === 0 ? (
@@ -89,7 +94,9 @@ export default function MyGamesScreen() {
           refreshing={games.isRefetching || events.isRefetching}
           contentContainerStyle={styles.list}
           renderSectionHeader={({ section }) => (
-            <Text style={styles.sectionHeader}>{section.title}</Text>
+            <View style={styles.sectionHeader}>
+              <SectionLabel>{section.title}</SectionLabel>
+            </View>
           )}
           renderItem={({ item, section }) =>
             section.kind === "event" ? (
@@ -162,15 +169,7 @@ function GameRow({
 const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing(5), paddingTop: spacing(2), paddingBottom: spacing(3) },
   list: { padding: spacing(5), paddingBottom: spacing(10) },
-  sectionHeader: {
-    color: colors.ember,
-    fontSize: 12,
-    fontFamily: fonts.monoBold,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginBottom: spacing(2.5),
-    marginTop: spacing(2),
-  },
+  sectionHeader: { marginBottom: spacing(2.5), marginTop: spacing(2) },
   tagRow: { flexDirection: "row", gap: spacing(2), marginTop: spacing(2) },
   hostingTag: {
     backgroundColor: colors.surfaceAlt,

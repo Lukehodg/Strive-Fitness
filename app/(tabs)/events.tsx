@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { Button, EmptyState, Heading, Screen } from "@/components/ui";
+import { Button, EmptyState, Eyebrow, Heading, Screen } from "@/components/ui";
 import { EventCard } from "@/components/EventCard";
 import { GameListSkeleton } from "@/components/Skeleton";
-import { colors, fonts, spacing } from "@/components/theme";
+import { spacing } from "@/components/theme";
 import { useUpcomingEvents } from "@/hooks/useEvents";
 import { DEFAULT_REGION, getCurrentCoords, type Coords } from "@/lib/location";
 import type { UpcomingEvent } from "@/types/database";
@@ -30,8 +30,8 @@ export default function EventsScreen() {
   return (
     <Screen>
       <View style={styles.header}>
+        <Eyebrow>{countLabel}</Eyebrow>
         <Heading dot>Events</Heading>
-        <Text style={styles.count}>{countLabel}</Text>
       </View>
 
       {!coords || isLoading ? (
@@ -81,12 +81,5 @@ export default function EventsScreen() {
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing(5), paddingTop: spacing(2), paddingBottom: spacing(2.5), gap: spacing(1) },
-  count: {
-    color: colors.textMuted,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
   list: { padding: spacing(5), gap: spacing(3.5), paddingBottom: spacing(10) },
 });
