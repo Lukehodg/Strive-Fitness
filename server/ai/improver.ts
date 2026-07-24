@@ -18,6 +18,7 @@
 import { randomUUID } from "crypto";
 import type { ImprovementProposal, StrategyParams } from "@shared/schema";
 import { storage } from "../storage";
+import { sendAlert } from "../alerts";
 import { createMarketFeed } from "../trading/marketData";
 import {
   STRATEGY_LIST,
@@ -271,6 +272,15 @@ class Improver {
         proposal.proposedParams,
       )} (${config.autonomy})`,
       proposal.strategyId,
+    );
+    sendAlert(
+      "info",
+      `Auto-tuned ${proposal.strategyName}`,
+      `${describeParams(proposal.proposedParams)} — validated out-of-sample, PBO ${
+        proposal.validation?.pbo !== undefined
+          ? (proposal.validation.pbo * 100).toFixed(1) + "%"
+          : "n/a"
+      }.`,
     );
   }
 }

@@ -172,6 +172,33 @@ The pipeline uses techniques from the quant-ML literature to stay honest:
 - **Per-trade stop-loss / take-profit**.
 - **Order-rate limit** — at most a few orders per minute.
 
+## Persistence, alerts, and the watchdog
+
+- **State survives restarts.** Trades, equity history, decision log, proposals,
+  alerts, tuned strategy parameters, and the paper broker's balance/positions
+  are snapshotted to `data/state.json` (debounced, atomic writes; flushed on
+  shutdown) and restored on boot. Delete `data/` for a fresh start.
+- **Alerts.** Fills, kill-switch trips, auto-applied tunes, live-mode
+  activation, and engine stalls raise alerts — shown as a banner in the UI
+  (with acknowledge) and, if `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are set,
+  pushed to your phone via Telegram.
+- **Watchdog.** If the engine claims to be running but stops completing ticks,
+  a critical "engine stalled" alert fires (and a recovery notice when it
+  resumes).
+- **Model registry.** Every model saved by `npm run train` is recorded in
+  `data/model-registry.json` (`GET /api/ml/registry`) — an audit trail of what
+  was trained on what data, with what validation accuracy.
+
+## Meta-labeling (bet sizing)
+
+On top of the primary ML signal, a **meta-model** (López de Prado's
+meta-labeling) learns to predict whether each signal is *correct* — trained
+only on genuinely out-of-fold primary predictions, so it can't inherit the
+primary model's in-sample overconfidence. At runtime it **vetoes weak signals**
+and its confidence **sizes the bets** that pass (the risk manager scales the
+position accordingly). The AI Lab shows its accuracy and what fraction of
+signals it approves.
+
 ## Going live (real money)
 
 Live trading is a first-class mode, but off until *you* turn it on:

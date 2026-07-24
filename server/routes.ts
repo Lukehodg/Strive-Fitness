@@ -14,15 +14,28 @@ import { selectStrategy } from "./trading/aiSelector";
 import { createMarketFeed } from "./trading/marketData";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
-import { deflatedSharpe, kurtosis, skewness } from "./ai/metrics";
+import {
+  deflatedSharpe,
+  kurtosis,
+  minTrackRecordLength,
+  skewness,
+} from "./ai/metrics";
 import { signalModel } from "./ml/signalModel";
+import { initPersistence } from "./persistence";
+import { sendAlert, telegramConfigured } from "./alerts";
 import { updateConfigSchema } from "@shared/schema";
 import type { PerformanceStats } from "@shared/schema";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const feed = createMarketFeed();
 
-  // Start the self-improvement scheduler.
+  // Restore persisted state (trades, equity, params, paper balance, …), then
+  // start the self-improvement scheduler.
+  if (initPersistence()) {
+    storage.log("info", "State restored from disk (previous session continued).");
+  }
   improver.start();
 
   // -- Status & overview --------------------------------------------------
@@ -50,8 +63,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Live mode requires Alpaca API keys (ALPACA_KEY_ID / ALPACA_SECRET_KEY). Staying in paper mode.",
       });
     }
+    const wasLive = storage.getConfig().mode === "live";
     const updated = storage.setConfig(parsed.data);
     storage.log("info", "Configuration updated");
+    if (updated.mode === "live" && !wasLive) {
+      sendAlert(
+        "warning",
+        "LIVE trading enabled",
+        `Real orders will be sent to your broker for ${updated.symbol}. Risk limits: ` +
+          `${(updated.maxPositionPct * 100).toFixed(0)}% max position, ` +
+          `${(updated.dailyLossLimitPct * 100).toFixed(1)}% daily loss kill-switch.`,
+      );
+    }
     res.json(updated);
   });
 
@@ -114,8 +137,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rets.length > 2
           ? deflatedSharpe(r.sharpe, rets.length, skewness(rets), kurtosis(rets), trialSharpes)
           : undefined;
+      // MinTRL: bars of evidence needed to statistically confirm this Sharpe.
+      let minTrl: number | null = null;
+      if (rets.length > 2 && r.sharpe > 0) {
+        const bars = minTrackRecordLength(r.sharpe, skewness(rets), kurtosis(rets));
+        minTrl = Number.isFinite(bars) ? Math.ceil(bars) : null;
+      }
       const { returns: _returns, ...rest } = r;
-      return { ...rest, deflatedSharpe: dsr };
+      return { ...rest, deflatedSharpe: dsr, minTrackRecordBars: minTrl };
     });
     res.json({ symbol, candleCount: candles.length, results: payload });
   });
@@ -210,10 +239,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(p);
   });
 
+  // -- Alerts -------------------------------------------------------------
+
+  app.get("/api/alerts", (req: Request, res: Response) => {
+    const limit = Number(req.query.limit) || 100;
+    res.json({
+      alerts: storage.getAlerts(limit),
+      telegramConfigured: telegramConfigured(),
+    });
+  });
+
+  app.post("/api/alerts/ack", (_req: Request, res: Response) => {
+    res.json({ acknowledged: storage.acknowledgeAlerts() });
+  });
+
   // -- ML signal model ----------------------------------------------------
 
   app.get("/api/ml/status", (_req: Request, res: Response) => {
     res.json(signalModel.status());
+  });
+
+  // Registry of saved (trained-on-real-data) models — the audit trail.
+  app.get("/api/ml/registry", (_req: Request, res: Response) => {
+    const path = join(process.cwd(), "data", "model-registry.json");
+    if (!existsSync(path)) return res.json([]);
+    try {
+      res.json(JSON.parse(readFileSync(path, "utf-8")));
+    } catch {
+      res.json([]);
+    }
   });
 
   // Retrain the ML signal model on the latest market data.

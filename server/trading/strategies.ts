@@ -20,6 +20,7 @@ import type {
 } from "@shared/schema";
 import { sma, rsi, highest, lowest } from "./indicators";
 import { signalModel } from "../ml/signalModel";
+import { registerPersistence, schedulePersist } from "../persistence";
 
 export interface Strategy {
   meta: StrategyMeta;
@@ -233,15 +234,32 @@ const mlSignal = defineStrategy(
   (p, candles, hasPosition) => {
     // Safety gate: an untrained or coin-flip model produces no signals.
     if (!signalModel.isTradable()) return HOLD;
-    const prob = signalModel.predictProba(candles);
-    if (prob === null) return HOLD;
+    const pred = signalModel.predictWithMeta(candles);
+    if (pred === null) return HOLD;
+    const { prob, metaConfidence, approved } = pred;
 
     if (!hasPosition && prob >= p.buyThreshold) {
-      const strength = Math.min(1, (prob - p.buyThreshold) / (1 - p.buyThreshold) + 0.4);
+      // Meta-labeling: veto signals the meta model thinks are wrong, and use
+      // its confidence as the bet size when it approves.
+      if (!approved) {
+        return {
+          action: "hold",
+          strength: 0,
+          reason: `Signal vetoed by meta-model (${((metaConfidence ?? 0) * 100).toFixed(0)}% confidence)`,
+        };
+      }
+      const strength =
+        metaConfidence !== null
+          ? metaConfidence
+          : Math.min(1, (prob - p.buyThreshold) / (1 - p.buyThreshold) + 0.4);
       return {
         action: "buy",
         strength,
-        reason: `Model predicts ${(prob * 100).toFixed(0)}% chance of a rise`,
+        reason:
+          `Model predicts ${(prob * 100).toFixed(0)}% chance of a rise` +
+          (metaConfidence !== null
+            ? `; meta sizes bet at ${(metaConfidence * 100).toFixed(0)}%`
+            : ""),
       };
     }
     if (hasPosition && prob <= p.exitThreshold) {
@@ -299,6 +317,7 @@ export function setActiveParams(
 ): StrategyParams {
   const clamped = clampParams(id, params);
   activeParams.set(id, clamped);
+  schedulePersist();
   return clamped;
 }
 
@@ -306,8 +325,21 @@ export function resetParams(id: string): StrategyParams {
   const strat = STRATEGIES[id];
   if (!strat) return {};
   activeParams.set(id, { ...strat.defaultParams });
+  schedulePersist();
   return { ...strat.defaultParams };
 }
+
+// Tuned parameters survive restarts (clamped through current bounds on load).
+registerPersistence(
+  "strategyParams",
+  () => Object.fromEntries(activeParams),
+  (data) => {
+    const d = data as Record<string, StrategyParams>;
+    for (const [id, params] of Object.entries(d ?? {})) {
+      if (STRATEGIES[id]) activeParams.set(id, clampParams(id, params));
+    }
+  },
+);
 
 /**
  * A lightweight Strategy view pinned to fixed params — used by the optimizer

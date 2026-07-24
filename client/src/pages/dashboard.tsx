@@ -96,6 +96,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <AlertsBanner />
+
       {/* Kill-switch banner */}
       {s?.halted && (
         <div className="mb-6 rounded-lg border border-red-800 bg-red-950/60 p-4 flex items-center justify-between">
@@ -253,6 +255,7 @@ export default function Dashboard() {
                       <th className="px-4 py-2 font-medium text-right">Max DD</th>
                       <th className="px-4 py-2 font-medium text-right">Sharpe</th>
                       <th className="px-4 py-2 font-medium text-right" title="Deflated Sharpe: probability the edge is real after correcting for trying multiple strategies. ~50% = luck.">DSR</th>
+                      <th className="px-4 py-2 font-medium text-right" title="Minimum Track Record: bars of live evidence needed to statistically confirm this Sharpe. — means Sharpe ≤ 0.">MinTRL</th>
                       <th className="px-4 py-2 font-medium text-right">Trades</th>
                     </tr>
                   </thead>
@@ -269,6 +272,9 @@ export default function Dashboard() {
                         <td className="px-4 py-2 text-right text-gray-300">{r.sharpe.toFixed(3)}</td>
                         <td className={`px-4 py-2 text-right ${(r.deflatedSharpe ?? 0.5) > 0.7 ? "text-emerald-400" : "text-gray-400"}`}>
                           {r.deflatedSharpe !== undefined ? `${(r.deflatedSharpe * 100).toFixed(0)}%` : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-400">
+                          {r.minTrackRecordBars != null ? `${r.minTrackRecordBars.toLocaleString()} bars` : "—"}
                         </td>
                         <td className="px-4 py-2 text-right text-gray-300">{r.stats.totalTrades}</td>
                       </tr>
@@ -295,9 +301,9 @@ export default function Dashboard() {
       </Tabs>
 
       <p className="text-center text-xs text-gray-600 mt-8">
-        {s?.feedSource === "synthetic"
-          ? "Running on synthetic market data (demo). Add Alpaca API keys for real market data."
-          : "Live market data via Alpaca."}
+        {s?.feedSource === "alpaca"
+          ? "Live market data via Alpaca."
+          : "Running on synthetic market data (demo). Add Alpaca API keys for real market data."}
         {" · "}All trading defaults to paper mode. Not financial advice.
       </p>
     </div>
@@ -345,6 +351,58 @@ function KindBadge({ kind }: { kind: string }) {
 
 function Empty({ text }: { text: string }) {
   return <div className="p-8 text-center text-gray-500 text-sm">{text}</div>;
+}
+
+function AlertsBanner() {
+  const qc = useQueryClient();
+  const alerts = useQuery({ queryKey: ["/api/alerts"], queryFn: api.alerts, refetchInterval: REFRESH_MS });
+  const ack = useMutation({
+    mutationFn: api.ackAlerts,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/alerts"] }),
+  });
+  const unacked = (alerts.data?.alerts ?? []).filter((a) => !a.acknowledged);
+  if (unacked.length === 0) return null;
+  const worst = unacked.some((a) => a.level === "critical")
+    ? "critical"
+    : unacked.some((a) => a.level === "warning")
+      ? "warning"
+      : "info";
+  const styles =
+    worst === "critical"
+      ? "border-red-800 bg-red-950/60"
+      : worst === "warning"
+        ? "border-amber-800 bg-amber-950/50"
+        : "border-gray-700 bg-[#2A2A2A]";
+  return (
+    <div className={`mb-6 rounded-lg border p-4 ${styles}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1 min-w-0">
+          <p className="font-semibold text-white">
+            {unacked.length} alert{unacked.length > 1 ? "s" : ""}
+            {!alerts.data?.telegramConfigured && (
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                (set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID for phone pushes)
+              </span>
+            )}
+          </p>
+          <ul className="text-sm space-y-0.5">
+            {unacked.slice(0, 4).map((a) => (
+              <li key={a.id} className="text-gray-300 truncate">
+                <span className={a.level === "critical" ? "text-red-400" : a.level === "warning" ? "text-amber-400" : "text-gray-400"}>
+                  [{a.level}]
+                </span>{" "}
+                <span className="font-medium">{a.title}</span> — {a.message}
+              </li>
+            ))}
+            {unacked.length > 4 && <li className="text-gray-500">…and {unacked.length - 4} more</li>}
+          </ul>
+        </div>
+        <Button variant="outline" className="shrink-0" onClick={() => ack.mutate()} disabled={ack.isPending}>
+          Acknowledge all
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function MlModelCard() {
@@ -411,6 +469,16 @@ function MlModelCard() {
               <MlStat label="Training accuracy" value={`${(s.trainAccuracy * 100).toFixed(1)}%`} sub="in-sample (optimistic)" />
               <MlStat label="Current signal" value={s.lastProbability !== null ? `${(s.lastProbability * 100).toFixed(0)}% up` : "—"} sub={`${s.samples} samples`} />
             </div>
+
+            {s.meta ? (
+              <div className="rounded-lg bg-[#1E1E1E] p-3 text-xs text-gray-400">
+                <span className="text-gray-200 font-medium">Meta-labeling on:</span>{" "}
+                a second model predicts whether each signal is <em>correct</em> — it vetoes weak signals and sizes the bets that pass.
+                Accuracy {(s.meta.validationAccuracy * 100).toFixed(1)}% on {s.meta.samples} signals · approves {(s.meta.coverage * 100).toFixed(0)}% of signals.
+              </div>
+            ) : (
+              <p className="text-xs text-gray-600">Meta-labeling: not enough signal history to fit the bet-sizing model yet.</p>
+            )}
 
             <div>
               <p className="text-xs text-gray-400 mb-2">What the model learned (feature weights)</p>

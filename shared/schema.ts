@@ -281,6 +281,11 @@ export interface BacktestResult {
    * ~0.5 = indistinguishable from luck; near 1 = likely genuine.
    */
   deflatedSharpe?: number;
+  /**
+   * Minimum Track Record Length: bars of live evidence needed to confirm this
+   * Sharpe statistically exceeds zero. null = Sharpe ≤ 0 (never confirmable).
+   */
+  minTrackRecordBars?: number | null;
   /** Per-bar equity returns (server-side only; stripped from API responses). */
   returns?: number[];
 }
@@ -354,6 +359,23 @@ export interface ImprovementProposal {
 }
 
 // ---------------------------------------------------------------------------
+// Alerts
+// ---------------------------------------------------------------------------
+
+export const AlertLevels = ["info", "warning", "critical"] as const;
+export type AlertLevel = (typeof AlertLevels)[number];
+
+/** An operational alert (kill-switch trip, fill, stall, …). */
+export interface Alert {
+  id: string;
+  time: number;
+  level: AlertLevel;
+  title: string;
+  message: string;
+  acknowledged: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // ML signal model
 // ---------------------------------------------------------------------------
 
@@ -404,6 +426,18 @@ export interface MLStatus {
   dataInfo: MLDataInfo | null;
   /** True when the current model was loaded from a saved (trained) file. */
   fromDisk: boolean;
+  /** Meta-labeling model: learns when the primary signal is right and sizes bets. */
+  meta: MetaModelStatus | null;
+}
+
+/** Status of the meta-labeling (bet-sizing) model. */
+export interface MetaModelStatus {
+  /** Signal-samples the meta model was trained on. */
+  samples: number;
+  /** Held-out accuracy at predicting "primary signal was correct". */
+  validationAccuracy: number;
+  /** Fraction of primary signals the meta model approves (bet coverage). */
+  coverage: number;
 }
 
 // ---------------------------------------------------------------------------

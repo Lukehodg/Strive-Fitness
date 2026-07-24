@@ -18,6 +18,7 @@ import { join } from "path";
 import type {
   Candle,
   FeatureImportance,
+  MetaModelStatus,
   MLDataInfo,
   MLStatus,
 } from "@shared/schema";
@@ -50,10 +51,20 @@ interface ModelState {
   baselineRate: number;
   dataInfo: MLDataInfo | null;
   fromDisk: boolean;
+  /** Meta-labeling model over [primaryProb, ...features], or null. */
+  metaModel: LogisticModel | null;
+  metaStats: StandardizeStats | null;
+  meta: MetaModelStatus | null;
 }
 
 /** How much validation accuracy must beat the majority-class baseline by. */
 const EDGE_MARGIN = 0.01;
+/** Primary probability at/above which a bar counts as a "signal" for meta. */
+const META_SIGNAL_THRESHOLD = 0.55;
+/** Meta confidence required to approve (and size) a bet. */
+export const META_APPROVAL = 0.5;
+/** Minimum signal-samples before a meta model is fitted at all. */
+const MIN_META_SAMPLES = 40;
 
 /** Metadata about the data a training run used. */
 export interface TrainMeta {
@@ -75,7 +86,7 @@ class SignalModel {
     const { X, y } = buildDataset(candles);
     if (X.length < MIN_SAMPLES) return null;
 
-    // Honest, leak-free out-of-sample estimate.
+    // Honest, leak-free out-of-sample estimate (+ out-of-fold predictions).
     const cv = purgedWalkForwardAccuracy(X, y, {
       folds: 4,
       purge: LABEL_HORIZON,
@@ -89,6 +100,11 @@ class SignalModel {
     const posRate = y.reduce((a, b) => a + b, 0) / y.length;
     const baselineRate = Math.max(posRate, 1 - posRate);
 
+    // Meta-labeling: on bars where the (out-of-fold) primary signalled a buy,
+    // learn whether the signal was CORRECT. At runtime the meta model gates
+    // low-confidence signals and sizes the bets that pass.
+    const metaFit = this.fitMeta(X, cv.oof);
+
     this.state = {
       model,
       stats,
@@ -97,6 +113,9 @@ class SignalModel {
       trainAccuracy: accuracy(model, XS, y),
       validationAccuracy: cv.accuracy,
       baselineRate,
+      metaModel: metaFit?.model ?? null,
+      metaStats: metaFit?.stats ?? null,
+      meta: metaFit?.status ?? null,
       dataInfo: {
         source: meta.source,
         symbol: meta.symbol,
@@ -108,6 +127,52 @@ class SignalModel {
       fromDisk: false,
     };
     return cv.accuracy;
+  }
+
+  /**
+   * Fit the meta-labeling model on out-of-fold primary predictions. Returns
+   * null when there aren't enough signal-samples.
+   */
+  private fitMeta(
+    X: number[][],
+    oof: { index: number; prob: number; label: number }[],
+  ): {
+    model: LogisticModel;
+    stats: StandardizeStats;
+    status: MetaModelStatus;
+  } | null {
+    // Signals only: bars where the primary (out-of-fold) said "buy".
+    const signals = oof.filter((o) => o.prob >= META_SIGNAL_THRESHOLD);
+    if (signals.length < MIN_META_SAMPLES) return null;
+
+    const metaX = signals.map((o) => [o.prob, ...X[o.index]]);
+    const metaY = signals.map((o) => o.label); // was the signal correct?
+
+    // Chronological split (oof is fold-ordered = chronological).
+    const split = Math.floor(metaX.length * 0.7);
+    const Xtr = metaX.slice(0, split);
+    const ytr = metaY.slice(0, split);
+    const Xva = metaX.slice(split);
+    const yva = metaY.slice(split);
+    if (Xva.length < 10) return null;
+
+    const stats = fitStandardizer(Xtr);
+    const XtrS = Xtr.map((r) => standardize(r, stats));
+    const XvaS = Xva.map((r) => standardize(r, stats));
+    const model = trainLogistic(XtrS, ytr, { iterations: 400, learningRate: 0.1, l2: 1e-2 });
+
+    const valAcc = accuracy(model, XvaS, yva);
+    const approvals = XvaS.filter((r) => predictProba(model, r) >= META_APPROVAL).length;
+
+    return {
+      model,
+      stats,
+      status: {
+        samples: signals.length,
+        validationAccuracy: valAcc,
+        coverage: Xva.length ? approvals / Xva.length : 0,
+      },
+    };
   }
 
   /** Predict P(a profitable up-move) for the newest bar, or null if not ready. */
@@ -131,6 +196,29 @@ class SignalModel {
     );
   }
 
+  /**
+   * Predict for the newest bar with meta-labeling applied. `metaConfidence`
+   * is P(this signal is correct) — used as bet size; `approved` is false when
+   * the meta model vetoes the signal. Without a meta model, signals pass
+   * through unchanged (approved, confidence null).
+   */
+  predictWithMeta(candles: Candle[]): {
+    prob: number;
+    metaConfidence: number | null;
+    approved: boolean;
+  } | null {
+    const prob = this.predictProba(candles);
+    if (prob === null || !this.state) return null;
+    const { metaModel, metaStats } = this.state;
+    if (!metaModel || !metaStats) {
+      return { prob, metaConfidence: null, approved: true };
+    }
+    const feats = extractFeatures(candles, candles.length - 1);
+    if (!feats) return { prob, metaConfidence: null, approved: true };
+    const conf = predictProba(metaModel, standardize([prob, ...feats], metaStats));
+    return { prob, metaConfidence: conf, approved: conf >= META_APPROVAL };
+  }
+
   /** True when the loaded model came from a saved file (a mature model). */
   get fromDisk(): boolean {
     return this.state?.fromDisk ?? false;
@@ -151,6 +239,31 @@ class SignalModel {
     mkdirSync(join(process.cwd(), "data"), { recursive: true });
     const payload = { ...this.state, featureNames: FEATURE_NAMES };
     writeFileSync(MODEL_PATH, JSON.stringify(payload));
+    this.appendRegistry();
+  }
+
+  /** Append this model's stats to the on-disk model registry (audit trail). */
+  private appendRegistry(): void {
+    if (!this.state) return;
+    const registryPath = join(process.cwd(), "data", "model-registry.json");
+    let entries: unknown[] = [];
+    try {
+      if (existsSync(registryPath)) {
+        entries = JSON.parse(readFileSync(registryPath, "utf-8"));
+      }
+    } catch {
+      entries = [];
+    }
+    entries.push({
+      trainedAt: this.state.trainedAt,
+      samples: this.state.samples,
+      trainAccuracy: this.state.trainAccuracy,
+      validationAccuracy: this.state.validationAccuracy,
+      baselineRate: this.state.baselineRate,
+      tradable: this.isTradable(),
+      dataInfo: this.state.dataInfo,
+    });
+    writeFileSync(registryPath, JSON.stringify(entries.slice(-100), null, 2));
   }
 
   /** Load a previously-saved model. Returns true if one was loaded. */
@@ -165,6 +278,9 @@ class SignalModel {
       ) {
         return false;
       }
+      // Meta model is only kept if its feature layout matches ([prob, ...features]).
+      const metaOk =
+        raw.metaModel?.weights?.length === FEATURE_NAMES.length + 1 && raw.metaStats;
       this.state = {
         model: raw.model,
         stats: raw.stats,
@@ -175,6 +291,9 @@ class SignalModel {
         baselineRate: raw.baselineRate ?? 0.5,
         dataInfo: raw.dataInfo ?? null,
         fromDisk: true,
+        metaModel: metaOk ? raw.metaModel : null,
+        metaStats: metaOk ? raw.metaStats : null,
+        meta: metaOk ? (raw.meta ?? null) : null,
       };
       return true;
     } catch {
@@ -199,6 +318,7 @@ class SignalModel {
       labeling: LABELING,
       dataInfo: s?.dataInfo ?? null,
       fromDisk: s?.fromDisk ?? false,
+      meta: s?.meta ?? null,
     };
   }
 }

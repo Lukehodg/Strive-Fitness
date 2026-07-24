@@ -17,6 +17,8 @@ import type {
   Trade,
 } from "@shared/schema";
 import { storage } from "../storage";
+import { registerPersistence } from "../persistence";
+import { sendAlert } from "../alerts";
 import {
   PaperBroker,
   AlpacaBroker,
@@ -59,8 +61,45 @@ class TradingEngine {
   private openEntry: { price: number; time: number; strategyId: string } | null =
     null;
 
+  // Watchdog: detect a wedged loop (running but not ticking).
+  private lastTickCompletedAt: number | null = null;
+  private watchdog: NodeJS.Timeout | null = null;
+  private stallAlerted = false;
+
   constructor() {
     this.applyConfigBroker(storage.getConfig());
+    // Paper balance, open position metadata, and kill-switch state survive
+    // restarts so the simulated book doesn't reset to $10k on every boot.
+    registerPersistence(
+      "engine",
+      () => ({
+        paperBroker:
+          this.broker instanceof PaperBroker ? this.broker.snapshot() : null,
+        openEntry: this.openEntry,
+        dayStartEquity: this.dayStartEquity,
+        dayStamp: this.dayStamp,
+        halted: this.halted,
+        haltReason: this.haltReason ?? null,
+      }),
+      (data) => {
+        const d = data as {
+          paperBroker: { cash: number; positions: never[] } | null;
+          openEntry: { price: number; time: number; strategyId: string } | null;
+          dayStartEquity: number;
+          dayStamp: string;
+          halted: boolean;
+          haltReason: string | null;
+        };
+        if (d.paperBroker && this.broker instanceof PaperBroker) {
+          this.broker.restore(d.paperBroker);
+        }
+        if (d.openEntry !== undefined) this.openEntry = d.openEntry;
+        if (typeof d.dayStartEquity === "number") this.dayStartEquity = d.dayStartEquity;
+        if (typeof d.dayStamp === "string") this.dayStamp = d.dayStamp;
+        if (typeof d.halted === "boolean") this.halted = d.halted;
+        this.haltReason = d.haltReason ?? undefined;
+      },
+    );
   }
 
   // -- Broker wiring ------------------------------------------------------
@@ -88,8 +127,11 @@ class TradingEngine {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.lastTickCompletedAt = Date.now();
+    this.stallAlerted = false;
     storage.log("resume", "Engine started");
     this.scheduleNext();
+    this.startWatchdog();
     // Kick an immediate evaluation so the UI updates right away.
     void this.tick();
   }
@@ -100,7 +142,33 @@ class TradingEngine {
       clearTimeout(this.timer);
       this.timer = null;
     }
+    if (this.watchdog) {
+      clearInterval(this.watchdog);
+      this.watchdog = null;
+    }
     storage.log("info", "Engine stopped");
+  }
+
+  /** Alert if the engine claims to be running but hasn't completed a tick. */
+  private startWatchdog(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (!this.running || this.lastTickCompletedAt === null) return;
+      const config = storage.getConfig();
+      const staleMs = Date.now() - this.lastTickCompletedAt;
+      const limitMs = Math.max(3 * config.intervalSeconds * 1000, 120_000);
+      if (staleMs > limitMs && !this.stallAlerted) {
+        this.stallAlerted = true;
+        sendAlert(
+          "critical",
+          "Engine stalled",
+          `The engine is marked running but hasn't completed a tick in ${Math.round(
+            staleMs / 1000,
+          )}s (limit ${Math.round(limitMs / 1000)}s).`,
+        );
+      }
+    }, 60_000);
+    this.watchdog.unref();
   }
 
   /** Clear a tripped kill-switch and allow new entries again. */
@@ -159,6 +227,11 @@ class TradingEngine {
           config.dailyLossLimitPct * 100
         ).toFixed(1)}% reached`;
         storage.log("halt", this.haltReason);
+        sendAlert(
+          "critical",
+          "Kill-switch tripped",
+          `${this.haltReason}. New entries are blocked until resume or the next trading day.`,
+        );
       }
 
       // Pick the strategy (AI auto-select or user's fixed choice).
@@ -183,6 +256,12 @@ class TradingEngine {
       }
     } catch (err) {
       storage.log("info", `Tick error: ${(err as Error).message}`);
+    } finally {
+      this.lastTickCompletedAt = Date.now();
+      if (this.stallAlerted) {
+        this.stallAlerted = false;
+        sendAlert("info", "Engine recovered", "Ticks are completing again.");
+      }
     }
   }
 
@@ -277,6 +356,11 @@ class TradingEngine {
         )} — ${reason} (${decision.reason})`,
         this.activeStrategy.meta.id,
       );
+      sendAlert(
+        "info",
+        `BUY ${config.symbol}`,
+        `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason}`,
+      );
     } else {
       storage.log("info", `Buy rejected — ${order.message}`);
     }
@@ -323,6 +407,13 @@ class TradingEngine {
         2,
       )} — ${reason} | P&L ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`,
       strategyId,
+    );
+    sendAlert(
+      "info",
+      `SELL ${config.symbol}`,
+      `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason} | P&L ${
+        pnl >= 0 ? "+" : ""
+      }${pnl.toFixed(2)}`,
     );
   }
 

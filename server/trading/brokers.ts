@@ -118,6 +118,19 @@ export class PaperBroker implements Broker {
       p.unrealizedPnl = (price - p.avgEntryPrice) * p.qty;
     }
   }
+
+  /** Serialize simulated balance + positions (for restart persistence). */
+  snapshot(): { cash: number; positions: Position[] } {
+    return { cash: this.cash, positions: Array.from(this.positions.values()) };
+  }
+
+  restore(data: { cash: number; positions: Position[] }): void {
+    if (typeof data?.cash === "number") this.cash = data.cash;
+    if (Array.isArray(data?.positions)) {
+      this.positions.clear();
+      for (const p of data.positions) this.positions.set(p.symbol, p);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

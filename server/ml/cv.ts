@@ -15,6 +15,7 @@
 import {
   accuracy,
   fitStandardizer,
+  predictProba,
   standardize,
   trainLogistic,
 } from "./logistic";
@@ -25,24 +26,37 @@ export interface WalkForwardOptions {
   purge: number;
 }
 
+/** One out-of-fold prediction: made by a model that never saw this sample. */
+export interface OofPrediction {
+  index: number;
+  prob: number;
+  label: number;
+}
+
 /**
  * Run walk-forward CV over a chronologically-ordered dataset and return the
  * mean out-of-sample accuracy across folds. Each fold trains on all data before
  * a validation block (minus the purge buffer) and tests on that block.
+ *
+ * Also returns every out-of-fold prediction — genuinely out-of-sample primary
+ * signals, which is exactly what a meta-labeling model must be trained on
+ * (training it on in-sample predictions would teach it the primary model's
+ * in-sample overconfidence).
  */
 export function purgedWalkForwardAccuracy(
   X: number[][],
   y: number[],
   opts: WalkForwardOptions,
-): { accuracy: number; folds: number } {
+): { accuracy: number; folds: number; oof: OofPrediction[] } {
   const n = X.length;
   const folds = Math.max(2, opts.folds);
   const blockSize = Math.floor(n / (folds + 1)); // first block is train-only
   if (blockSize < 20) {
-    return { accuracy: 0, folds: 0 };
+    return { accuracy: 0, folds: 0, oof: [] };
   }
 
   const accs: number[] = [];
+  const oof: OofPrediction[] = [];
   for (let f = 1; f <= folds; f++) {
     const valStart = f * blockSize;
     const valEnd = f === folds ? n : valStart + blockSize;
@@ -62,11 +76,19 @@ export function purgedWalkForwardAccuracy(
     const XvaS = Xva.map((r) => standardize(r, stats));
     const model = trainLogistic(XtrS, ytr, { iterations: 400, learningRate: 0.1, l2: 1e-3 });
     accs.push(accuracy(model, XvaS, yva));
+    for (let i = 0; i < XvaS.length; i++) {
+      oof.push({
+        index: valStart + i,
+        prob: predictProba(model, XvaS[i]),
+        label: yva[i],
+      });
+    }
   }
 
-  if (accs.length === 0) return { accuracy: 0, folds: 0 };
+  if (accs.length === 0) return { accuracy: 0, folds: 0, oof: [] };
   return {
     accuracy: accs.reduce((a, b) => a + b, 0) / accs.length,
     folds: accs.length,
+    oof,
   };
 }

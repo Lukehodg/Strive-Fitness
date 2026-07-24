@@ -6,6 +6,8 @@
 import { randomUUID } from "crypto";
 import {
   DEFAULT_CONFIG,
+  type Alert,
+  type AlertLevel,
   type BotConfig,
   type DecisionKind,
   type DecisionLogEntry,
@@ -14,11 +16,13 @@ import {
   type ProposalStatus,
   type Trade,
 } from "@shared/schema";
+import { registerPersistence, schedulePersist } from "./persistence";
 
 const MAX_EQUITY_POINTS = 5_000;
 const MAX_TRADES = 2_000;
 const MAX_DECISIONS = 500;
 const MAX_PROPOSALS = 200;
+const MAX_ALERTS = 200;
 
 class Storage {
   private config: BotConfig = { ...DEFAULT_CONFIG };
@@ -26,6 +30,7 @@ class Storage {
   private trades: Trade[] = [];
   private decisions: DecisionLogEntry[] = [];
   private proposals: ImprovementProposal[] = [];
+  private alerts: Alert[] = [];
   private lastImproveAt: number | null = null;
   private lastDiagnosis: string | null = null;
 
@@ -35,6 +40,7 @@ class Storage {
 
   setConfig(patch: Partial<BotConfig>): BotConfig {
     this.config = { ...this.config, ...patch };
+    schedulePersist();
     return this.getConfig();
   }
 
@@ -43,6 +49,7 @@ class Storage {
     if (this.equity.length > MAX_EQUITY_POINTS) {
       this.equity.splice(0, this.equity.length - MAX_EQUITY_POINTS);
     }
+    schedulePersist();
   }
 
   getEquity(limit = 500): EquityPoint[] {
@@ -58,6 +65,7 @@ class Storage {
     if (this.trades.length > MAX_TRADES) {
       this.trades.splice(0, this.trades.length - MAX_TRADES);
     }
+    schedulePersist();
   }
 
   getTrades(limit = 100): Trade[] {
@@ -80,6 +88,7 @@ class Storage {
     if (this.decisions.length > MAX_DECISIONS) {
       this.decisions.splice(0, this.decisions.length - MAX_DECISIONS);
     }
+    schedulePersist();
     return entry;
   }
 
@@ -94,6 +103,7 @@ class Storage {
     if (this.proposals.length > MAX_PROPOSALS) {
       this.proposals.splice(0, this.proposals.length - MAX_PROPOSALS);
     }
+    schedulePersist();
   }
 
   getProposals(limit = 100): ImprovementProposal[] {
@@ -106,18 +116,93 @@ class Storage {
 
   setProposalStatus(id: string, status: ProposalStatus): ImprovementProposal | undefined {
     const p = this.getProposal(id);
-    if (p) p.status = status;
+    if (p) {
+      p.status = status;
+      schedulePersist();
+    }
     return p;
   }
 
   setImproveMeta(at: number, diagnosis: string | null): void {
     this.lastImproveAt = at;
     if (diagnosis !== null) this.lastDiagnosis = diagnosis;
+    schedulePersist();
   }
 
   getImproveMeta(): { lastImproveAt: number | null; lastDiagnosis: string | null } {
     return { lastImproveAt: this.lastImproveAt, lastDiagnosis: this.lastDiagnosis };
   }
+
+  // -- Alerts -------------------------------------------------------------
+
+  addAlert(level: AlertLevel, title: string, message: string): Alert {
+    const alert: Alert = {
+      id: randomUUID(),
+      time: Date.now(),
+      level,
+      title,
+      message,
+      acknowledged: false,
+    };
+    this.alerts.push(alert);
+    if (this.alerts.length > MAX_ALERTS) {
+      this.alerts.splice(0, this.alerts.length - MAX_ALERTS);
+    }
+    schedulePersist();
+    return alert;
+  }
+
+  getAlerts(limit = 100): Alert[] {
+    return this.alerts.slice(-limit).reverse();
+  }
+
+  acknowledgeAlerts(): number {
+    let n = 0;
+    for (const a of this.alerts) {
+      if (!a.acknowledged) {
+        a.acknowledged = true;
+        n++;
+      }
+    }
+    if (n > 0) schedulePersist();
+    return n;
+  }
+
+  // -- Persistence --------------------------------------------------------
+
+  private snapshot() {
+    return {
+      config: this.config,
+      equity: this.equity,
+      trades: this.trades,
+      decisions: this.decisions,
+      proposals: this.proposals,
+      alerts: this.alerts,
+      lastImproveAt: this.lastImproveAt,
+      lastDiagnosis: this.lastDiagnosis,
+    };
+  }
+
+  private restore(data: unknown): void {
+    const d = data as Partial<ReturnType<Storage["snapshot"]>>;
+    if (d.config) this.config = { ...DEFAULT_CONFIG, ...d.config };
+    if (Array.isArray(d.equity)) this.equity = d.equity;
+    if (Array.isArray(d.trades)) this.trades = d.trades;
+    if (Array.isArray(d.decisions)) this.decisions = d.decisions;
+    if (Array.isArray(d.proposals)) this.proposals = d.proposals;
+    if (Array.isArray(d.alerts)) this.alerts = d.alerts;
+    this.lastImproveAt = d.lastImproveAt ?? null;
+    this.lastDiagnosis = d.lastDiagnosis ?? null;
+  }
+
+  registerWithPersistence(): void {
+    registerPersistence(
+      "storage",
+      () => this.snapshot(),
+      (data) => this.restore(data),
+    );
+  }
 }
 
 export const storage = new Storage();
+storage.registerWithPersistence();

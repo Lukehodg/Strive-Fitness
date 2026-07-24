@@ -21,6 +21,7 @@ import type {
   AutonomyLevel,
   MLStatus,
   FeatureImportance,
+  Alert,
 } from "@shared/schema";
 
 export type {
@@ -42,7 +43,13 @@ export type {
   AutonomyLevel,
   MLStatus,
   FeatureImportance,
+  Alert,
 };
+
+export interface AlertsResponse {
+  alerts: Alert[];
+  telegramConfigured: boolean;
+}
 
 export interface StrategyParamInfo {
   strategyId: string;
@@ -97,6 +104,7 @@ export const api = {
   improveParams: () => json<StrategyParamInfo[]>("/api/improve/params"),
   proposals: () => json<ProposalsResponse>("/api/improve/proposals"),
   mlStatus: () => json<import("@shared/schema").MLStatus>("/api/ml/status"),
+  alerts: () => json<AlertsResponse>("/api/alerts"),
 
   start: () => apiRequest("POST", "/api/control/start"),
   stop: () => apiRequest("POST", "/api/control/stop"),
@@ -105,6 +113,7 @@ export const api = {
     apiRequest("PATCH", "/api/config", patch),
   runImprove: () => apiRequest("POST", "/api/improve/run"),
   trainMl: () => apiRequest("POST", "/api/ml/train"),
+  ackAlerts: () => apiRequest("POST", "/api/alerts/ack"),
   applyProposal: (id: string) =>
     apiRequest("POST", `/api/improve/proposals/${id}/apply`),
   rejectProposal: (id: string) =>
