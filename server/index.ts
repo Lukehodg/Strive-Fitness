@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { networkInterfaces } from "os";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -66,5 +67,13 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    // Print the LAN address so you can open the app on your phone (same Wi-Fi).
+    for (const addrs of Object.values(networkInterfaces())) {
+      for (const a of addrs ?? []) {
+        if (a.family === "IPv4" && !a.internal) {
+          log(`on your phone (same Wi-Fi): http://${a.address}:${port}`);
+        }
+      }
+    }
   });
 })();
