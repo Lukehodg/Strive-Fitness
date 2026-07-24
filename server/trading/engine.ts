@@ -1,0 +1,382 @@
+// The trading engine. This is the orchestrator that runs on an interval and,
+// on each tick: pulls fresh market data, (optionally) re-selects the best
+// strategy, gets a signal, runs it through the risk manager, places orders via
+// the active broker, and records everything to storage.
+//
+// Safety posture:
+//  - Defaults to paper mode; live mode requires explicit config AND Alpaca keys.
+//  - A daily-loss kill-switch halts all new entries until manually resumed.
+//  - Every risk block and order is written to the decision log for audit.
+
+import type {
+  BotConfig,
+  BotStatus,
+  Candle,
+  MarketRegime,
+  Position,
+  Trade,
+} from "@shared/schema";
+import { storage } from "../storage";
+import {
+  PaperBroker,
+  AlpacaBroker,
+  readAlpacaCredentials,
+  type Broker,
+} from "./brokers";
+import { createMarketFeed, type MarketFeed } from "./marketData";
+import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
+import { selectStrategy } from "./aiSelector";
+import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
+
+const CANDLE_COUNT = 200;
+/** Re-run AI strategy selection at most this often (ms). */
+const RESELECT_INTERVAL_MS = 5 * 60_000;
+
+class TradingEngine {
+  private feed: MarketFeed = createMarketFeed();
+  private broker: Broker = new PaperBroker(10_000);
+  private timer: NodeJS.Timeout | null = null;
+
+  private running = false;
+  private halted = false;
+  private haltReason: string | undefined;
+
+  private activeStrategy: Strategy = STRATEGIES.sma_trend;
+  private regime: MarketRegime | "unknown" = "unknown";
+  private lastSelectionAt = 0;
+
+  private dayStartEquity = 10_000;
+  private dayStamp = new Date().toDateString();
+  private lastPrice: number | null = null;
+  private lastEvaluatedAt: number | null = null;
+
+  // Order-rate limiting: count orders within the current minute.
+  private orderMinute = 0;
+  private ordersThisMinute = 0;
+
+  // Track our open entry so we can record a completed Trade on exit. The
+  // broker holds authoritative position state; this mirrors entry metadata.
+  private openEntry: { price: number; time: number; strategyId: string } | null =
+    null;
+
+  constructor() {
+    this.applyConfigBroker(storage.getConfig());
+  }
+
+  // -- Broker wiring ------------------------------------------------------
+
+  /** Choose the broker implementation based on mode + available credentials. */
+  private applyConfigBroker(config: BotConfig): void {
+    const creds = readAlpacaCredentials();
+    if (config.mode === "live" && creds) {
+      this.broker = new AlpacaBroker(creds);
+    } else {
+      // Keep the existing paper broker if we already have one running, so
+      // switching config mid-session doesn't wipe simulated balance.
+      if (!(this.broker instanceof PaperBroker)) {
+        this.broker = new PaperBroker(10_000);
+      }
+    }
+  }
+
+  liveKeysConfigured(): boolean {
+    return readAlpacaCredentials() !== null;
+  }
+
+  // -- Lifecycle ----------------------------------------------------------
+
+  start(): void {
+    if (this.running) return;
+    this.running = true;
+    storage.log("resume", "Engine started");
+    this.scheduleNext();
+    // Kick an immediate evaluation so the UI updates right away.
+    void this.tick();
+  }
+
+  stop(): void {
+    this.running = false;
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    storage.log("info", "Engine stopped");
+  }
+
+  /** Clear a tripped kill-switch and allow new entries again. */
+  resume(): void {
+    this.halted = false;
+    this.haltReason = undefined;
+    // Reset the daily baseline so the limit measures from here forward.
+    this.dayStartEquity = storage.latestEquity()?.equity ?? this.dayStartEquity;
+    storage.log("resume", "Kill-switch cleared; trading resumed");
+  }
+
+  private scheduleNext(): void {
+    if (!this.running) return;
+    const config = storage.getConfig();
+    const ms = Math.max(5, config.intervalSeconds) * 1000;
+    this.timer = setTimeout(() => {
+      void this.tick().finally(() => this.scheduleNext());
+    }, ms);
+  }
+
+  // -- Main loop ----------------------------------------------------------
+
+  private async tick(): Promise<void> {
+    try {
+      const config = storage.getConfig();
+      this.applyConfigBroker(config);
+
+      const candles = await this.feed.getCandles(config.symbol, CANDLE_COUNT);
+      if (!candles.length) return;
+      const price = candles[candles.length - 1].close;
+      this.lastPrice = price;
+      this.broker.mark(config.symbol, price);
+
+      this.rolloverDayIfNeeded();
+      this.rolloverMinuteIfNeeded();
+
+      const account = await this.broker.getAccount(price);
+      storage.addEquityPoint({
+        time: Date.now(),
+        equity: account.equity,
+        cash: account.cash,
+      });
+      if (this.dayStartEquity <= 0) this.dayStartEquity = account.equity;
+
+      // Kill-switch: stop opening new risk if the daily loss limit is hit.
+      if (
+        !this.halted &&
+        isDailyLossBreached({
+          config,
+          equity: account.equity,
+          dayStartEquity: this.dayStartEquity,
+        })
+      ) {
+        this.halted = true;
+        this.haltReason = `Daily loss limit of ${(
+          config.dailyLossLimitPct * 100
+        ).toFixed(1)}% reached`;
+        storage.log("halt", this.haltReason);
+      }
+
+      // Pick the strategy (AI auto-select or user's fixed choice).
+      this.updateStrategy(config, candles);
+
+      const position = await this.broker.getPosition(config.symbol);
+      const hasPosition = position !== null && position.qty > 0;
+
+      // Enforce per-trade stop-loss / take-profit before strategy logic.
+      if (hasPosition && position && (await this.checkProtectiveExit(config, position, price))) {
+        this.lastEvaluatedAt = Date.now();
+        return;
+      }
+
+      const signal = this.activeStrategy.evaluate(candles, hasPosition);
+      this.lastEvaluatedAt = Date.now();
+
+      if (signal.action === "buy" && !hasPosition) {
+        await this.handleBuy(config, account, price, signal.strength, signal.reason);
+      } else if (signal.action === "sell" && hasPosition && position) {
+        await this.handleSell(config, position, price, signal.reason);
+      }
+    } catch (err) {
+      storage.log("info", `Tick error: ${(err as Error).message}`);
+    }
+  }
+
+  private updateStrategy(config: BotConfig, candles: Candle[]): void {
+    if (config.autoSelectStrategy) {
+      const now = Date.now();
+      if (now - this.lastSelectionAt >= RESELECT_INTERVAL_MS) {
+        this.lastSelectionAt = now;
+        const result = selectStrategy(candles);
+        this.regime = result.regime;
+        if (result.chosen.meta.id !== this.activeStrategy.meta.id) {
+          storage.log(
+            "strategy_switch",
+            result.rationale,
+            result.chosen.meta.id,
+          );
+        }
+        this.activeStrategy = result.chosen;
+      }
+    } else {
+      const chosen = getStrategy(config.activeStrategyId);
+      if (chosen && chosen.meta.id !== this.activeStrategy.meta.id) {
+        this.activeStrategy = chosen;
+        storage.log(
+          "strategy_switch",
+          `Manually set active strategy to ${chosen.meta.name}`,
+          chosen.meta.id,
+        );
+      }
+    }
+  }
+
+  /** Returns true if a protective stop/target fired and we exited. */
+  private async checkProtectiveExit(
+    config: BotConfig,
+    position: Position,
+    price: number,
+  ): Promise<boolean> {
+    const change = (price - position.avgEntryPrice) / position.avgEntryPrice;
+    let reason: string | null = null;
+    if (change <= -config.stopLossPct) {
+      reason = `Stop-loss: ${(change * 100).toFixed(2)}%`;
+    } else if (change >= config.takeProfitPct) {
+      reason = `Take-profit: +${(change * 100).toFixed(2)}%`;
+    }
+    if (!reason) return false;
+    await this.handleSell(config, position, price, reason);
+    return true;
+  }
+
+  private async handleBuy(
+    config: BotConfig,
+    account: { cash: number; equity: number },
+    price: number,
+    strength: number,
+    reason: string,
+  ): Promise<void> {
+    if (this.halted) {
+      storage.log("risk_block", `Buy blocked — ${this.haltReason}`);
+      return;
+    }
+    const ctx: RiskContext = {
+      config,
+      equity: account.equity,
+      dayStartEquity: this.dayStartEquity,
+      cash: account.cash,
+      price,
+      hasPosition: false,
+      ordersThisMinute: this.ordersThisMinute,
+    };
+    const decision = vetBuy(ctx, strength);
+    if (!decision.allowed) {
+      storage.log("risk_block", `Buy blocked — ${decision.reason}`, this.activeStrategy.meta.id);
+      return;
+    }
+
+    const order = await this.broker.submitOrder(
+      { symbol: config.symbol, side: "buy", qty: decision.qty, reason },
+      price,
+    );
+    this.ordersThisMinute++;
+    if (order.status === "filled") {
+      this.openEntry = {
+        price: order.price,
+        time: order.createdAt,
+        strategyId: this.activeStrategy.meta.id,
+      };
+      storage.log(
+        "order",
+        `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(
+          2,
+        )} — ${reason} (${decision.reason})`,
+        this.activeStrategy.meta.id,
+      );
+    } else {
+      storage.log("info", `Buy rejected — ${order.message}`);
+    }
+  }
+
+  private async handleSell(
+    config: BotConfig,
+    position: Position,
+    price: number,
+    reason: string,
+  ): Promise<void> {
+    const order = await this.broker.submitOrder(
+      { symbol: config.symbol, side: "sell", qty: position.qty, reason },
+      price,
+    );
+    this.ordersThisMinute++;
+    if (order.status !== "filled") {
+      storage.log("info", `Sell rejected — ${order.message}`);
+      return;
+    }
+
+    const entryPrice = this.openEntry?.price ?? position.avgEntryPrice;
+    const entryTime = this.openEntry?.time ?? position.openedAt;
+    const strategyId = this.openEntry?.strategyId ?? this.activeStrategy.meta.id;
+    const pnl = (order.price - entryPrice) * order.qty;
+    const trade: Trade = {
+      id: order.id,
+      symbol: config.symbol,
+      strategy: strategyId,
+      qty: order.qty,
+      entryPrice,
+      exitPrice: order.price,
+      entryTime,
+      exitTime: order.createdAt,
+      pnl,
+      returnPct: (order.price - entryPrice) / entryPrice,
+      reason,
+    };
+    storage.addTrade(trade);
+    this.openEntry = null;
+    storage.log(
+      "order",
+      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(
+        2,
+      )} — ${reason} | P&L ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`,
+      strategyId,
+    );
+  }
+
+  // -- Housekeeping -------------------------------------------------------
+
+  private rolloverDayIfNeeded(): void {
+    const today = new Date().toDateString();
+    if (today !== this.dayStamp) {
+      this.dayStamp = today;
+      this.dayStartEquity = storage.latestEquity()?.equity ?? this.dayStartEquity;
+      // A new day clears a loss-limit halt automatically.
+      if (this.halted) {
+        this.halted = false;
+        this.haltReason = undefined;
+        storage.log("resume", "New trading day — kill-switch reset");
+      }
+    }
+  }
+
+  private rolloverMinuteIfNeeded(): void {
+    const minute = Math.floor(Date.now() / 60_000);
+    if (minute !== this.orderMinute) {
+      this.orderMinute = minute;
+      this.ordersThisMinute = 0;
+    }
+  }
+
+  // -- Status readout -----------------------------------------------------
+
+  getStatus(): BotStatus {
+    const config = storage.getConfig();
+    return {
+      running: this.running,
+      halted: this.halted,
+      haltReason: this.haltReason,
+      mode: config.mode,
+      liveKeysConfigured: this.liveKeysConfigured(),
+      symbol: config.symbol,
+      activeStrategyId: this.activeStrategy.meta.id,
+      activeStrategyName: this.activeStrategy.meta.name,
+      regime: this.regime,
+      lastEvaluatedAt: this.lastEvaluatedAt,
+      lastPrice: this.lastPrice,
+    };
+  }
+
+  async getPosition(): Promise<Position | null> {
+    const config = storage.getConfig();
+    return this.broker.getPosition(config.symbol);
+  }
+
+  get feedSource(): "alpaca" | "synthetic" {
+    return this.feed.source;
+  }
+}
+
+export const engine = new TradingEngine();

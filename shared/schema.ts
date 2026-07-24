@@ -1,419 +1,267 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, real, date } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+// Trading platform domain model.
+//
+// Everything the client and server share lives here as plain TypeScript
+// types plus a few zod schemas for request validation. The platform runs
+// fully in-memory by default (no database required), so there are no ORM
+// tables here — persistence is optional and layered on top in storage.ts.
+
 import { z } from "zod";
 
-// Define subscription plan types for validation
-export const SubscriptionPlanTypes = [
-  'basic',
-  'advanced',
-  'trial' // 7-day trial of advanced features
+// ---------------------------------------------------------------------------
+// Market data
+// ---------------------------------------------------------------------------
+
+/** A single OHLCV candle. `time` is epoch milliseconds at the bar's open. */
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// ---------------------------------------------------------------------------
+// Orders, positions, trades
+// ---------------------------------------------------------------------------
+
+export const OrderSides = ["buy", "sell"] as const;
+export type OrderSide = (typeof OrderSides)[number];
+
+export const OrderStatuses = ["filled", "rejected", "pending"] as const;
+export type OrderStatus = (typeof OrderStatuses)[number];
+
+/** A request the engine hands to a broker. */
+export interface OrderRequest {
+  symbol: string;
+  side: OrderSide;
+  /** Quantity in base units (e.g. BTC). */
+  qty: number;
+  /** Free-text reason recorded for the audit log. */
+  reason?: string;
+}
+
+/** The broker's response to an order request. */
+export interface Order {
+  id: string;
+  symbol: string;
+  side: OrderSide;
+  qty: number;
+  price: number;
+  status: OrderStatus;
+  reason?: string;
+  message?: string;
+  createdAt: number;
+}
+
+/** An open position in a single symbol. */
+export interface Position {
+  symbol: string;
+  /** Positive for long. This platform is long/flat only (no shorting). */
+  qty: number;
+  avgEntryPrice: number;
+  /** Latest mark price used for unrealized P&L. */
+  markPrice: number;
+  unrealizedPnl: number;
+  openedAt: number;
+}
+
+/** A completed round-trip (entry closed by an exit). */
+export interface Trade {
+  id: string;
+  symbol: string;
+  strategy: string;
+  qty: number;
+  entryPrice: number;
+  exitPrice: number;
+  entryTime: number;
+  exitTime: number;
+  /** Realized profit/loss in quote currency (e.g. USD). */
+  pnl: number;
+  /** Return on the trade as a fraction (0.02 = +2%). */
+  returnPct: number;
+  reason: string;
+}
+
+// ---------------------------------------------------------------------------
+// Strategies & signals
+// ---------------------------------------------------------------------------
+
+export type SignalAction = "buy" | "sell" | "hold";
+
+/** A strategy's decision for the current bar. */
+export interface Signal {
+  action: SignalAction;
+  /** Conviction in [0, 1]; used for position sizing. */
+  strength: number;
+  reason: string;
+}
+
+export interface StrategyMeta {
+  id: string;
+  name: string;
+  description: string;
+  /** Market regimes this strategy is designed for. */
+  bestRegimes: MarketRegime[];
+}
+
+// ---------------------------------------------------------------------------
+// Market regime (used by the AI selector)
+// ---------------------------------------------------------------------------
+
+export const MarketRegimes = [
+  "trending_up",
+  "trending_down",
+  "ranging",
+  "volatile",
 ] as const;
+export type MarketRegime = (typeof MarketRegimes)[number];
 
-// Define health metric types for validation
-export const HealthMetricTypes = [
-  'blood_pressure',
-  'heart_rate',
-  'blood_glucose',
-  'weight',
-  'body_fat',
-  'sleep_duration',
-  'sleep_quality',
-  'oxygen_saturation',
-  'temperature',
-  'cholesterol',
-  'respiration_rate',
-  'hrv',
-  'stress_level',
-  'steps'
+// ---------------------------------------------------------------------------
+// Equity & performance
+// ---------------------------------------------------------------------------
+
+export interface EquityPoint {
+  time: number;
+  /** Total account value: cash + marked-to-market positions. */
+  equity: number;
+  cash: number;
+}
+
+export interface PerformanceStats {
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnl: number;
+  /** Largest peak-to-trough equity drop as a fraction. */
+  maxDrawdown: number;
+  /** Mean return per trade as a fraction. */
+  avgReturn: number;
+}
+
+// ---------------------------------------------------------------------------
+// Bot configuration & status
+// ---------------------------------------------------------------------------
+
+export const TradingModes = ["paper", "live"] as const;
+export type TradingMode = (typeof TradingModes)[number];
+
+/** User-tunable configuration. All risk limits are enforced server-side. */
+export interface BotConfig {
+  /** Trading symbol, e.g. "BTC/USD". */
+  symbol: string;
+  /** paper = simulated fills; live = real broker orders (requires keys). */
+  mode: TradingMode;
+  /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
+  maxPositionPct: number;
+  /** Hard stop: if equity drops this fraction below the day's start, halt. */
+  dailyLossLimitPct: number;
+  /** Per-trade stop-loss as a fraction below entry. */
+  stopLossPct: number;
+  /** Per-trade take-profit as a fraction above entry. */
+  takeProfitPct: number;
+  /** How often the engine evaluates, in seconds. */
+  intervalSeconds: number;
+  /** When true the AI selector chooses the active strategy automatically. */
+  autoSelectStrategy: boolean;
+  /** Active strategy id (used when autoSelectStrategy is false). */
+  activeStrategyId: string;
+}
+
+export const DEFAULT_CONFIG: BotConfig = {
+  symbol: "BTC/USD",
+  mode: "paper",
+  maxPositionPct: 0.25,
+  dailyLossLimitPct: 0.05,
+  stopLossPct: 0.03,
+  takeProfitPct: 0.06,
+  intervalSeconds: 30,
+  autoSelectStrategy: true,
+  activeStrategyId: "sma_trend",
+};
+
+export interface BotStatus {
+  running: boolean;
+  /** True when the kill-switch (daily loss limit) has tripped. */
+  halted: boolean;
+  haltReason?: string;
+  mode: TradingMode;
+  /** Whether real broker credentials are configured. */
+  liveKeysConfigured: boolean;
+  symbol: string;
+  activeStrategyId: string;
+  activeStrategyName: string;
+  regime: MarketRegime | "unknown";
+  lastEvaluatedAt: number | null;
+  lastPrice: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Audit / decision log
+// ---------------------------------------------------------------------------
+
+export const DecisionKinds = [
+  "signal",
+  "order",
+  "risk_block",
+  "strategy_switch",
+  "halt",
+  "resume",
+  "info",
 ] as const;
+export type DecisionKind = (typeof DecisionKinds)[number];
 
-// Define exercise categories for validation
-export const ExerciseCategories = [
-  'strength',
-  'bodyweight',
-  'cardio',
-  'endurance',
-  'hiit',
-  'functional'
-] as const;
+/** One line in the human-readable audit trail shown in the UI. */
+export interface DecisionLogEntry {
+  id: string;
+  time: number;
+  kind: DecisionKind;
+  strategy?: string;
+  message: string;
+}
 
-// Define exercise measurement types for validation
-export const ExerciseMeasurementTypes = [
-  'weight_reps', // Traditional weight lifting (bench press: 100kg x 10 reps)
-  'distance_time', // Running, swimming (5km in 25min)
-  'reps_only', // Bodyweight exercises (20 push-ups)
-  'time_only', // Plank (60 seconds)
-  'distance_only', // Sled push (20 meters)
-  'calories', // Rowing, biking (100 calories)
-  'laps', // Swimming (10 laps)
-  'height', // Box jumps (24-inch box)
-  'custom' // User defined measurement
-] as const;
+// ---------------------------------------------------------------------------
+// Backtest results
+// ---------------------------------------------------------------------------
 
-// Define workout types for validation
-export const WorkoutTypes = [
-  'traditional', // Standard strength training
-  'endurance', // Endurance or HYROX-style workouts
-  'hiit', // High intensity interval training
-  'cardio', // Pure cardio sessions
-  'circuit', // Circuit training
-  'custom' // User-defined formats
-] as const;
+export interface BacktestResult {
+  strategyId: string;
+  strategyName: string;
+  stats: PerformanceStats;
+  finalEquity: number;
+  startEquity: number;
+  returnPct: number;
+}
 
-// Define medication types for validation
-export const MedicationTypes = [
-  'tablet',
-  'capsule',
-  'liquid',
-  'injection',
-  'topical',
-  'inhaler',
-  'patch',
-  'drops',
-  'spray',
-  'powder',
-  'other'
-] as const;
+/** One strategy's score from the AI selector's ranking. */
+export interface StrategyScore {
+  strategyId: string;
+  strategyName: string;
+  score: number;
+  returnPct: number;
+  winRate: number;
+  maxDrawdown: number;
+  trades: number;
+  regimeFit: boolean;
+}
 
-// Define injection sites for validation
-export const InjectionSites = [
-  'left_arm',
-  'right_arm',
-  'left_thigh',
-  'right_thigh',
-  'abdomen',
-  'buttocks',
-  'deltoid',
-  'other'
-] as const;
+// ---------------------------------------------------------------------------
+// Request validation schemas
+// ---------------------------------------------------------------------------
 
-// User model
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull(),
-  password: text("password").notNull(),
-  displayName: text("display_name").notNull(),
-  height: real("height"),
-  weight: real("weight"),
-  bodyFat: real("body_fat"),
-  dailyCalorieTarget: integer("daily_calorie_target"),
-  dailyStepTarget: integer("daily_step_target"),
-  dailyProteinTarget: integer("daily_protein_target"),
-  dailyCarbsTarget: integer("daily_carbs_target"),
-  dailyFatTarget: integer("daily_fat_target"),
-  profileType: text("profile_type").default("standard"),
-  dashboardWidgets: json("dashboard_widgets"),
-  subscriptionPlan: text("subscription_plan").default("free").notNull(),
-  subscriptionExpiry: timestamp("subscription_expiry"),
-  stripeCustomerId: text("stripe_customer_id"),
-});
+export const updateConfigSchema = z
+  .object({
+    symbol: z.string().min(3).max(20),
+    mode: z.enum(TradingModes),
+    maxPositionPct: z.number().min(0.01).max(1),
+    dailyLossLimitPct: z.number().min(0.005).max(0.5),
+    stopLossPct: z.number().min(0.005).max(0.5),
+    takeProfitPct: z.number().min(0.005).max(2),
+    intervalSeconds: z.number().int().min(5).max(3600),
+    autoSelectStrategy: z.boolean(),
+    activeStrategyId: z.string().min(1),
+  })
+  .partial();
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-});
-
-// Exercise model
-export const exercises = pgTable("exercises", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  category: text("category").notNull(),
-  muscleGroup: text("muscle_group").notNull(),
-  description: text("description"),
-  measurementType: text("measurement_type").default("weight_reps"),
-  defaultTarget: json("default_target"), // Stores target values based on measurementType
-  isEndurance: boolean("is_endurance").default(false),
-});
-
-export const insertExerciseSchema = createInsertSchema(exercises).omit({
-  id: true,
-});
-
-// Workout templates model
-export const workoutTemplates = pgTable("workout_templates", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  name: text("name").notNull(),
-  exerciseCount: integer("exercise_count").notNull(),
-  duration: integer("duration").notNull(),
-  color: text("color").default("#3F51B5"),
-  scheduledDay: text("scheduled_day"), // Monday, Tuesday, etc.
-  description: text("description"),
-  workoutType: text("workout_type").default("traditional"), // traditional, endurance, hiit, etc.
-  targetTimeInMinutes: integer("target_time_in_minutes"), // For endurance/HYROX workouts
-  rounds: integer("rounds"), // For circuit/HIIT workouts
-  isReversed: boolean("is_reversed").default(false), // For completing exercises in reverse order (HYROX type)
-});
-
-export const insertWorkoutTemplateSchema = createInsertSchema(workoutTemplates).omit({
-  id: true,
-});
-
-// Workout template exercises junction table
-export const workoutTemplateExercises = pgTable("workout_template_exercises", {
-  id: serial("id").primaryKey(),
-  workoutTemplateId: integer("workout_template_id").notNull(),
-  exerciseId: integer("exercise_id").notNull(),
-  sets: integer("sets").notNull(),
-  repsMin: integer("reps_min").notNull(),
-  repsMax: integer("reps_max").notNull(),
-  restSeconds: integer("rest_seconds"),
-  order: integer("order").notNull(),
-  // Endurance workout specific fields
-  distance: real("distance"), // Distance in meters/kilometers
-  duration: integer("duration"), // Duration in seconds
-  targetType: text("target_type").default("reps"), // reps, time, distance, calories
-  targetValue: real("target_value"), // The target value based on targetType
-  intervals: integer("intervals"), // Number of intervals for HIIT
-  workToRestRatio: text("work_to_rest_ratio"), // Format: "40:20" (40s work, 20s rest)
-});
-
-export const insertWorkoutTemplateExerciseSchema = createInsertSchema(workoutTemplateExercises).omit({
-  id: true,
-});
-
-// Completed workout model
-export const completedWorkouts = pgTable("completed_workouts", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  workoutTemplateId: integer("workout_template_id").notNull(),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time"),
-  isCompleted: boolean("is_completed").default(false),
-});
-
-export const insertCompletedWorkoutSchema = createInsertSchema(completedWorkouts).omit({
-  id: true,
-  endTime: true,
-  isCompleted: true,
-});
-
-// Workout sets model
-export const workoutSets = pgTable("workout_sets", {
-  id: serial("id").primaryKey(),
-  completedWorkoutId: integer("completed_workout_id").notNull(),
-  exerciseId: integer("exercise_id").notNull(),
-  weight: real("weight"),
-  reps: integer("reps"),
-  rpe: integer("rpe"),
-  setNumber: integer("set_number").notNull(),
-  setType: text("set_type").default("working").notNull(), // 'warmup' or 'working'
-  isCompleted: boolean("is_completed").default(false),
-  timestamp: timestamp("timestamp").notNull(),
-  // Fields for endurance and other workout types
-  distance: real("distance"), // Distance in meters
-  duration: integer("duration"), // Time in seconds
-  pace: real("pace"), // Time per distance unit (e.g., minutes per km)
-  calories: integer("calories"), // Calories burned
-  heartRate: integer("heart_rate"), // Average heart rate during the set
-  laps: integer("laps"), // Number of laps
-  notes: text("notes"), // Additional notes
-  perceivedEffort: integer("perceived_effort"), // Scale 1-10
-  elevationGain: real("elevation_gain"), // For climbing/hill exercises
-  measurementType: text("measurement_type").default("weight_reps"), // Same as exercise.measurementType
-  metricValue: json("metric_value"), // Flexible storage for any metric type
-});
-
-export const insertWorkoutSetSchema = createInsertSchema(workoutSets).omit({
-  id: true,
-});
-
-// Activity model
-export const activities = pgTable("activities", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  type: text("type").notNull(), // workout, meal, medication
-  title: text("title").notNull(),
-  description: text("description"),
-  startTime: timestamp("start_time"),
-  endTime: timestamp("end_time"),
-  date: timestamp("date").notNull(),
-  isCompleted: boolean("is_completed").default(false),
-  metadata: json("metadata"),
-});
-
-export const insertActivitySchema = createInsertSchema(activities).omit({
-  id: true,
-});
-
-// Nutrition/meals model
-export const meals = pgTable("meals", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  name: text("name").notNull(),
-  timestamp: timestamp("timestamp").notNull(),
-  calories: integer("calories").notNull(),
-  protein: real("protein").notNull(),
-  carbs: real("carbs").notNull(),
-  fat: real("fat").notNull(),
-  foods: json("foods").notNull(),
-});
-
-export const insertMealSchema = createInsertSchema(meals).omit({
-  id: true,
-});
-
-// Daily stats tracking
-export const dailyStats = pgTable("daily_stats", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  date: timestamp("date").notNull(),
-  caloriesConsumed: integer("calories_consumed").default(0),
-  caloriesBurned: integer("calories_burned").default(0),
-  proteinConsumed: real("protein_consumed").default(0),
-  carbsConsumed: real("carbs_consumed").default(0),
-  fatConsumed: real("fat_consumed").default(0),
-  stepsCount: integer("steps_count").default(0),
-  waterIntake: real("water_intake").default(0),
-  weightMeasurement: real("weight_measurement"),
-});
-
-export const insertDailyStatsSchema = createInsertSchema(dailyStats).omit({
-  id: true,
-});
-
-// Health metrics model
-export const healthMetrics = pgTable("health_metrics", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  timestamp: timestamp("timestamp").notNull(),
-  metricType: text("metric_type").notNull(), // blood_pressure, heart_rate, blood_glucose, etc.
-  value: real("value"), // For numeric values like heart rate
-  systolic: integer("systolic"), // For blood pressure - top number
-  diastolic: integer("diastolic"), // For blood pressure - bottom number
-  notes: text("notes"),
-  tags: json("tags"), // For storing additional metadata or tags
-});
-
-export const insertHealthMetricSchema = createInsertSchema(healthMetrics).omit({
-  id: true,
-});
-
-// Define types
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
-export type Exercise = typeof exercises.$inferSelect;
-export type InsertExercise = z.infer<typeof insertExerciseSchema>;
-
-export type WorkoutTemplate = typeof workoutTemplates.$inferSelect;
-export type InsertWorkoutTemplate = z.infer<typeof insertWorkoutTemplateSchema>;
-
-export type WorkoutTemplateExercise = typeof workoutTemplateExercises.$inferSelect;
-export type InsertWorkoutTemplateExercise = z.infer<typeof insertWorkoutTemplateExerciseSchema>;
-
-export type CompletedWorkout = typeof completedWorkouts.$inferSelect;
-export type InsertCompletedWorkout = z.infer<typeof insertCompletedWorkoutSchema>;
-
-export type WorkoutSet = typeof workoutSets.$inferSelect;
-export type InsertWorkoutSet = z.infer<typeof insertWorkoutSetSchema>;
-
-export type ExerciseCategory = typeof ExerciseCategories[number];
-export type ExerciseMeasurementType = typeof ExerciseMeasurementTypes[number];
-export type WorkoutType = typeof WorkoutTypes[number];
-
-export type Activity = typeof activities.$inferSelect;
-export type InsertActivity = z.infer<typeof insertActivitySchema>;
-
-export type Meal = typeof meals.$inferSelect;
-export type InsertMeal = z.infer<typeof insertMealSchema>;
-
-export type DailyStats = typeof dailyStats.$inferSelect;
-export type InsertDailyStats = z.infer<typeof insertDailyStatsSchema>;
-
-// Medications model
-export const medications = pgTable("medications", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  name: text("name").notNull(),
-  type: text("type").notNull(), // tablet, capsule, liquid, injection, etc.
-  dosage: text("dosage").notNull(), // e.g., "10mg", "5ml"
-  frequency: text("frequency").notNull(), // e.g., "once daily", "twice daily"
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date"), // Optional end date
-  notes: text("notes"),
-  isActive: boolean("is_active").default(true),
-});
-
-export const insertMedicationSchema = createInsertSchema(medications).omit({
-  id: true,
-});
-
-// Medication schedule model
-export const medicationSchedule = pgTable("medication_schedule", {
-  id: serial("id").primaryKey(),
-  medicationId: integer("medication_id").notNull(),
-  scheduledTime: timestamp("scheduled_time").notNull(),
-  takenTime: timestamp("taken_time"),
-  isTaken: boolean("is_taken").default(false),
-  skipped: boolean("skipped").default(false),
-  notes: text("notes"),
-  injectionSite: text("injection_site"), // For injections only
-});
-
-export const insertMedicationScheduleSchema = createInsertSchema(medicationSchedule).omit({
-  id: true,
-  takenTime: true,
-  isTaken: true,
-  skipped: true,
-});
-
-export type HealthMetric = typeof healthMetrics.$inferSelect;
-export type InsertHealthMetric = z.infer<typeof insertHealthMetricSchema>;
-export type HealthMetricType = typeof HealthMetricTypes[number];
-
-export type Medication = typeof medications.$inferSelect;
-export type InsertMedication = z.infer<typeof insertMedicationSchema>;
-export type MedicationType = typeof MedicationTypes[number];
-
-// Subscription plans model
-export const subscriptionPlans = pgTable("subscription_plans", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  price: real("price").notNull(),
-  billingCycle: text("billing_cycle").notNull(), // monthly, annually
-  features: json("features").notNull(), // Array of features included
-  stripePriceId: text("stripe_price_id"), // Stripe price ID for billing
-  isActive: boolean("is_active").default(true),
-  maxWorkoutTemplates: integer("max_workout_templates"),
-  maxHealthMetrics: integer("max_health_metrics"),
-  maxMedications: integer("max_medications"),
-  allowsAnalytics: boolean("allows_analytics").default(false),
-  allowsHealthIntegrations: boolean("allows_health_integrations").default(false),
-  allowsCustomWorkouts: boolean("allows_custom_workouts").default(false),
-  allowsPdfUpload: boolean("allows_pdf_upload").default(false),
-});
-
-export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
-  id: true,
-});
-
-// Subscription transactions model
-export const subscriptionTransactions = pgTable("subscription_transactions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  subscriptionPlanId: integer("subscription_plan_id").notNull(),
-  amount: real("amount").notNull(),
-  status: text("status").notNull(), // succeeded, failed, pending
-  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
-  paymentMethod: text("payment_method"),
-  stripePaymentIntentId: text("stripe_payment_intent_id"),
-  receiptUrl: text("receipt_url"),
-  metadata: json("metadata"),
-});
-
-export const insertSubscriptionTransactionSchema = createInsertSchema(subscriptionTransactions).omit({
-  id: true,
-  transactionDate: true,
-});
-
-export type MedicationSchedule = typeof medicationSchedule.$inferSelect;
-export type InsertMedicationSchedule = z.infer<typeof insertMedicationScheduleSchema>;
-export type InjectionSite = typeof InjectionSites[number];
-
-export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
-export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
-export type SubscriptionPlanType = typeof SubscriptionPlanTypes[number];
-
-export type SubscriptionTransaction = typeof subscriptionTransactions.$inferSelect;
-export type InsertSubscriptionTransaction = z.infer<typeof insertSubscriptionTransactionSchema>;
+export type UpdateConfigInput = z.infer<typeof updateConfigSchema>;
