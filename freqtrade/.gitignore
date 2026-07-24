@@ -1,0 +1,11 @@
+# Freqtrade runtime data — never commit these.
+user_data/logs/
+user_data/data/
+user_data/models/
+user_data/backtest_results/
+user_data/hyperopt_results/
+user_data/notebooks/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+__pycache__/

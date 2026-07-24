@@ -10,6 +10,18 @@ for current market conditions, and shows everything on one dashboard.
 > paper for weeks before you even consider real money. Nothing here is
 > financial advice.
 
+## Two engines
+
+Strive has two interchangeable trading engines:
+
+- **Built-in (this app)** — a lightweight, zero-setup TypeScript engine with its
+  own dashboard, AI strategy selection, self-improvement loop, and ML signal
+  model. Great for exploring and running instantly.
+- **Freqtrade** (`freqtrade/`) — a mature, production crypto bot (real exchange
+  execution, backtesting, hyperopt, and the **FreqAI** ML pipeline) wired up
+  with our strategies and a rich, Qlib-style feature set. Recommended for
+  anything approaching real money. See [`freqtrade/README.md`](freqtrade/README.md).
+
 ## Quick start (zero config)
 
 ```bash

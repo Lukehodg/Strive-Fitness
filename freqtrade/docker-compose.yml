@@ -1,0 +1,33 @@
+---
+# Freqtrade — one-command run for the Strive personal bot.
+#
+# Classic strategy (default): uses the `stable` image.
+# FreqAI (ML):                switch the image to `stable_freqai` and change the
+#                             command (see freqtrade/README.md).
+services:
+  freqtrade:
+    image: freqtradeorg/freqtrade:stable
+    # For FreqAI, use the ML image instead (bundles LightGBM/torch etc.):
+    # image: freqtradeorg/freqtrade:stable_freqai
+    restart: unless-stopped
+    container_name: strive-freqtrade
+    volumes:
+      - "./user_data:/freqtrade/user_data"
+    # Bind to localhost only; open the UI at http://127.0.0.1:8080
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: >
+      trade
+      --logfile /freqtrade/user_data/logs/freqtrade.log
+      --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
+      --config /freqtrade/user_data/config.json
+      --strategy StriveStrategy
+    # --- FreqAI variant (comment the command above, uncomment below) ---
+    # command: >
+    #   trade
+    #   --logfile /freqtrade/user_data/logs/freqtrade.log
+    #   --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
+    #   --config /freqtrade/user_data/config.json
+    #   --config /freqtrade/user_data/config-freqai.json
+    #   --freqaimodel LightGBMRegressor
+    #   --strategy StriveFreqAI

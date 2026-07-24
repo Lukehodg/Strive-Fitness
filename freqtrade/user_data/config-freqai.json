@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.freqtrade.io/schema.json",
+  "comment": "Overlay config for FreqAI. Use ALONGSIDE config.json, e.g. `-c user_data/config.json -c user_data/config-freqai.json`. Requires the freqtradeorg/freqtrade:stable_freqai Docker image (bundles the ML deps).",
+  "timeframe": "1h",
+  "freqaimodel": "LightGBMRegressor",
+  "freqai": {
+    "enabled": true,
+    "identifier": "strive-lgbm",
+    "train_period_days": 30,
+    "backtest_period_days": 7,
+    "expiration_hours": 168,
+    "purge_old_models": 2,
+    "save_backtest_models": true,
+    "write_metrics_to_disk": true,
+    "fit_live_predictions_candles": 300,
+    "feature_parameters": {
+      "include_timeframes": ["1h", "4h"],
+      "include_corr_pairlist": ["BTC/USDT", "ETH/USDT"],
+      "label_period_candles": 24,
+      "include_shifted_candles": 2,
+      "DI_threshold": 0.9,
+      "weight_factor": 0.9,
+      "principal_component_analysis": false,
+      "use_SVM_to_remove_outliers": true,
+      "indicator_periods_candles": [10, 20, 50],
+      "noise_standard_deviation": 0.01,
+      "plot_feature_importances": 0
+    },
+    "data_split_parameters": {
+      "test_size": 0.33,
+      "shuffle": false
+    },
+    "model_training_parameters": {
+      "n_estimators": 1000,
+      "learning_rate": 0.02,
+      "num_leaves": 64
+    }
+  }
+}
