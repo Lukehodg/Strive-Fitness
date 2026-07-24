@@ -77,6 +77,25 @@ Each cycle (default hourly, plus an on-demand **Run analysis now** button):
    Claude reads the strategy source and recent trades and returns a plain-English
    diagnosis plus concrete, code-level improvement ideas.
 
+Every candidate improvement must also survive a **backtest-integrity audit**
+(after Bailey & López de Prado — see
+[How-To-Backtest-Correctly](https://github.com/Neyt/How-To-Backtest-Correctly)):
+
+- **PBO (Probability of Backtest Overfitting)** via combinatorially symmetric
+  cross-validation: instead of one walk-forward path, every candidate is scored
+  across all C(8,4)=70 train/test group combinations, measuring how often the
+  in-sample winner ranks *below median* out-of-sample. **PBO > 5% ⇒ rejected**
+  as presumed overfit (rejections are logged so you can see the gate working).
+- **Deflated Sharpe Ratio (DSR)**: each Sharpe is measured against the Sharpe
+  the *best of N trials* would reach by pure luck — the multiple-testing
+  correction. ~50% = indistinguishable from the luckiest random trial. Shown
+  per strategy on the Strategies tab and on proposals.
+- **Embargo** between train/test windows, and **slippage** (on top of fees) in
+  every backtest fill.
+
+Expect proposals to be *rare* — that's the point. Most "improvements" found by
+searching parameters are luck, and the audit now says so out loud.
+
 Everything surfaces as **proposals** on the AI Lab tab, with the out-of-sample
 evidence shown. How much applies automatically is your call, set by the
 **autonomy** level:
@@ -186,7 +205,9 @@ server/
     riskManager.ts      Hard risk limits
     engine.ts           The orchestration loop
   ai/
-    optimizer.ts        Walk-forward parameter optimization
+    optimizer.ts        Walk-forward parameter optimization (+ PBO/DSR gate)
+    metrics.ts          Sharpe, Probabilistic/Deflated Sharpe, MinTRL
+    cscv.ts             Probability of Backtest Overfitting (CSCV)
     analyst.ts          Claude API code/trade review (optional)
     improver.ts         Self-improvement loop + autonomy gating
   ml/

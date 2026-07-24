@@ -19,13 +19,26 @@ import type {
 } from "@shared/schema";
 import { backtestStrategy } from "../trading/backtester";
 import { strategyWithParams, type Strategy } from "../trading/strategies";
+import { deflatedSharpe, kurtosis, skewness } from "./metrics";
+import { probabilityOfBacktestOverfitting } from "./cscv";
 
 /** Fraction of history used for training; the rest is the held-out test set. */
 const TRAIN_FRACTION = 0.65;
+/**
+ * Embargo: bars skipped between train and test so autocorrelated features
+ * can't leak information across the boundary.
+ */
+const EMBARGO_BARS = 10;
 /** Random candidate sets to sample from the parameter space. */
 const SAMPLES = 120;
 /** A candidate must beat the baseline out-of-sample by at least this much. */
 const MIN_IMPROVEMENT = 0.01; // 1 percentage point of return
+/**
+ * Probability-of-Backtest-Overfitting ceiling (per the CSCV literature):
+ * if the in-sample winner ranks below median OOS in more than 5% of
+ * combinatorial splits, the "improvement" is presumed overfit and rejected.
+ */
+const PBO_MAX = 0.05;
 
 export interface OptimizationOutcome {
   strategyId: string;
@@ -87,15 +100,18 @@ export function optimizeStrategy(
 
   const split = Math.floor(candles.length * TRAIN_FRACTION);
   const train = candles.slice(0, split);
-  const test = candles.slice(split);
+  // Embargo: leave a gap after the training window before testing begins.
+  const test = candles.slice(Math.min(candles.length, split + EMBARGO_BARS));
 
   const rand = mulberry32(candles.length + specs.length * 7919);
 
   // 1. Search the training window (include current params as a candidate).
+  const candidates: StrategyParams[] = [currentParams];
   let best: StrategyParams = currentParams;
   let bestTrainScore = scoreOf(strategy, currentParams, train).score;
   for (let i = 0; i < SAMPLES; i++) {
     const cand = randomParams(specs, rand);
+    candidates.push(cand);
     const s = scoreOf(strategy, cand, train).score;
     if (s > bestTrainScore) {
       bestTrainScore = s;
@@ -120,11 +136,42 @@ export function optimizeStrategy(
   const sameAsCurrent = specs.every(
     (s) => Math.abs((best[s.key] ?? 0) - (currentParams[s.key] ?? 0)) < 1e-9,
   );
-  const accept =
+  let accept =
     !sameAsCurrent &&
     improvement >= MIN_IMPROVEMENT &&
     candidateOos.returnPct > 0 &&
     candidateOos.trades >= 3;
+
+  // 4. Overfitting audit (only when the candidate would otherwise pass):
+  //    backtest EVERY candidate over the full history, then ask via CSCV how
+  //    often the in-sample winner would rank below median out-of-sample (PBO),
+  //    and deflate the winner's Sharpe for the number of trials searched.
+  if (accept) {
+    const fullRuns = candidates.map(
+      (p) => backtestStrategy(strategyWithParams(strategy, p), candles),
+    );
+    const matrix = fullRuns.map((r) => r.returns ?? []);
+    const pboResult = probabilityOfBacktestOverfitting(matrix, 8);
+
+    const bestIdx = candidates.indexOf(best);
+    const bestReturns = matrix[bestIdx] ?? [];
+    const trialSharpes = fullRuns.map((r) => r.sharpe);
+    const dsr =
+      bestReturns.length > 2
+        ? deflatedSharpe(
+            fullRuns[bestIdx].sharpe,
+            bestReturns.length,
+            skewness(bestReturns),
+            kurtosis(bestReturns),
+            trialSharpes,
+          )
+        : undefined;
+
+    if (pboResult) validation.pbo = pboResult.pbo;
+    if (dsr !== undefined) validation.deflatedSharpe = dsr;
+    // The literature's rule: reject when overfit probability exceeds 5%.
+    if (pboResult && pboResult.pbo > PBO_MAX) accept = false;
+  }
 
   return {
     strategyId: strategy.meta.id,

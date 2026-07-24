@@ -14,6 +14,7 @@ import { selectStrategy } from "./trading/aiSelector";
 import { createMarketFeed } from "./trading/marketData";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
+import { deflatedSharpe, kurtosis, skewness } from "./ai/metrics";
 import { signalModel } from "./ml/signalModel";
 import { updateConfigSchema } from "@shared/schema";
 import type { PerformanceStats } from "@shared/schema";
@@ -102,7 +103,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         config.takeProfitPct,
       ),
     ).sort((a, b) => b.returnPct - a.returnPct);
-    res.json({ symbol, candleCount: candles.length, results });
+
+    // Deflate each Sharpe for the number of strategies compared (the
+    // "best of N looks good by chance" correction), then strip the bulky
+    // per-bar returns before responding.
+    const trialSharpes = results.map((r) => r.sharpe);
+    const payload = results.map((r) => {
+      const rets = r.returns ?? [];
+      const dsr =
+        rets.length > 2
+          ? deflatedSharpe(r.sharpe, rets.length, skewness(rets), kurtosis(rets), trialSharpes)
+          : undefined;
+      const { returns: _returns, ...rest } = r;
+      return { ...rest, deflatedSharpe: dsr };
+    });
+    res.json({ symbol, candleCount: candles.length, results: payload });
   });
 
   // Ask the AI selector what it would pick right now (transparency endpoint).

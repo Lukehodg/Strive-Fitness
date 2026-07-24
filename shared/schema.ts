@@ -154,6 +154,8 @@ export interface PerformanceStats {
   maxDrawdown: number;
   /** Mean return per trade as a fraction. */
   avgReturn: number;
+  /** Per-bar Sharpe ratio of the equity curve (not annualized). */
+  sharpe: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +274,15 @@ export interface BacktestResult {
   finalEquity: number;
   startEquity: number;
   returnPct: number;
+  /** Per-bar Sharpe of the backtest equity curve. */
+  sharpe: number;
+  /**
+   * Deflated Sharpe Ratio: P(true Sharpe > best-of-N-trials-by-chance).
+   * ~0.5 = indistinguishable from luck; near 1 = likely genuine.
+   */
+  deflatedSharpe?: number;
+  /** Per-bar equity returns (server-side only; stripped from API responses). */
+  returns?: number[];
 }
 
 /** One strategy's score from the AI selector's ranking. */
@@ -312,6 +323,13 @@ export interface ProposalValidation {
   /** outOfSampleReturn − baselineOutOfSampleReturn. Positive = genuine edge. */
   improvement: number;
   outOfSampleTrades: number;
+  /**
+   * Probability of Backtest Overfitting (CSCV): how often the in-sample
+   * winner ranks below median out-of-sample. Must be ≤ 0.05 to apply.
+   */
+  pbo?: number;
+  /** Deflated Sharpe of the winning candidate vs all trials. */
+  deflatedSharpe?: number;
 }
 
 /** A single improvement the engine surfaces (and may auto-apply). */

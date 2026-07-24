@@ -152,6 +152,19 @@ class Improver {
           this.applyAutonomy(proposal);
           storage.addProposal(proposal);
           created.push(proposal);
+        } else if (
+          outcome.validation?.pbo !== undefined &&
+          outcome.validation.pbo > 0.05
+        ) {
+          // A candidate beat the walk-forward test but failed the CSCV
+          // overfitting audit — surface that the gate did its job.
+          storage.log(
+            "risk_block",
+            `Rejected a candidate tune for ${strategy.meta.name}: passed ` +
+              `walk-forward but failed the overfitting audit ` +
+              `(PBO ${(outcome.validation.pbo * 100).toFixed(0)}% > 5%).`,
+            id,
+          );
         }
       }
 
@@ -213,6 +226,18 @@ class Improver {
     validation: ImprovementProposal["validation"],
   ): ImprovementProposal {
     const improvementPct = ((validation?.improvement ?? 0) * 100).toFixed(1);
+    let rationale =
+      `Walk-forward optimization found a parameter set that beats the current ` +
+      `one by ${improvementPct}% on out-of-sample data (data the search never ` +
+      `saw).`;
+    if (validation?.pbo !== undefined) {
+      rationale +=
+        ` Overfitting audit: PBO ${(validation.pbo * 100).toFixed(1)}% ` +
+        `(≤5% required)` +
+        (validation.deflatedSharpe !== undefined
+          ? `, deflated Sharpe confidence ${(validation.deflatedSharpe * 100).toFixed(0)}%.`
+          : ".");
+    }
     return {
       id: randomUUID(),
       createdAt: Date.now(),
@@ -221,10 +246,7 @@ class Improver {
       kind: "param",
       status: "pending",
       title: `Tune ${strategyName} parameters`,
-      rationale:
-        `Walk-forward optimization found a parameter set that beats the current ` +
-        `one by ${improvementPct}% on out-of-sample data (data the search never ` +
-        `saw). This guards against overfitting.`,
+      rationale,
       source: "optimizer",
       currentParams: current,
       proposedParams: proposed,

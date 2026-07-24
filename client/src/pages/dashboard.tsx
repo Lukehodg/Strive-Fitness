@@ -251,6 +251,8 @@ export default function Dashboard() {
                       <th className="px-4 py-2 font-medium text-right">Return</th>
                       <th className="px-4 py-2 font-medium text-right">Win rate</th>
                       <th className="px-4 py-2 font-medium text-right">Max DD</th>
+                      <th className="px-4 py-2 font-medium text-right">Sharpe</th>
+                      <th className="px-4 py-2 font-medium text-right" title="Deflated Sharpe: probability the edge is real after correcting for trying multiple strategies. ~50% = luck.">DSR</th>
                       <th className="px-4 py-2 font-medium text-right">Trades</th>
                     </tr>
                   </thead>
@@ -264,6 +266,10 @@ export default function Dashboard() {
                         <td className={`px-4 py-2 text-right ${r.returnPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>{pct(r.returnPct)}</td>
                         <td className="px-4 py-2 text-right text-gray-300">{pct(r.stats.winRate)}</td>
                         <td className="px-4 py-2 text-right text-gray-300">{pct(r.stats.maxDrawdown)}</td>
+                        <td className="px-4 py-2 text-right text-gray-300">{r.sharpe.toFixed(3)}</td>
+                        <td className={`px-4 py-2 text-right ${(r.deflatedSharpe ?? 0.5) > 0.7 ? "text-emerald-400" : "text-gray-400"}`}>
+                          {r.deflatedSharpe !== undefined ? `${(r.deflatedSharpe * 100).toFixed(0)}%` : "—"}
+                        </td>
                         <td className="px-4 py-2 text-right text-gray-300">{r.stats.totalTrades}</td>
                       </tr>
                     ))}
@@ -600,6 +606,14 @@ function ProposalCard({ p, onApply, onReject, busy }: { p: ImprovementProposal; 
         <p className="mt-2 text-xs text-gray-500">
           Out-of-sample: {pct(p.validation.outOfSampleReturn)} vs current {pct(p.validation.baselineOutOfSampleReturn)}
           {" · "}<span className="text-emerald-400">+{pct(p.validation.improvement)} edge</span> over {p.validation.outOfSampleTrades} trades
+          {p.validation.pbo !== undefined && (
+            <>
+              {" · "}overfit prob (PBO) <span className={p.validation.pbo <= 0.05 ? "text-emerald-400" : "text-red-400"}>{(p.validation.pbo * 100).toFixed(1)}%</span>
+            </>
+          )}
+          {p.validation.deflatedSharpe !== undefined && (
+            <> · DSR {(p.validation.deflatedSharpe * 100).toFixed(0)}%</>
+          )}
         </p>
       )}
 

@@ -8,6 +8,7 @@ import type {
   PerformanceStats,
   Trade,
 } from "@shared/schema";
+import { sharpe as sharpeOf } from "../ai/metrics";
 import type { Strategy } from "./strategies";
 
 interface OpenLot {
@@ -17,6 +18,10 @@ interface OpenLot {
 }
 
 const FEE_RATE = 0.001;
+/** Adverse fill assumption per side — you rarely get the printed price. */
+const SLIPPAGE_RATE = 0.0005;
+/** Total per-side transaction cost applied to every fill. */
+const COST_RATE = FEE_RATE + SLIPPAGE_RATE;
 /** Bars of warm-up before signals are taken (indicators need history). */
 const WARMUP = 35;
 
@@ -44,7 +49,7 @@ export function backtestStrategy(
       if (change <= -stopLossPct) forcedExit = "Stop-loss hit";
       else if (change >= takeProfitPct) forcedExit = "Take-profit hit";
       if (forcedExit) {
-        cash += open.qty * price * (1 - FEE_RATE);
+        cash += open.qty * price * (1 - COST_RATE);
         trades.push(closeTrade(strategy, open, bar, forcedExit));
         open = null;
       }
@@ -55,10 +60,10 @@ export function backtestStrategy(
     if (!open && signal.action === "buy") {
       const notional = cash * 0.95; // leave a little for fees
       const qty = notional / price;
-      cash -= qty * price * (1 + FEE_RATE);
+      cash -= qty * price * (1 + COST_RATE);
       open = { entryPrice: price, entryTime: bar.time, qty };
     } else if (open && signal.action === "sell") {
-      cash += open.qty * price * (1 - FEE_RATE);
+      cash += open.qty * price * (1 - COST_RATE);
       trades.push(closeTrade(strategy, open, bar, signal.reason));
       open = null;
     }
@@ -70,13 +75,20 @@ export function backtestStrategy(
   // Close any position at the last price so equity is fully realized.
   if (open) {
     const last = candles[candles.length - 1];
-    cash += open.qty * last.close * (1 - FEE_RATE);
+    cash += open.qty * last.close * (1 - COST_RATE);
     trades.push(closeTrade(strategy, open, last, "End of backtest"));
     open = null;
   }
 
   const finalEquity = cash;
   const stats = computeStats(trades, equityCurve);
+
+  // Per-bar equity returns — the series the statistical tests operate on.
+  const returns: number[] = [];
+  for (let i = 1; i < equityCurve.length; i++) {
+    returns.push(equityCurve[i] / equityCurve[i - 1] - 1);
+  }
+
   return {
     strategyId: strategy.meta.id,
     strategyName: strategy.meta.name,
@@ -84,6 +96,8 @@ export function backtestStrategy(
     startEquity,
     finalEquity,
     returnPct: (finalEquity - startEquity) / startEquity,
+    sharpe: sharpeOf(returns),
+    returns,
   };
 }
 
@@ -131,6 +145,11 @@ export function computeStats(
     }
   }
 
+  const curveReturns: number[] = [];
+  for (let i = 1; i < equityCurve.length; i++) {
+    curveReturns.push(equityCurve[i] / equityCurve[i - 1] - 1);
+  }
+
   return {
     totalTrades: trades.length,
     wins,
@@ -139,5 +158,6 @@ export function computeStats(
     totalPnl,
     maxDrawdown: maxDd,
     avgReturn,
+    sharpe: sharpeOf(curveReturns),
   };
 }
