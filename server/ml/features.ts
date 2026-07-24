@@ -1,13 +1,18 @@
 // Feature engineering for the ML signal model.
 //
 // At each bar we turn recent price action into a fixed vector of numeric
-// features the classifier can learn from. The features are all standard,
-// interpretable technical signals — the model learns how to *weight* them,
-// which is exactly what makes its output inspectable (the learned weight on
-// each named feature is its importance).
+// features the classifier can learn from. These are all standard, interpretable
+// technical signals drawn from the TA/quant literature — the model learns how
+// to *weight* them, which is what makes its output inspectable (the learned
+// weight on each named feature is its importance).
 
 import type { Candle } from "@shared/schema";
-import { sma, rsi, stddev, highest, lowest } from "../trading/indicators";
+import { sma, ema, rsi, stddev, atr, highest, lowest } from "../trading/indicators";
+import {
+  tripleBarrierLabel,
+  DEFAULT_TRIPLE_BARRIER,
+  type TripleBarrierOptions,
+} from "./labeling";
 
 /** Human-readable names, in the same order features are emitted. */
 export const FEATURE_NAMES = [
@@ -15,15 +20,18 @@ export const FEATURE_NAMES = [
   "return_5", // 5-bar return
   "rsi_14", // RSI, scaled to 0..1
   "sma_ratio", // fast/slow MA spread
-  "momentum_10", // price vs its 10-bar average
-  "volatility_10", // recent return volatility
+  "ema_spread", // MACD-style fast/slow EMA spread, normalized
+  "momentum_20", // price vs its 20-bar average
+  "bollinger_b", // %b: position within Bollinger bands
+  "atr_pct", // Average True Range as a fraction of price
+  "volume_ratio", // volume vs its 20-bar average
   "range_pos_20", // where price sits in its 20-bar range
 ] as const;
 
 /** Bars of history required before features are defined. */
 export const MIN_LOOKBACK = 30;
-/** Forward horizon (bars) used to label "did price go up?". */
-export const LABEL_HORIZON = 5;
+/** Forward horizon (bars) used by the labeler; also the CV purge size. */
+export const LABEL_HORIZON = DEFAULT_TRIPLE_BARRIER.horizon;
 
 /**
  * Extract the feature vector for bar index `i`, using only data up to and
@@ -31,8 +39,8 @@ export const LABEL_HORIZON = 5;
  */
 export function extractFeatures(candles: Candle[], i: number): number[] | null {
   if (i < MIN_LOOKBACK) return null;
-  const window = candles.slice(0, i + 1);
-  const c = window.map((x) => x.close);
+  const w = candles.slice(0, i + 1);
+  const c = w.map((x) => x.close);
   const price = c[c.length - 1];
 
   const ret1 = price / c[c.length - 2] - 1;
@@ -45,19 +53,51 @@ export function extractFeatures(candles: Candle[], i: number): number[] | null {
   const slow = sma(c, 30);
   const smaRatio = fast !== null && slow !== null ? fast / slow - 1 : 0;
 
-  const avg10 = sma(c, 10);
-  const momentum = avg10 !== null ? price / avg10 - 1 : 0;
+  const ema12 = ema(c, 12);
+  const ema26 = ema(c, 26);
+  const emaSpread = ema12 !== null && ema26 !== null ? (ema12 - ema26) / price : 0;
 
-  // Volatility: stddev of the last 10 simple returns.
-  const rets: number[] = [];
-  for (let k = c.length - 10; k < c.length; k++) rets.push(c[k] / c[k - 1] - 1);
-  const vol = stddev(rets, rets.length) ?? 0;
+  const avg20 = sma(c, 20);
+  const momentum = avg20 !== null ? price / avg20 - 1 : 0;
+
+  // Bollinger %b over 20 bars, 2 std.
+  const mid = sma(c, 20);
+  const sd = stddev(c, 20);
+  let bollB = 0.5;
+  if (mid !== null && sd !== null && sd > 0) {
+    const lower = mid - 2 * sd;
+    const upper = mid + 2 * sd;
+    bollB = (price - lower) / (upper - lower);
+  }
+
+  const atrVal = atr(
+    w.map((x) => x.high),
+    w.map((x) => x.low),
+    c,
+    14,
+  );
+  const atrPct = atrVal !== null ? atrVal / price : 0;
+
+  const volumes = w.map((x) => x.volume);
+  const vAvg = sma(volumes, 20);
+  const volRatio = vAvg && vAvg > 0 ? volumes[volumes.length - 1] / vAvg - 1 : 0;
 
   const hi = highest(c, 20);
   const lo = lowest(c, 20);
   const rangePos = hi !== null && lo !== null && hi > lo ? (price - lo) / (hi - lo) : 0.5;
 
-  return [ret1, ret5, rsiScaled, smaRatio, momentum, vol, rangePos];
+  return [
+    ret1,
+    ret5,
+    rsiScaled,
+    smaRatio,
+    emaSpread,
+    momentum,
+    bollB,
+    atrPct,
+    volRatio,
+    rangePos,
+  ];
 }
 
 export interface Dataset {
@@ -66,20 +106,24 @@ export interface Dataset {
 }
 
 /**
- * Build a supervised dataset from candles: features at bar i, labelled 1 if the
- * forward return over LABEL_HORIZON bars is positive, else 0.
+ * Build a supervised dataset from candles: features at bar i, labelled by the
+ * triple-barrier method (1 = a take-profit move happened before a stop within
+ * the horizon; 0 otherwise).
  */
-export function buildDataset(candles: Candle[]): Dataset {
+export function buildDataset(
+  candles: Candle[],
+  labelOpts: TripleBarrierOptions = DEFAULT_TRIPLE_BARRIER,
+): Dataset {
   const X: number[][] = [];
   const y: number[] = [];
-  const end = candles.length - LABEL_HORIZON - 1;
+  const end = candles.length - labelOpts.horizon - 1;
   for (let i = MIN_LOOKBACK; i <= end; i++) {
     const feats = extractFeatures(candles, i);
     if (!feats) continue;
-    const future = candles[i + LABEL_HORIZON].close;
-    const now = candles[i].close;
+    const label = tripleBarrierLabel(candles, i, labelOpts);
+    if (label === null) continue;
     X.push(feats);
-    y.push(future > now ? 1 : 0);
+    y.push(label);
   }
   return { X, y };
 }

@@ -345,6 +345,20 @@ export interface FeatureImportance {
   weight: number;
 }
 
+/** Where the training data came from. */
+export interface MLDataInfo {
+  /** "real" = downloaded market history, "live"/"synthetic" = the runtime feed. */
+  source: "real" | "live" | "synthetic";
+  symbol: string;
+  /** Candle interval used for training (e.g. "1h"). */
+  interval: string;
+  /** Number of candles the training dataset was built from. */
+  bars: number;
+  /** Epoch ms of the first and last training candle. */
+  from: number | null;
+  to: number | null;
+}
+
 /** Public status of the trainable ML signal model. */
 export interface MLStatus {
   trained: boolean;
@@ -353,15 +367,25 @@ export interface MLStatus {
   samples: number;
   /** In-sample accuracy (optimistic — for reference only). */
   trainAccuracy: number;
-  /** Out-of-sample accuracy on a held-out window (the honest number). */
+  /** Purged walk-forward out-of-sample accuracy (the honest number). */
   validationAccuracy: number;
   /** True when validationAccuracy clears the "better than chance" floor. */
   tradable: boolean;
   /** Minimum validation accuracy required before the model may trade. */
   tradableFloor: number;
+  /** Accuracy of always predicting the majority class (the real bar to beat). */
+  baselineRate: number;
   featureImportances: FeatureImportance[];
   /** Latest predicted probability that price rises over the horizon. */
   lastProbability: number | null;
+  /** How validation accuracy was estimated. */
+  validationMethod: string;
+  /** Labeling scheme used. */
+  labeling: string;
+  /** Provenance of the training data. */
+  dataInfo: MLDataInfo | null;
+  /** True when the current model was loaded from a saved (trained) file. */
+  fromDisk: boolean;
 }
 
 // ---------------------------------------------------------------------------

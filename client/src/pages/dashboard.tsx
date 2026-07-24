@@ -354,7 +354,8 @@ function MlModelCard() {
   });
   const s = ml.data;
   const valAcc = s ? s.validationAccuracy * 100 : 0;
-  const edge = s ? (s.validationAccuracy - 0.5) * 100 : 0;
+  // Honest edge = how much it beats the naive majority-class baseline.
+  const edge = s ? (s.validationAccuracy - s.baselineRate) * 100 : 0;
   const maxWeight = s?.featureImportances.reduce((m, f) => Math.max(m, Math.abs(f.weight)), 0) || 1;
 
   return (
@@ -376,11 +377,31 @@ function MlModelCard() {
           A logistic-regression model that learns from market features to predict the probability of a price rise. It generates the buy/sell signals directly. To use it, pick <span className="text-gray-200">ML Signal Model</span> as your strategy (or leave AI auto-select on).
         </p>
 
+        {s?.dataInfo && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge className={s.dataInfo.source === "real" ? "bg-emerald-700" : "bg-gray-700"}>
+              {s.dataInfo.source === "real" ? "trained on real market data" : `trained on ${s.dataInfo.source} data`}
+            </Badge>
+            <span className="text-gray-500">
+              {s.dataInfo.bars.toLocaleString()} {s.dataInfo.interval} candles
+              {s.dataInfo.from && s.dataInfo.to
+                ? ` · ${new Date(s.dataInfo.from).toLocaleDateString()} → ${new Date(s.dataInfo.to).toLocaleDateString()}`
+                : ""}
+              {" · "}{s.labeling} labels · {s.validationMethod}
+            </span>
+          </div>
+        )}
+        {s?.dataInfo?.source !== "real" && (
+          <p className="text-xs text-amber-500/80">
+            Currently trained on the runtime feed. Run <code className="bg-[#1E1E1E] px-1 rounded">npm run train</code> to train on years of real market history and save a mature model.
+          </p>
+        )}
+
         {s?.trained ? (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <MlStat label="Validation accuracy" value={`${valAcc.toFixed(1)}%`} positive={s.tradable} sub="out-of-sample (honest)" />
-              <MlStat label="Edge vs coin-flip" value={`${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`} positive={edge > (s.tradableFloor - 0.5) * 100} />
+              <MlStat label="Validation accuracy" value={`${valAcc.toFixed(1)}%`} positive={s.tradable} sub="purged walk-forward" />
+              <MlStat label="Edge vs baseline" value={`${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`} positive={s.tradable} sub={`baseline ${(s.baselineRate * 100).toFixed(0)}%`} />
               <MlStat label="Training accuracy" value={`${(s.trainAccuracy * 100).toFixed(1)}%`} sub="in-sample (optimistic)" />
               <MlStat label="Current signal" value={s.lastProbability !== null ? `${(s.lastProbability * 100).toFixed(0)}% up` : "—"} sub={`${s.samples} samples`} />
             </div>
@@ -418,7 +439,7 @@ function MlModelCard() {
           </Button>
         </div>
         <p className="text-xs text-gray-600">
-          The model refuses to trade unless its out-of-sample accuracy beats {((s?.tradableFloor ?? 0.52) * 100).toFixed(0)}%. On real markets, expect accuracy far closer to 50% than on demo data — signal prediction is genuinely hard, which is why this gate exists.
+          The model refuses to trade unless its purged out-of-sample accuracy beats both {((s?.tradableFloor ?? 0.52) * 100).toFixed(0)}% and the majority-class baseline — so it can't be fooled by a one-sided market. On real markets, expect the edge to be small; signal prediction is genuinely hard, which is why this gate exists.
         </p>
       </CardContent>
     </Card>

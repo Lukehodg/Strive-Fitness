@@ -100,12 +100,38 @@ that generates buy/sell signals itself** — the "ML Signal Model" strategy.
   guessing produces no signals and stays flat.
 
 > Reality check: on real markets, short-horizon direction is genuinely close to
-> a coin flip. Expect validation accuracy far nearer 50% than the demo data
-> shows. The tradable-floor gate exists precisely so an unconvincing model
-> can't put money at risk.
+> a coin flip. Expect the *edge over baseline* to be small. The tradable gate
+> exists precisely so an unconvincing model can't put money at risk.
 
 To use it, select **ML Signal Model** as your strategy, or leave AI auto-select
 on and let the selector choose it when it's earning its keep.
+
+### Training on real market data (`npm run train`)
+
+Out of the box the model trains on the runtime feed. To *mature* it, train on
+years of real history from free public data (no API key):
+
+```bash
+npm run train                                  # BTC/USD, hourly, ~2 years
+npm run train -- --symbol ETH/USD --bars 26000 # more/other data
+npm run train -- --refresh                     # force a fresh download
+```
+
+This downloads real OHLCV (Binance, falling back to CryptoCompare), trains, and
+**saves the model to disk** (`data/ml-model.json`). The app loads that mature
+model on startup and won't overwrite it with light live-feed retraining.
+
+The pipeline uses techniques from the quant-ML literature to stay honest:
+
+- **Triple-barrier labeling** (López de Prado) — labels a bar by whether a
+  volatility-scaled profit target is hit before a stop within a horizon, rather
+  than a naive "is it higher N bars later?".
+- **Purged, embargoed walk-forward cross-validation** — the reported accuracy is
+  out-of-sample with future-leakage removed around each fold boundary.
+- **Majority-class baseline gate** — the model must beat "always predict the
+  majority" by a margin, so a one-sided market can't fake an edge.
+- **Richer features** — MACD-style EMA spread, Bollinger %b, ATR, and volume,
+  on top of returns / RSI / momentum / range position.
 
 ## Risk controls (always on)
 
@@ -152,9 +178,13 @@ server/
     analyst.ts          Claude API code/trade review (optional)
     improver.ts         Self-improvement loop + autonomy gating
   ml/
-    features.ts         Market feature engineering + dataset labelling
+    dataSource.ts       Real historical OHLCV downloader (Binance/CryptoCompare)
+    features.ts         Market feature engineering
+    labeling.ts         Triple-barrier labeling
+    cv.ts               Purged walk-forward cross-validation
     logistic.ts         Logistic-regression classifier (train/predict)
     signalModel.ts      Trainable signal model (learns, validates, predicts)
+    train.ts            `npm run train` CLI — train on real data, save model
 client/
   src/pages/dashboard.tsx   Single-page dashboard
   src/lib/api.ts            Typed API client

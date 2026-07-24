@@ -37,17 +37,37 @@ class Improver {
   private running = false;
 
   start(): void {
-    // Train the ML signal model once on startup so it's ready immediately.
-    void this.trainSignalModel();
+    // Prefer a mature model trained on real data (via `npm run train`).
+    if (signalModel.loadFromDisk()) {
+      const s = signalModel.status();
+      storage.log(
+        "info",
+        `Loaded saved ML model (${s.dataInfo?.source ?? "?"} data, ` +
+          `val ${(s.validationAccuracy * 100).toFixed(1)}%). Won't be overwritten by live retrains.`,
+      );
+    } else {
+      // No saved model — train on the runtime feed so it's ready immediately.
+      void this.trainSignalModel();
+    }
     this.scheduleNext();
   }
 
-  /** Retrain the ML signal model on the latest history. Returns val accuracy. */
+  private trainMeta() {
+    return {
+      source: (this.feed.source === "alpaca" ? "live" : "synthetic") as
+        | "live"
+        | "synthetic",
+      symbol: storage.getConfig().symbol,
+      interval: "runtime",
+    };
+  }
+
+  /** Retrain the ML signal model on the latest runtime feed. */
   async trainSignalModel(): Promise<number | null> {
     try {
       const config = storage.getConfig();
       const candles = await this.feed.getCandles(config.symbol, CANDLES_FOR_OPTIMIZATION);
-      const acc = signalModel.train(candles);
+      const acc = signalModel.train(candles, this.trainMeta());
       if (acc !== null) {
         const s = signalModel.status();
         storage.log(
@@ -100,8 +120,12 @@ class Improver {
         CANDLES_FOR_OPTIMIZATION,
       );
 
-      // Retrain the ML signal model on the latest data (it keeps learning).
-      signalModel.train(candles);
+      // Retrain the ML signal model on the latest data (it keeps learning) —
+      // unless a mature model trained on real history is loaded, which we
+      // never overwrite with the small live window.
+      if (!signalModel.fromDisk) {
+        signalModel.train(candles, this.trainMeta());
+      }
 
       const currentParams: Record<string, StrategyParams> = {};
       const optimizerFindings: { strategyId: string; improvement: number }[] = [];

@@ -56,3 +56,6 @@ web-build/
 # Database
 *.sqlite
 *.sqlite3
+
+# Downloaded market data + trained ML model
+/data
