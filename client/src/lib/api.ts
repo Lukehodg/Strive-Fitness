@@ -19,6 +19,8 @@ import type {
   ParamSpec,
   StrategyParams,
   AutonomyLevel,
+  MLStatus,
+  FeatureImportance,
 } from "@shared/schema";
 
 export type {
@@ -38,6 +40,8 @@ export type {
   ParamSpec,
   StrategyParams,
   AutonomyLevel,
+  MLStatus,
+  FeatureImportance,
 };
 
 export interface StrategyParamInfo {
@@ -92,6 +96,7 @@ export const api = {
 
   improveParams: () => json<StrategyParamInfo[]>("/api/improve/params"),
   proposals: () => json<ProposalsResponse>("/api/improve/proposals"),
+  mlStatus: () => json<import("@shared/schema").MLStatus>("/api/ml/status"),
 
   start: () => apiRequest("POST", "/api/control/start"),
   stop: () => apiRequest("POST", "/api/control/stop"),
@@ -99,6 +104,7 @@ export const api = {
   updateConfig: (patch: UpdateConfigInput) =>
     apiRequest("PATCH", "/api/config", patch),
   runImprove: () => apiRequest("POST", "/api/improve/run"),
+  trainMl: () => apiRequest("POST", "/api/ml/train"),
   applyProposal: (id: string) =>
     apiRequest("POST", `/api/improve/proposals/${id}/apply`),
   rejectProposal: (id: string) =>

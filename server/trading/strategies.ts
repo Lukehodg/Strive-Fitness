@@ -19,6 +19,7 @@ import type {
   StrategyParams,
 } from "@shared/schema";
 import { sma, rsi, highest, lowest } from "./indicators";
+import { signalModel } from "../ml/signalModel";
 
 export interface Strategy {
   meta: StrategyMeta;
@@ -214,6 +215,47 @@ const breakout = defineStrategy(
 );
 
 // ---------------------------------------------------------------------------
+// 4. ML signal (learned logistic-regression classifier)
+// ---------------------------------------------------------------------------
+
+const mlSignal = defineStrategy(
+  {
+    id: "ml_signal",
+    name: "ML Signal Model",
+    description:
+      "A trainable logistic-regression model that learns from market features (RSI, moving-average ratios, momentum, volatility) to predict the probability of a price rise, and trades on that probability. Only trades when its out-of-sample accuracy beats chance.",
+    bestRegimes: ["trending_up", "ranging", "volatile"],
+  },
+  [
+    { key: "buyThreshold", label: "Buy probability", min: 0.5, max: 0.75, step: 0.01, default: 0.55 },
+    { key: "exitThreshold", label: "Exit probability", min: 0.3, max: 0.5, step: 0.01, default: 0.45 },
+  ],
+  (p, candles, hasPosition) => {
+    // Safety gate: an untrained or coin-flip model produces no signals.
+    if (!signalModel.isTradable()) return HOLD;
+    const prob = signalModel.predictProba(candles);
+    if (prob === null) return HOLD;
+
+    if (!hasPosition && prob >= p.buyThreshold) {
+      const strength = Math.min(1, (prob - p.buyThreshold) / (1 - p.buyThreshold) + 0.4);
+      return {
+        action: "buy",
+        strength,
+        reason: `Model predicts ${(prob * 100).toFixed(0)}% chance of a rise`,
+      };
+    }
+    if (hasPosition && prob <= p.exitThreshold) {
+      return {
+        action: "sell",
+        strength: 1,
+        reason: `Model confidence fell to ${(prob * 100).toFixed(0)}%`,
+      };
+    }
+    return HOLD;
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -221,6 +263,7 @@ export const STRATEGIES: Record<string, Strategy> = {
   [smaTrend.meta.id]: smaTrend,
   [rsiReversion.meta.id]: rsiReversion,
   [breakout.meta.id]: breakout,
+  [mlSignal.meta.id]: mlSignal,
 };
 
 export const STRATEGY_LIST: Strategy[] = Object.values(STRATEGIES);

@@ -45,6 +45,7 @@ Each tick (every `intervalSeconds`), the engine:
 | SMA Trend Following | Fast/slow moving-average crossover | Trending markets |
 | RSI Mean Reversion | Buy oversold, sell recovered | Ranging markets |
 | Breakout Momentum | Enter on N-bar highs, exit on N-bar lows | Trends / volatility |
+| ML Signal Model | Learned classifier predicts P(price rises) | Any (when it beats chance) |
 
 The "AI" is deliberately **transparent and deterministic** — adaptive,
 data-driven *selection* between audited strategies. No opaque model and no
@@ -78,6 +79,33 @@ evidence shown. How much applies automatically is your call, set by the
 you decide. The system never silently rewrites its own live-trading code. Only
 bounded, audited, out-of-sample-validated *parameters* ever change on their own,
 and you can reset any strategy to its defaults with one click.
+
+## Signal generation (the ML model)
+
+Beyond the hand-written strategies, the platform ships a **trainable ML model
+that generates buy/sell signals itself** — the "ML Signal Model" strategy.
+
+- **What it is.** A logistic-regression classifier over engineered market
+  features (RSI, moving-average ratios, momentum, volatility, range position).
+  It learns from history which feature combinations tend to precede a price
+  rise, then trades on its predicted probability. Because it's linear, the
+  learned weight on each feature is directly readable as that feature's
+  importance — shown as bars in the AI Lab.
+- **It keeps learning.** It retrains on the latest data on startup, inside every
+  self-improvement cycle, and on demand ("Retrain now").
+- **It's honest, and it won't trade on noise.** It reports **out-of-sample
+  validation accuracy** (trained on older bars, measured on newer bars it never
+  saw), not just optimistic in-sample accuracy. And it **refuses to trade unless
+  that validation accuracy beats a floor above 50%** — a model that's only
+  guessing produces no signals and stays flat.
+
+> Reality check: on real markets, short-horizon direction is genuinely close to
+> a coin flip. Expect validation accuracy far nearer 50% than the demo data
+> shows. The tradable-floor gate exists precisely so an unconvincing model
+> can't put money at risk.
+
+To use it, select **ML Signal Model** as your strategy, or leave AI auto-select
+on and let the selector choose it when it's earning its keep.
 
 ## Risk controls (always on)
 
@@ -123,6 +151,10 @@ server/
     optimizer.ts        Walk-forward parameter optimization
     analyst.ts          Claude API code/trade review (optional)
     improver.ts         Self-improvement loop + autonomy gating
+  ml/
+    features.ts         Market feature engineering + dataset labelling
+    logistic.ts         Logistic-regression classifier (train/predict)
+    signalModel.ts      Trainable signal model (learns, validates, predicts)
 client/
   src/pages/dashboard.tsx   Single-page dashboard
   src/lib/api.ts            Typed API client
@@ -152,3 +184,5 @@ the server resets paper balances and history.
 | POST | `/api/improve/run` | Run an improvement cycle now |
 | POST | `/api/improve/proposals/:id/apply\|reject` | Act on a proposal |
 | POST | `/api/improve/params/:id/reset` | Reset a strategy to defaults |
+| GET | `/api/ml/status` | ML model accuracy + feature importances |
+| POST | `/api/ml/train` | Retrain the ML signal model now |

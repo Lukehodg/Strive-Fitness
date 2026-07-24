@@ -14,6 +14,7 @@ import { selectStrategy } from "./trading/aiSelector";
 import { createMarketFeed } from "./trading/marketData";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
+import { signalModel } from "./ml/signalModel";
 import { updateConfigSchema } from "@shared/schema";
 import type { PerformanceStats } from "@shared/schema";
 
@@ -192,6 +193,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const p = storage.setProposalStatus(req.params.id, "rejected");
     if (!p) return res.status(404).json({ message: "Proposal not found" });
     res.json(p);
+  });
+
+  // -- ML signal model ----------------------------------------------------
+
+  app.get("/api/ml/status", (_req: Request, res: Response) => {
+    res.json(signalModel.status());
+  });
+
+  // Retrain the ML signal model on the latest market data.
+  app.post("/api/ml/train", async (_req: Request, res: Response) => {
+    await improver.trainSignalModel();
+    res.json(signalModel.status());
   });
 
   // Reset one strategy's parameters back to their audited defaults.

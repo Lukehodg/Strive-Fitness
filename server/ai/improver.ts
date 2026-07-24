@@ -25,6 +25,7 @@ import {
   setActiveParams,
 } from "../trading/strategies";
 import { computeStats } from "../trading/backtester";
+import { signalModel } from "../ml/signalModel";
 import { optimizeStrategy } from "./optimizer";
 import { runAnalyst, analystAvailable } from "./analyst";
 
@@ -36,7 +37,30 @@ class Improver {
   private running = false;
 
   start(): void {
+    // Train the ML signal model once on startup so it's ready immediately.
+    void this.trainSignalModel();
     this.scheduleNext();
+  }
+
+  /** Retrain the ML signal model on the latest history. Returns val accuracy. */
+  async trainSignalModel(): Promise<number | null> {
+    try {
+      const config = storage.getConfig();
+      const candles = await this.feed.getCandles(config.symbol, CANDLES_FOR_OPTIMIZATION);
+      const acc = signalModel.train(candles);
+      if (acc !== null) {
+        const s = signalModel.status();
+        storage.log(
+          "info",
+          `ML model retrained on ${s.samples} samples — validation accuracy ` +
+            `${(acc * 100).toFixed(1)}% (${s.tradable ? "tradable" : "below chance floor, will not trade"}).`,
+        );
+      }
+      return acc;
+    } catch (err) {
+      storage.log("info", `ML training error: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   stop(): void {
@@ -75,6 +99,9 @@ class Improver {
         config.symbol,
         CANDLES_FOR_OPTIMIZATION,
       );
+
+      // Retrain the ML signal model on the latest data (it keeps learning).
+      signalModel.train(candles);
 
       const currentParams: Record<string, StrategyParams> = {};
       const optimizerFindings: { strategyId: string; improvement: number }[] = [];

@@ -336,6 +336,35 @@ export interface ImprovementProposal {
 }
 
 // ---------------------------------------------------------------------------
+// ML signal model
+// ---------------------------------------------------------------------------
+
+export interface FeatureImportance {
+  name: string;
+  /** Learned weight on the standardized feature (sign = direction). */
+  weight: number;
+}
+
+/** Public status of the trainable ML signal model. */
+export interface MLStatus {
+  trained: boolean;
+  trainedAt: number | null;
+  /** Training samples used in the last fit. */
+  samples: number;
+  /** In-sample accuracy (optimistic — for reference only). */
+  trainAccuracy: number;
+  /** Out-of-sample accuracy on a held-out window (the honest number). */
+  validationAccuracy: number;
+  /** True when validationAccuracy clears the "better than chance" floor. */
+  tradable: boolean;
+  /** Minimum validation accuracy required before the model may trade. */
+  tradableFloor: number;
+  featureImportances: FeatureImportance[];
+  /** Latest predicted probability that price rises over the horizon. */
+  lastProbability: number | null;
+}
+
+// ---------------------------------------------------------------------------
 // Request validation schemas
 // ---------------------------------------------------------------------------
 

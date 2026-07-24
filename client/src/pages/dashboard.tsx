@@ -341,6 +341,100 @@ function Empty({ text }: { text: string }) {
   return <div className="p-8 text-center text-gray-500 text-sm">{text}</div>;
 }
 
+function MlModelCard() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const ml = useQuery({ queryKey: ["/api/ml/status"], queryFn: api.mlStatus, refetchInterval: 15000 });
+  const train = useMutation({
+    mutationFn: api.trainMl,
+    onSuccess: () => {
+      toast({ title: "Model retrained" });
+      qc.invalidateQueries({ queryKey: ["/api/ml/status"] });
+    },
+  });
+  const s = ml.data;
+  const valAcc = s ? s.validationAccuracy * 100 : 0;
+  const edge = s ? (s.validationAccuracy - 0.5) * 100 : 0;
+  const maxWeight = s?.featureImportances.reduce((m, f) => Math.max(m, Math.abs(f.weight)), 0) || 1;
+
+  return (
+    <Card className="bg-[#2A2A2A] border-gray-800">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          ML Signal Model
+          {s?.trained ? (
+            <Badge className={s.tradable ? "bg-emerald-700" : "bg-amber-700"}>
+              {s.tradable ? "tradable" : "below chance — won't trade"}
+            </Badge>
+          ) : (
+            <Badge className="bg-gray-700">not trained</Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-gray-400">
+          A logistic-regression model that learns from market features to predict the probability of a price rise. It generates the buy/sell signals directly. To use it, pick <span className="text-gray-200">ML Signal Model</span> as your strategy (or leave AI auto-select on).
+        </p>
+
+        {s?.trained ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <MlStat label="Validation accuracy" value={`${valAcc.toFixed(1)}%`} positive={s.tradable} sub="out-of-sample (honest)" />
+              <MlStat label="Edge vs coin-flip" value={`${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`} positive={edge > (s.tradableFloor - 0.5) * 100} />
+              <MlStat label="Training accuracy" value={`${(s.trainAccuracy * 100).toFixed(1)}%`} sub="in-sample (optimistic)" />
+              <MlStat label="Current signal" value={s.lastProbability !== null ? `${(s.lastProbability * 100).toFixed(0)}% up` : "—"} sub={`${s.samples} samples`} />
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-400 mb-2">What the model learned (feature weights)</p>
+              <div className="space-y-1.5">
+                {s.featureImportances.map((f) => (
+                  <div key={f.name} className="flex items-center gap-2 text-xs">
+                    <span className="w-28 text-gray-400 truncate">{f.name}</span>
+                    <div className="flex-1 h-2 bg-[#1E1E1E] rounded relative overflow-hidden">
+                      <div
+                        className={`absolute top-0 h-full ${f.weight >= 0 ? "bg-emerald-600 left-1/2" : "bg-red-600 right-1/2"}`}
+                        style={{ width: `${(Math.abs(f.weight) / maxWeight) * 50}%` }}
+                      />
+                      <div className="absolute left-1/2 top-0 h-full w-px bg-gray-700" />
+                    </div>
+                    <span className={`w-12 text-right ${f.weight >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.weight.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-600 mt-1">Green = higher value pushes toward "buy"; red = toward "sell".</p>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">Not trained yet — press Retrain (needs enough market history).</p>
+        )}
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {s?.trainedAt ? `Last trained ${timeAgo(s.trainedAt)}` : ""}
+          </span>
+          <Button onClick={() => train.mutate()} disabled={train.isPending} className="bg-indigo-600 hover:bg-indigo-700">
+            {train.isPending ? "Training…" : "Retrain now"}
+          </Button>
+        </div>
+        <p className="text-xs text-gray-600">
+          The model refuses to trade unless its out-of-sample accuracy beats {((s?.tradableFloor ?? 0.52) * 100).toFixed(0)}%. On real markets, expect accuracy far closer to 50% than on demo data — signal prediction is genuinely hard, which is why this gate exists.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MlStat({ label, value, sub, positive }: { label: string; value: string; sub?: string; positive?: boolean }) {
+  return (
+    <div className="rounded-lg bg-[#1E1E1E] p-3">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className={`text-lg font-bold ${positive === undefined ? "text-white" : positive ? "text-emerald-400" : "text-amber-400"}`}>{value}</p>
+      {sub && <p className="text-xs text-gray-600 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
 function AiLab() {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -371,6 +465,8 @@ function AiLab() {
 
   return (
     <div className="space-y-4">
+      <MlModelCard />
+
       <Card className="bg-[#2A2A2A] border-gray-800">
         <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
