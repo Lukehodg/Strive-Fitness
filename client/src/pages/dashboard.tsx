@@ -17,7 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { api, type BotConfig } from "@/lib/api";
+import {
+  api,
+  type BotConfig,
+  type ImprovementProposal,
+  type StrategyParamInfo,
+} from "@/lib/api";
 
 const REFRESH_MS = 4000;
 
@@ -176,6 +181,7 @@ export default function Dashboard() {
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="strategies">Strategies</TabsTrigger>
+          <TabsTrigger value="ailab">AI Lab</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -273,6 +279,10 @@ export default function Dashboard() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="ailab">
+          <AiLab />
+        </TabsContent>
+
         <TabsContent value="settings">
           <SettingsPanel />
         </TabsContent>
@@ -329,6 +339,177 @@ function KindBadge({ kind }: { kind: string }) {
 
 function Empty({ text }: { text: string }) {
   return <div className="p-8 text-center text-gray-500 text-sm">{text}</div>;
+}
+
+function AiLab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const proposals = useQuery({ queryKey: ["/api/improve/proposals"], queryFn: api.proposals, refetchInterval: 15000 });
+  const params = useQuery({ queryKey: ["/api/improve/params"], queryFn: api.improveParams, refetchInterval: 15000 });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["/api/improve/proposals"] });
+    qc.invalidateQueries({ queryKey: ["/api/improve/params"] });
+    qc.invalidateQueries({ queryKey: ["/api/decisions"] });
+  };
+
+  const run = useMutation({
+    mutationFn: api.runImprove,
+    onSuccess: async (res) => {
+      const body = await res.json();
+      toast({ title: "Analysis complete", description: `${body.created?.length ?? 0} proposal(s) generated.` });
+      invalidate();
+    },
+  });
+  const apply = useMutation({ mutationFn: (id: string) => api.applyProposal(id), onSuccess: invalidate });
+  const reject = useMutation({ mutationFn: (id: string) => api.rejectProposal(id), onSuccess: invalidate });
+  const reset = useMutation({ mutationFn: (id: string) => api.resetParams(id), onSuccess: invalidate });
+
+  const data = proposals.data;
+  const pending = (data?.proposals ?? []).filter((p) => p.status === "pending");
+  const history = (data?.proposals ?? []).filter((p) => p.status !== "pending");
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-[#2A2A2A] border-gray-800">
+        <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-white">Self-improvement engine</span>
+              <Badge className={data?.aiAvailable ? "bg-emerald-700" : "bg-gray-700"}>
+                {data?.aiAvailable ? "AI analyst on" : "optimizer only"}
+              </Badge>
+            </div>
+            <p className="text-sm text-gray-400">
+              {data?.aiAvailable
+                ? "Claude reviews the code and trades; the optimizer tunes parameters (walk-forward validated)."
+                : "Deterministic optimizer active. Set ANTHROPIC_API_KEY to enable the Claude code/trade analyst."}
+              {data?.lastImproveAt ? ` · Last run ${timeAgo(data.lastImproveAt)}` : " · Not run yet"}
+            </p>
+          </div>
+          <Button onClick={() => run.mutate()} disabled={run.isPending} className="bg-indigo-600 hover:bg-indigo-700">
+            {run.isPending ? "Analyzing…" : "Run analysis now"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {data?.lastDiagnosis && (
+        <Card className="bg-[#2A2A2A] border-gray-800">
+          <CardHeader className="pb-2"><CardTitle className="text-base">AI diagnosis</CardTitle></CardHeader>
+          <CardContent><p className="text-sm text-gray-300 whitespace-pre-wrap">{data.lastDiagnosis}</p></CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-[#2A2A2A] border-gray-800">
+        <CardHeader className="pb-2"><CardTitle className="text-base">Proposals ({pending.length} pending)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {pending.length === 0 && <Empty text="No pending proposals. Run an analysis to look for improvements." />}
+          {pending.map((p) => (
+            <ProposalCard key={p.id} p={p} onApply={() => apply.mutate(p.id)} onReject={() => reject.mutate(p.id)} busy={apply.isPending || reject.isPending} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#2A2A2A] border-gray-800">
+        <CardHeader className="pb-2"><CardTitle className="text-base">Live strategy parameters</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {params.data?.map((s) => (
+            <div key={s.strategyId} className="border-t border-gray-800 pt-3 first:border-0 first:pt-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-200">{s.name}</span>
+                <Button variant="outline" className="h-7 text-xs" onClick={() => reset.mutate(s.strategyId)} disabled={reset.isPending}>Reset to default</Button>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                {s.params.map((spec) => {
+                  const cur = s.current[spec.key];
+                  const def = s.defaults[spec.key];
+                  const changed = Math.abs((cur ?? 0) - (def ?? 0)) > 1e-9;
+                  return (
+                    <span key={spec.key}>
+                      {spec.label}: <span className={changed ? "text-indigo-400 font-medium" : "text-gray-300"}>{Number.isInteger(cur) ? cur : cur?.toFixed(2)}</span>
+                      {changed && <span className="text-gray-600"> (was {Number.isInteger(def) ? def : def?.toFixed(2)})</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {history.length > 0 && (
+        <Card className="bg-[#2A2A2A] border-gray-800">
+          <CardHeader className="pb-2"><CardTitle className="text-base">History</CardTitle></CardHeader>
+          <CardContent className="p-0 max-h-64 overflow-y-auto">
+            <ul className="divide-y divide-gray-800">
+              {history.map((p) => (
+                <li key={p.id} className="px-4 py-2 flex items-center gap-3 text-sm">
+                  <ProposalStatusBadge status={p.status} />
+                  <span className="flex-1 text-gray-300">{p.title}</span>
+                  <span className="text-xs text-gray-500">{new Date(p.createdAt).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+      <p className="text-xs text-gray-500">
+        Parameter tweaks are validated out-of-sample before they're trusted, and auto-apply only per your autonomy setting (Settings). Code-level suggestions are always review-only — the AI proposes, you decide.
+      </p>
+    </div>
+  );
+}
+
+function ProposalCard({ p, onApply, onReject, busy }: { p: ImprovementProposal; onApply: () => void; onReject: () => void; busy: boolean }) {
+  return (
+    <div className="rounded-lg border border-gray-800 bg-[#1E1E1E] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge className={p.kind === "param" ? "bg-emerald-700" : "bg-amber-700"}>{p.kind === "param" ? "parameters" : "code idea"}</Badge>
+          <span className="text-sm font-medium text-white">{p.title}</span>
+        </div>
+        <span className="text-xs text-gray-500">{p.source === "ai" ? "Claude" : "optimizer"}</span>
+      </div>
+      <p className="text-sm text-gray-400 mt-2">{p.rationale}</p>
+
+      {p.kind === "param" && p.proposedParams && p.currentParams && (
+        <div className="mt-2 text-xs text-gray-300 flex flex-wrap gap-x-4 gap-y-1">
+          {Object.keys(p.proposedParams).map((k) => (
+            <span key={k}>{k}: <span className="text-gray-500">{fmtNum(p.currentParams![k])}</span> → <span className="text-indigo-400 font-medium">{fmtNum(p.proposedParams![k])}</span></span>
+          ))}
+        </div>
+      )}
+      {p.validation && (
+        <p className="mt-2 text-xs text-gray-500">
+          Out-of-sample: {pct(p.validation.outOfSampleReturn)} vs current {pct(p.validation.baselineOutOfSampleReturn)}
+          {" · "}<span className="text-emerald-400">+{pct(p.validation.improvement)} edge</span> over {p.validation.outOfSampleTrades} trades
+        </p>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        {p.kind === "param" && (
+          <Button className="h-8 bg-emerald-600 hover:bg-emerald-700" onClick={onApply} disabled={busy}>Apply</Button>
+        )}
+        <Button variant="outline" className="h-8" onClick={onReject} disabled={busy}>
+          {p.kind === "param" ? "Reject" : "Dismiss"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProposalStatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    applied: "bg-emerald-700",
+    auto_applied: "bg-indigo-700",
+    rejected: "bg-gray-700",
+    pending: "bg-amber-700",
+  };
+  return <Badge className={`${map[status] ?? "bg-gray-700"} text-xs`}>{status.replace("_", " ")}</Badge>;
+}
+
+function fmtNum(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
 function SettingsPanel() {
@@ -405,6 +586,44 @@ function SettingsPanel() {
             disabled={!liveKeys}
             onCheckedChange={(v) => upd({ mode: v ? "live" : "paper" })}
           />
+        </div>
+
+        <div className="border-t border-gray-800 pt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-white">Self-improvement engine</p>
+              <p className="text-sm text-gray-400">Periodically re-optimizes strategies and reviews the code.</p>
+            </div>
+            <Switch checked={form.improveEnabled} onCheckedChange={(v) => upd({ improveEnabled: v })} />
+          </div>
+
+          <div>
+            <Label className="text-gray-300">Autonomy — how much it may change on its own</Label>
+            <div className="mt-2 grid sm:grid-cols-3 gap-2">
+              {([
+                { v: "propose_only", label: "Propose only", desc: "Nothing changes without your Apply." },
+                { v: "auto_tune_paper", label: "Auto-tune (paper)", desc: "Validated parameter tweaks auto-apply in paper mode." },
+                { v: "full_auto", label: "Full auto", desc: "Parameter tweaks auto-apply in any mode." },
+              ] as const).map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => upd({ autonomy: o.v })}
+                  className={`text-left rounded-lg border p-3 transition-colors ${
+                    form.autonomy === o.v ? "border-indigo-500 bg-indigo-950/40" : "border-gray-700 bg-[#1E1E1E] hover:border-gray-600"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-white">{o.label}</p>
+                  <p className="text-xs text-gray-400 mt-1">{o.desc}</p>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Code-level changes are always review-only, whatever this is set to.</p>
+          </div>
+
+          <Field label="Improvement cycle interval (minutes)">
+            <Input type="number" value={form.improveIntervalMinutes} onChange={(e) => upd({ improveIntervalMinutes: Number(e.target.value) })} className="bg-[#1E1E1E] border-gray-700 max-w-40" />
+          </Field>
         </div>
 
         <Button onClick={() => save.mutate(form)} disabled={save.isPending} className="bg-emerald-600 hover:bg-emerald-700">

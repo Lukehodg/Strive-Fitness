@@ -2,16 +2,26 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { engine } from "./trading/engine";
-import { STRATEGY_LIST } from "./trading/strategies";
+import {
+  STRATEGY_LIST,
+  getActiveParams,
+  setActiveParams,
+  resetParams,
+  getStrategy,
+} from "./trading/strategies";
 import { backtestStrategy } from "./trading/backtester";
 import { selectStrategy } from "./trading/aiSelector";
 import { createMarketFeed } from "./trading/marketData";
 import { computeStats } from "./trading/backtester";
+import { improver } from "./ai/improver";
 import { updateConfigSchema } from "@shared/schema";
 import type { PerformanceStats } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const feed = createMarketFeed();
+
+  // Start the self-improvement scheduler.
+  improver.start();
 
   // -- Status & overview --------------------------------------------------
 
@@ -124,6 +134,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/control/resume", (_req: Request, res: Response) => {
     engine.resume();
     res.json(engine.getStatus());
+  });
+
+  // -- Self-improvement ("AI Lab") ---------------------------------------
+
+  // Current tunable parameters (spec + active values) for every strategy.
+  app.get("/api/improve/params", (_req: Request, res: Response) => {
+    res.json(
+      STRATEGY_LIST.map((s) => ({
+        strategyId: s.meta.id,
+        name: s.meta.name,
+        params: s.meta.params,
+        current: getActiveParams(s.meta.id),
+        defaults: s.defaultParams,
+      })),
+    );
+  });
+
+  app.get("/api/improve/proposals", (req: Request, res: Response) => {
+    const limit = Number(req.query.limit) || 100;
+    const meta = storage.getImproveMeta();
+    res.json({
+      proposals: storage.getProposals(limit),
+      lastImproveAt: meta.lastImproveAt,
+      lastDiagnosis: meta.lastDiagnosis,
+      aiAvailable: improver.available(),
+    });
+  });
+
+  // Trigger an improvement cycle right now.
+  app.post("/api/improve/run", async (_req: Request, res: Response) => {
+    const created = await improver.runCycle("manual");
+    const meta = storage.getImproveMeta();
+    res.json({ created, lastDiagnosis: meta.lastDiagnosis });
+  });
+
+  // Apply a pending parameter proposal (code proposals are review-only).
+  app.post("/api/improve/proposals/:id/apply", (req: Request, res: Response) => {
+    const p = storage.getProposal(req.params.id);
+    if (!p) return res.status(404).json({ message: "Proposal not found" });
+    if (p.kind !== "param" || !p.proposedParams) {
+      return res.status(400).json({
+        message: "Code proposals are review-only and can't be auto-applied.",
+      });
+    }
+    setActiveParams(p.strategyId, p.proposedParams);
+    storage.setProposalStatus(p.id, "applied");
+    storage.log(
+      "strategy_switch",
+      `Applied tuned parameters for ${p.strategyName}`,
+      p.strategyId,
+    );
+    res.json(storage.getProposal(p.id));
+  });
+
+  app.post("/api/improve/proposals/:id/reject", (req: Request, res: Response) => {
+    const p = storage.setProposalStatus(req.params.id, "rejected");
+    if (!p) return res.status(404).json({ message: "Proposal not found" });
+    res.json(p);
+  });
+
+  // Reset one strategy's parameters back to their audited defaults.
+  app.post("/api/improve/params/:id/reset", (req: Request, res: Response) => {
+    if (!getStrategy(req.params.id)) {
+      return res.status(404).json({ message: "Strategy not found" });
+    }
+    const params = resetParams(req.params.id);
+    storage.log("info", `Reset ${req.params.id} parameters to defaults`);
+    res.json({ strategyId: req.params.id, current: params });
   });
 
   const httpServer = createServer(app);

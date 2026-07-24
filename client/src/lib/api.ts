@@ -15,6 +15,10 @@ import type {
   BacktestResult,
   StrategyScore,
   MarketRegime,
+  ImprovementProposal,
+  ParamSpec,
+  StrategyParams,
+  AutonomyLevel,
 } from "@shared/schema";
 
 export type {
@@ -30,7 +34,26 @@ export type {
   BacktestResult,
   StrategyScore,
   MarketRegime,
+  ImprovementProposal,
+  ParamSpec,
+  StrategyParams,
+  AutonomyLevel,
 };
+
+export interface StrategyParamInfo {
+  strategyId: string;
+  name: string;
+  params: ParamSpec[];
+  current: StrategyParams;
+  defaults: StrategyParams;
+}
+
+export interface ProposalsResponse {
+  proposals: ImprovementProposal[];
+  lastImproveAt: number | null;
+  lastDiagnosis: string | null;
+  aiAvailable: boolean;
+}
 
 export interface StatusResponse extends BotStatus {
   feedSource: "alpaca" | "synthetic";
@@ -67,9 +90,19 @@ export const api = {
   backtest: () => json<BacktestResponse>("/api/backtest"),
   recommendation: () => json<RecommendationResponse>("/api/recommendation"),
 
+  improveParams: () => json<StrategyParamInfo[]>("/api/improve/params"),
+  proposals: () => json<ProposalsResponse>("/api/improve/proposals"),
+
   start: () => apiRequest("POST", "/api/control/start"),
   stop: () => apiRequest("POST", "/api/control/stop"),
   resume: () => apiRequest("POST", "/api/control/resume"),
   updateConfig: (patch: UpdateConfigInput) =>
     apiRequest("PATCH", "/api/config", patch),
+  runImprove: () => apiRequest("POST", "/api/improve/run"),
+  applyProposal: (id: string) =>
+    apiRequest("POST", `/api/improve/proposals/${id}/apply`),
+  rejectProposal: (id: string) =>
+    apiRequest("POST", `/api/improve/proposals/${id}/reject`),
+  resetParams: (id: string) =>
+    apiRequest("POST", `/api/improve/params/${id}/reset`),
 };

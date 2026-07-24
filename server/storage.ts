@@ -10,18 +10,24 @@ import {
   type DecisionKind,
   type DecisionLogEntry,
   type EquityPoint,
+  type ImprovementProposal,
+  type ProposalStatus,
   type Trade,
 } from "@shared/schema";
 
 const MAX_EQUITY_POINTS = 5_000;
 const MAX_TRADES = 2_000;
 const MAX_DECISIONS = 500;
+const MAX_PROPOSALS = 200;
 
 class Storage {
   private config: BotConfig = { ...DEFAULT_CONFIG };
   private equity: EquityPoint[] = [];
   private trades: Trade[] = [];
   private decisions: DecisionLogEntry[] = [];
+  private proposals: ImprovementProposal[] = [];
+  private lastImproveAt: number | null = null;
+  private lastDiagnosis: string | null = null;
 
   getConfig(): BotConfig {
     return { ...this.config };
@@ -79,6 +85,38 @@ class Storage {
 
   getDecisions(limit = 100): DecisionLogEntry[] {
     return this.decisions.slice(-limit).reverse();
+  }
+
+  // -- Self-improvement proposals ----------------------------------------
+
+  addProposal(p: ImprovementProposal): void {
+    this.proposals.push(p);
+    if (this.proposals.length > MAX_PROPOSALS) {
+      this.proposals.splice(0, this.proposals.length - MAX_PROPOSALS);
+    }
+  }
+
+  getProposals(limit = 100): ImprovementProposal[] {
+    return this.proposals.slice(-limit).reverse();
+  }
+
+  getProposal(id: string): ImprovementProposal | undefined {
+    return this.proposals.find((p) => p.id === id);
+  }
+
+  setProposalStatus(id: string, status: ProposalStatus): ImprovementProposal | undefined {
+    const p = this.getProposal(id);
+    if (p) p.status = status;
+    return p;
+  }
+
+  setImproveMeta(at: number, diagnosis: string | null): void {
+    this.lastImproveAt = at;
+    if (diagnosis !== null) this.lastDiagnosis = diagnosis;
+  }
+
+  getImproveMeta(): { lastImproveAt: number | null; lastDiagnosis: string | null } {
+    return { lastImproveAt: this.lastImproveAt, lastDiagnosis: this.lastDiagnosis };
   }
 }
 

@@ -103,7 +103,23 @@ export interface StrategyMeta {
   description: string;
   /** Market regimes this strategy is designed for. */
   bestRegimes: MarketRegime[];
+  /** Tunable parameters and their allowed ranges (for the optimizer + UI). */
+  params: ParamSpec[];
 }
+
+/** One tunable numeric parameter of a strategy. */
+export interface ParamSpec {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  /** Search granularity for the optimizer. */
+  step: number;
+  default: number;
+}
+
+/** A concrete set of parameter values, keyed by ParamSpec.key. */
+export type StrategyParams = Record<string, number>;
 
 // ---------------------------------------------------------------------------
 // Market regime (used by the AI selector)
@@ -167,7 +183,28 @@ export interface BotConfig {
   autoSelectStrategy: boolean;
   /** Active strategy id (used when autoSelectStrategy is false). */
   activeStrategyId: string;
+  /** When true the self-improvement engine runs on a schedule. */
+  improveEnabled: boolean;
+  /** How much the improver is allowed to change on its own. */
+  autonomy: AutonomyLevel;
+  /** How often the improver runs a cycle, in minutes. */
+  improveIntervalMinutes: number;
 }
+
+/**
+ * How much the self-improvement engine may change without human sign-off.
+ *  - propose_only: never changes anything; every idea waits for your Apply.
+ *  - auto_tune_paper: validated *parameter* tweaks auto-apply in paper mode;
+ *    code changes and anything in live mode still wait for you.
+ *  - full_auto: validated parameter tweaks auto-apply in any mode. Code-level
+ *    changes are always surfaced for review (never silently self-committed).
+ */
+export const AutonomyLevels = [
+  "propose_only",
+  "auto_tune_paper",
+  "full_auto",
+] as const;
+export type AutonomyLevel = (typeof AutonomyLevels)[number];
 
 export const DEFAULT_CONFIG: BotConfig = {
   symbol: "BTC/USD",
@@ -179,6 +216,9 @@ export const DEFAULT_CONFIG: BotConfig = {
   intervalSeconds: 30,
   autoSelectStrategy: true,
   activeStrategyId: "sma_trend",
+  improveEnabled: true,
+  autonomy: "auto_tune_paper",
+  improveIntervalMinutes: 60,
 };
 
 export interface BotStatus {
@@ -247,6 +287,55 @@ export interface StrategyScore {
 }
 
 // ---------------------------------------------------------------------------
+// Self-improvement proposals
+// ---------------------------------------------------------------------------
+
+export const ProposalKinds = ["param", "code"] as const;
+export type ProposalKind = (typeof ProposalKinds)[number];
+
+export const ProposalStatuses = [
+  "pending",
+  "applied",
+  "auto_applied",
+  "rejected",
+] as const;
+export type ProposalStatus = (typeof ProposalStatuses)[number];
+
+/** How a proposed parameter set scored in the walk-forward validation. */
+export interface ProposalValidation {
+  /** Return of the proposed params on the training window. */
+  inSampleReturn: number;
+  /** Return of the proposed params on the held-out test window. */
+  outOfSampleReturn: number;
+  /** Return of the current params on the same held-out window. */
+  baselineOutOfSampleReturn: number;
+  /** outOfSampleReturn − baselineOutOfSampleReturn. Positive = genuine edge. */
+  improvement: number;
+  outOfSampleTrades: number;
+}
+
+/** A single improvement the engine surfaces (and may auto-apply). */
+export interface ImprovementProposal {
+  id: string;
+  createdAt: number;
+  strategyId: string;
+  strategyName: string;
+  kind: ProposalKind;
+  status: ProposalStatus;
+  title: string;
+  /** Human-readable explanation, including any AI diagnosis. */
+  rationale: string;
+  /** Where the proposal came from. */
+  source: "optimizer" | "ai";
+  // Parameter proposals:
+  currentParams?: StrategyParams;
+  proposedParams?: StrategyParams;
+  validation?: ProposalValidation;
+  // Code proposals (always review-only):
+  codeSuggestion?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Request validation schemas
 // ---------------------------------------------------------------------------
 
@@ -261,6 +350,9 @@ export const updateConfigSchema = z
     intervalSeconds: z.number().int().min(5).max(3600),
     autoSelectStrategy: z.boolean(),
     activeStrategyId: z.string().min(1),
+    improveEnabled: z.boolean(),
+    autonomy: z.enum(AutonomyLevels),
+    improveIntervalMinutes: z.number().int().min(5).max(1440),
   })
   .partial();
 

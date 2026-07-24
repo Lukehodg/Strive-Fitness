@@ -50,6 +50,35 @@ The "AI" is deliberately **transparent and deterministic** — adaptive,
 data-driven *selection* between audited strategies. No opaque model and no
 self-modifying code decides your trades.
 
+## Self-improvement ("AI Lab")
+
+An adjacent engine continuously tries to make the strategies better — safely.
+Each cycle (default hourly, plus an on-demand **Run analysis now** button):
+
+1. **Re-optimizes parameters (walk-forward).** For every strategy it searches
+   the parameter space on a *training* window, then validates the winner on a
+   held-out *test* window the search never saw. A candidate is only trusted if
+   it beats the current params **out-of-sample** with enough trades — the exact
+   overfitting trap that sinks naive auto-tuners.
+2. **Reviews the code + trades with AI** (optional, needs `ANTHROPIC_API_KEY`).
+   Claude reads the strategy source and recent trades and returns a plain-English
+   diagnosis plus concrete, code-level improvement ideas.
+
+Everything surfaces as **proposals** on the AI Lab tab, with the out-of-sample
+evidence shown. How much applies automatically is your call, set by the
+**autonomy** level:
+
+| Autonomy | Parameter tweaks | Code changes |
+| --- | --- | --- |
+| `propose_only` | wait for your Apply | review-only |
+| `auto_tune_paper` (default) | auto-apply **in paper mode** | review-only |
+| `full_auto` | auto-apply in any mode | review-only |
+
+**Code-level changes are always review-only**, in every mode — the AI proposes,
+you decide. The system never silently rewrites its own live-trading code. Only
+bounded, audited, out-of-sample-validated *parameters* ever change on their own,
+and you can reset any strategy to its defaults with one click.
+
 ## Risk controls (always on)
 
 - **Max position size** — a cap on the fraction of equity per trade.
@@ -90,6 +119,10 @@ server/
     aiSelector.ts       Regime detection + strategy ranking
     riskManager.ts      Hard risk limits
     engine.ts           The orchestration loop
+  ai/
+    optimizer.ts        Walk-forward parameter optimization
+    analyst.ts          Claude API code/trade review (optional)
+    improver.ts         Self-improvement loop + autonomy gating
 client/
   src/pages/dashboard.tsx   Single-page dashboard
   src/lib/api.ts            Typed API client
@@ -114,3 +147,8 @@ the server resets paper balances and history.
 | GET | `/api/recommendation` | What the AI selector would pick now |
 | GET/PATCH | `/api/config` | Read / update settings |
 | POST | `/api/control/start\|stop\|resume` | Engine controls |
+| GET | `/api/improve/params` | Live strategy parameters |
+| GET | `/api/improve/proposals` | Improvement proposals + AI diagnosis |
+| POST | `/api/improve/run` | Run an improvement cycle now |
+| POST | `/api/improve/proposals/:id/apply\|reject` | Act on a proposal |
+| POST | `/api/improve/params/:id/reset` | Reset a strategy to defaults |
