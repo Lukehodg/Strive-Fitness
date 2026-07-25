@@ -4,6 +4,7 @@
 
 import { randomUUID } from "crypto";
 import type { Order, OrderRequest, Position } from "@shared/schema";
+import { attemptFill } from "./execution";
 
 export interface AccountSnapshot {
   cash: number;
@@ -33,8 +34,6 @@ export class PaperBroker implements Broker {
   readonly kind = "paper" as const;
   private cash: number;
   private positions = new Map<string, Position>();
-  /** Fraction charged per fill to approximate spread + fees. */
-  private readonly feeRate = 0.001;
 
   constructor(startingCash = 10_000) {
     this.cash = startingCash;
@@ -56,8 +55,25 @@ export class PaperBroker implements Broker {
       return { ...base, status: "rejected", message: "Invalid quantity or price" };
     }
 
-    const notional = req.qty * markPrice;
-    const fee = notional * this.feeRate;
+    // This system is long/flat-only, so a sell is always an exit — it must
+    // never silently fail to fill. A buy is always an entry — no urgency, a
+    // maker order that doesn't fill this tick can simply be retried.
+    const isExit = req.side === "sell";
+    const fill = attemptFill(
+      req.side,
+      markPrice,
+      req.limitOffsetPct ?? 0,
+      req.bar ?? null,
+      req.forceTaker ?? false,
+      isExit,
+    );
+    if (!fill.filled) {
+      return { ...base, status: "rejected", message: "Limit order not filled this tick" };
+    }
+
+    const fillPrice = fill.price;
+    const notional = req.qty * fillPrice;
+    const fee = notional * fill.feeRate;
 
     if (req.side === "buy") {
       if (notional + fee > this.cash + 1e-9) {
@@ -68,7 +84,7 @@ export class PaperBroker implements Broker {
       if (existing) {
         const totalQty = existing.qty + req.qty;
         existing.avgEntryPrice =
-          (existing.avgEntryPrice * existing.qty + markPrice * req.qty) /
+          (existing.avgEntryPrice * existing.qty + fillPrice * req.qty) /
           totalQty;
         existing.qty = totalQty;
         existing.markPrice = markPrice;
@@ -76,7 +92,7 @@ export class PaperBroker implements Broker {
         this.positions.set(req.symbol, {
           symbol: req.symbol,
           qty: req.qty,
-          avgEntryPrice: markPrice,
+          avgEntryPrice: fillPrice,
           markPrice,
           unrealizedPnl: 0,
           openedAt: Date.now(),
@@ -92,7 +108,7 @@ export class PaperBroker implements Broker {
       if (existing.qty <= 1e-9) this.positions.delete(req.symbol);
     }
 
-    return { ...base, status: "filled" };
+    return { ...base, status: "filled", price: fillPrice, fillType: fill.fillType };
   }
 
   async getPosition(symbol: string): Promise<Position | null> {

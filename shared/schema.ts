@@ -39,6 +39,15 @@ export interface OrderRequest {
   qty: number;
   /** Free-text reason recorded for the audit log. */
   reason?: string;
+  /**
+   * Maker-first limit order offset (fraction). 0/undefined = market order.
+   * Ignored by brokers that don't simulate/support resting orders.
+   */
+  limitOffsetPct?: number;
+  /** Never delay this order for a better price (e.g. a stop-loss). */
+  forceTaker?: boolean;
+  /** Current bar's high/low, used to simulate whether a resting order fills. */
+  bar?: { high: number; low: number };
 }
 
 /** The broker's response to an order request. */
@@ -52,6 +61,8 @@ export interface Order {
   reason?: string;
   message?: string;
   createdAt: number;
+  /** How the order filled — informational, shown in the decision log. */
+  fillType?: "maker" | "taker";
 }
 
 /** An open position in a single symbol. */
@@ -191,6 +202,23 @@ export interface BotConfig {
   autonomy: AutonomyLevel;
   /** How often the improver runs a cycle, in minutes. */
   improveIntervalMinutes: number;
+  /**
+   * Maker-first limit order offset (fraction below/above price for entries
+   * and take-profit exits). 0 disables — pure market/taker orders. This is
+   * the single highest-certainty cost reduction available: a lower fee and
+   * no added slippage in exchange for occasionally not filling.
+   */
+  limitOrderOffsetPct: number;
+  /**
+   * When true, position size is also adjusted by volatility targeting and
+   * the strategy's own fractional-Kelly track record — both bounded so they
+   * can only move sizing within maxPositionPct, never past it.
+   */
+  adaptiveSizing: boolean;
+  /** Per-bar target volatility used by volatility targeting when adaptiveSizing is on. */
+  volTargetPct: number;
+  /** Kelly fraction (0.5 = half-Kelly) used when adaptiveSizing is on. */
+  kellyFraction: number;
 }
 
 /**
@@ -221,6 +249,10 @@ export const DEFAULT_CONFIG: BotConfig = {
   improveEnabled: true,
   autonomy: "auto_tune_paper",
   improveIntervalMinutes: 60,
+  limitOrderOffsetPct: 0.0006,
+  adaptiveSizing: true,
+  volTargetPct: 0.004,
+  kellyFraction: 0.5,
 };
 
 export interface BotStatus {
@@ -458,6 +490,10 @@ export const updateConfigSchema = z
     improveEnabled: z.boolean(),
     autonomy: z.enum(AutonomyLevels),
     improveIntervalMinutes: z.number().int().min(5).max(1440),
+    limitOrderOffsetPct: z.number().min(0).max(0.02),
+    adaptiveSizing: z.boolean(),
+    volTargetPct: z.number().min(0.0005).max(0.05),
+    kellyFraction: z.number().min(0.1).max(1),
   })
   .partial();
 

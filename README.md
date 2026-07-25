@@ -172,6 +172,45 @@ The pipeline uses techniques from the quant-ML literature to stay honest:
 - **Per-trade stop-loss / take-profit**.
 - **Order-rate limit** — at most a few orders per minute.
 
+## Execution & sizing — the highest-certainty way to raise net returns
+
+Better signals are a gamble. **Not overpaying for execution and sizing by
+statistics instead of gut feel are not** — they're free money left on the
+table by most DIY trading bots, and they're on by default here.
+
+- **Maker-first limit orders.** Instead of always crossing the spread with a
+  market order, entries and take-profit exits post a resting limit order
+  slightly through the current price (`limitOrderOffsetPct`, default 0.06%).
+  If the bar's range reaches it, you pay a maker fee (0.02%) with **no added
+  slippage** instead of a taker fee (0.10%) plus slippage — roughly an 80%+
+  cut in per-trade cost. Entries that don't fill are simply skipped (no
+  urgency; the strategy re-evaluates next tick). Exits always guarantee a
+  fill — if the maker order doesn't touch, it falls back to a market order
+  rather than leaving you stuck in a position. **Stop-losses always fill
+  immediately**, full taker, no delay — a stop that waits for a better price
+  is how a bounded loss becomes an unbounded one.
+- **Volatility-targeted sizing.** Position size scales down when the market
+  is choppier than your `volTargetPct` and up (toward, never past, your max
+  position size) when it's calmer — so realized risk per trade stays roughly
+  constant instead of swinging with whatever the market happens to be doing.
+- **Fractional Kelly.** Once a strategy has 10+ trades of its own track
+  record, position size is further scaled by its actual win-rate/payoff
+  ratio via the Kelly criterion, discounted to a fraction (`kellyFraction`,
+  default 0.5 = half-Kelly — full Kelly is famously aggressive and brutally
+  sensitive to estimation error). A strategy that's been losing gets sized
+  down automatically; one that's been winning gets sized up — bounded the
+  same way volatility targeting is.
+- **Both are hard-bounded.** Neither adjustment can ever push a position past
+  your configured max position size — they only redistribute risk *within*
+  the ceiling you already set.
+- **What you see is what you'd get.** The Strategies tab and the
+  self-improvement optimizer's accept/reject decisions now use this same
+  realistic sizing and execution model — not a disconnected, unrealistically
+  large flat-sizing backtest. (One historical inconsistency this fixed: the
+  backtester previously deployed ~95% of cash on every trade regardless of
+  your actual risk settings, so the numbers shown and the numbers the
+  optimizer acted on didn't describe what live trading would actually do.)
+
 ## Persistence, alerts, and the watchdog
 
 - **State survives restarts.** Trades, equity history, decision log, proposals,
@@ -230,6 +269,8 @@ server/
     backtester.ts       Replays strategies over history
     aiSelector.ts       Regime detection + strategy ranking
     riskManager.ts      Hard risk limits
+    sizing.ts           Volatility-targeted + fractional-Kelly position sizing
+    execution.ts        Maker-first limit order / fill simulation
     engine.ts           The orchestration loop
   ai/
     optimizer.ts        Walk-forward parameter optimization (+ PBO/DSR gate)

@@ -1,7 +1,19 @@
 // Backtester. Replays a strategy bar-by-bar over historical candles using the
 // same evaluate() logic the live engine uses, then reports performance stats.
-// The AI selector uses these results to rank strategies on recent data.
-
+//
+// Two sizing modes:
+//   - Legacy (default, `sizing` omitted): flat ~95%-of-cash per trade, plain
+//     fee+slippage cost. Unchanged from the original implementation — used
+//     by the AI regime-selector's internal relative ranking, which only
+//     needs to compare strategies against each other and has its own tuned
+//     acceptance thresholds that this preserves exactly.
+//   - Realistic (`sizing` provided): sizes exactly the way the live engine
+//     sizes (maxPositionPct × conviction, optionally adjusted by volatility
+//     targeting and fractional Kelly) and fills exactly the way the live
+//     paper broker fills (maker-first limit orders when enabled). This is
+//     what powers the user-facing Strategies tab and the optimizer's
+//     accept/reject decisions — so those numbers describe what live trading
+//     would actually do, not an unrelated flat-sizing fiction.
 import type {
   BacktestResult,
   Candle,
@@ -9,6 +21,8 @@ import type {
   Trade,
 } from "@shared/schema";
 import { sharpe as sharpeOf } from "../ai/metrics";
+import { attemptFill } from "./execution";
+import { computeKellyMultiplier, computeVolatilityMultiplier, sizePosition } from "./sizing";
 import type { Strategy } from "./strategies";
 
 interface OpenLot {
@@ -17,13 +31,24 @@ interface OpenLot {
   qty: number;
 }
 
-const FEE_RATE = 0.001;
-/** Adverse fill assumption per side — you rarely get the printed price. */
-const SLIPPAGE_RATE = 0.0005;
-/** Total per-side transaction cost applied to every fill. */
-const COST_RATE = FEE_RATE + SLIPPAGE_RATE;
+/** Legacy flat per-side cost (fee + slippage) — unchanged from the original. */
+const LEGACY_COST_RATE = 0.001 + 0.0005;
 /** Bars of warm-up before signals are taken (indicators need history). */
 const WARMUP = 35;
+const VOL_LOOKBACK = 20;
+
+export interface BacktestSizing {
+  /** Ceiling fraction of equity per position (never exceeded). */
+  maxPositionPct: number;
+  /** Apply volatility-targeting + fractional-Kelly multipliers. */
+  adaptive: boolean;
+  /** Per-bar target volatility used when `adaptive` is true. */
+  volTargetPct: number;
+  /** Kelly fraction (e.g. 0.5 = half-Kelly) used when `adaptive` is true. */
+  kellyFraction: number;
+  /** Maker-first limit order offset; 0 disables (pure market fills). */
+  limitOrderOffsetPct: number;
+}
 
 export function backtestStrategy(
   strategy: Strategy,
@@ -31,6 +56,7 @@ export function backtestStrategy(
   startEquity = 10_000,
   stopLossPct = 0.03,
   takeProfitPct = 0.06,
+  sizing?: BacktestSizing,
 ): BacktestResult {
   let cash = startEquity;
   let open: OpenLot | null = null;
@@ -46,11 +72,22 @@ export function backtestStrategy(
     if (open) {
       const change = (price - open.entryPrice) / open.entryPrice;
       let forcedExit: string | null = null;
-      if (change <= -stopLossPct) forcedExit = "Stop-loss hit";
-      else if (change >= takeProfitPct) forcedExit = "Take-profit hit";
+      let forceTaker = false;
+      if (change <= -stopLossPct) {
+        forcedExit = "Stop-loss hit";
+        forceTaker = true; // never delay a stop for a better price
+      } else if (change >= takeProfitPct) {
+        forcedExit = "Take-profit hit";
+      }
       if (forcedExit) {
-        cash += open.qty * price * (1 - COST_RATE);
-        trades.push(closeTrade(strategy, open, bar, forcedExit));
+        if (sizing) {
+          const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, bar, forceTaker, true);
+          cash += open.qty * fill.price * (1 - fill.feeRate);
+          trades.push(closeTrade(strategy, open, bar, forcedExit, fill.price));
+        } else {
+          cash += open.qty * price * (1 - LEGACY_COST_RATE);
+          trades.push(closeTrade(strategy, open, bar, forcedExit, price));
+        }
         open = null;
       }
     }
@@ -58,13 +95,48 @@ export function backtestStrategy(
     const signal = strategy.evaluate(window, open !== null);
 
     if (!open && signal.action === "buy") {
-      const notional = cash * 0.95; // leave a little for fees
-      const qty = notional / price;
-      cash -= qty * price * (1 + COST_RATE);
-      open = { entryPrice: price, entryTime: bar.time, qty };
+      if (sizing) {
+        const fill = attemptFill("buy", price, sizing.limitOrderOffsetPct, bar, false, false);
+        if (fill.filled) {
+          const vol = sizing.adaptive
+            ? computeVolatilityMultiplier(window, sizing.volTargetPct, VOL_LOOKBACK)
+            : 1;
+          const kelly = sizing.adaptive
+            ? computeKellyMultiplier(trades, strategy.meta.id, sizing.kellyFraction)
+            : 1;
+          const sized = sizePosition({
+            equity: cash, // flat (no open position at this branch)
+            cash,
+            price: fill.price,
+            maxPositionPct: sizing.maxPositionPct,
+            strength: signal.strength,
+            volMultiplier: vol,
+            kellyMultiplier: kelly,
+          });
+          if (sized.qty > 0) {
+            const notionalCost = sized.qty * fill.price * (1 + fill.feeRate);
+            if (notionalCost <= cash + 1e-6) {
+              cash -= notionalCost;
+              open = { entryPrice: fill.price, entryTime: bar.time, qty: sized.qty };
+            }
+          }
+        }
+        // else: maker order didn't fill this bar — no urgency, try again next tick
+      } else {
+        const notional = cash * 0.95; // leave a little for fees
+        const qty = notional / price;
+        cash -= qty * price * (1 + LEGACY_COST_RATE);
+        open = { entryPrice: price, entryTime: bar.time, qty };
+      }
     } else if (open && signal.action === "sell") {
-      cash += open.qty * price * (1 - COST_RATE);
-      trades.push(closeTrade(strategy, open, bar, signal.reason));
+      if (sizing) {
+        const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, bar, false, true);
+        cash += open.qty * fill.price * (1 - fill.feeRate);
+        trades.push(closeTrade(strategy, open, bar, signal.reason, fill.price));
+      } else {
+        cash += open.qty * price * (1 - LEGACY_COST_RATE);
+        trades.push(closeTrade(strategy, open, bar, signal.reason, price));
+      }
       open = null;
     }
 
@@ -75,8 +147,14 @@ export function backtestStrategy(
   // Close any position at the last price so equity is fully realized.
   if (open) {
     const last = candles[candles.length - 1];
-    cash += open.qty * last.close * (1 - COST_RATE);
-    trades.push(closeTrade(strategy, open, last, "End of backtest"));
+    if (sizing) {
+      const fill = attemptFill("sell", last.close, sizing.limitOrderOffsetPct, last, true, true);
+      cash += open.qty * fill.price * (1 - fill.feeRate);
+      trades.push(closeTrade(strategy, open, last, "End of backtest", fill.price));
+    } else {
+      cash += open.qty * last.close * (1 - LEGACY_COST_RATE);
+      trades.push(closeTrade(strategy, open, last, "End of backtest", last.close));
+    }
     open = null;
   }
 
@@ -106,19 +184,20 @@ function closeTrade(
   open: OpenLot,
   bar: Candle,
   reason: string,
+  exitPrice: number,
 ): Trade {
-  const pnl = (bar.close - open.entryPrice) * open.qty;
+  const pnl = (exitPrice - open.entryPrice) * open.qty;
   return {
     id: `${open.entryTime}-${bar.time}`,
     symbol: "",
     strategy: strategy.meta.id,
     qty: open.qty,
     entryPrice: open.entryPrice,
-    exitPrice: bar.close,
+    exitPrice,
     entryTime: open.entryTime,
     exitTime: bar.time,
     pnl,
-    returnPct: (bar.close - open.entryPrice) / open.entryPrice,
+    returnPct: (exitPrice - open.entryPrice) / open.entryPrice,
     reason,
   };
 }

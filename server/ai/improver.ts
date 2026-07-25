@@ -136,7 +136,7 @@ class Improver {
         const id = strategy.meta.id;
         const cur = getActiveParams(id);
         currentParams[id] = cur;
-        const outcome = optimizeStrategy(strategy, candles, cur);
+        const outcome = optimizeStrategy(strategy, candles, cur, config);
         optimizerFindings.push({
           strategyId: id,
           improvement: outcome.validation?.improvement ?? 0,

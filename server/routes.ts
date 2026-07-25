@@ -117,6 +117,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const config = storage.getConfig();
     const symbol = (req.query.symbol as string) || config.symbol;
     const candles = await feed.getCandles(symbol, 500);
+    // Realistic sizing: the same maxPositionPct/vol/Kelly/maker-fill logic
+    // the live engine uses, so these numbers describe what live trading
+    // would actually do — not a disconnected flat-sizing fiction.
+    const sizing = {
+      maxPositionPct: config.maxPositionPct,
+      adaptive: config.adaptiveSizing,
+      volTargetPct: config.volTargetPct,
+      kellyFraction: config.kellyFraction,
+      limitOrderOffsetPct: config.limitOrderOffsetPct,
+    };
     const results = STRATEGY_LIST.map((s) =>
       backtestStrategy(
         s,
@@ -124,6 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         10_000,
         config.stopLossPct,
         config.takeProfitPct,
+        sizing,
       ),
     ).sort((a, b) => b.returnPct - a.returnPct);
 

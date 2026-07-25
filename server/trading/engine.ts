@@ -29,6 +29,7 @@ import { createMarketFeed, type MarketFeed } from "./marketData";
 import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
 import { selectStrategy } from "./aiSelector";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
+import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 
 const CANDLE_COUNT = 200;
 /** Re-run AI strategy selection at most this often (ms). */
@@ -241,7 +242,7 @@ class TradingEngine {
       const hasPosition = position !== null && position.qty > 0;
 
       // Enforce per-trade stop-loss / take-profit before strategy logic.
-      if (hasPosition && position && (await this.checkProtectiveExit(config, position, price))) {
+      if (hasPosition && position && (await this.checkProtectiveExit(config, position, price, candles))) {
         this.lastEvaluatedAt = Date.now();
         return;
       }
@@ -250,9 +251,9 @@ class TradingEngine {
       this.lastEvaluatedAt = Date.now();
 
       if (signal.action === "buy" && !hasPosition) {
-        await this.handleBuy(config, account, price, signal.strength, signal.reason);
+        await this.handleBuy(config, account, price, signal.strength, signal.reason, candles);
       } else if (signal.action === "sell" && hasPosition && position) {
-        await this.handleSell(config, position, price, signal.reason);
+        await this.handleSell(config, position, price, signal.reason, candles, false);
       }
     } catch (err) {
       storage.log("info", `Tick error: ${(err as Error).message}`);
@@ -299,16 +300,21 @@ class TradingEngine {
     config: BotConfig,
     position: Position,
     price: number,
+    candles: Candle[],
   ): Promise<boolean> {
     const change = (price - position.avgEntryPrice) / position.avgEntryPrice;
     let reason: string | null = null;
+    let isStopLoss = false;
     if (change <= -config.stopLossPct) {
       reason = `Stop-loss: ${(change * 100).toFixed(2)}%`;
+      isStopLoss = true;
     } else if (change >= config.takeProfitPct) {
       reason = `Take-profit: +${(change * 100).toFixed(2)}%`;
     }
     if (!reason) return false;
-    await this.handleSell(config, position, price, reason);
+    // A stop-loss must never wait for a better price — always a guaranteed,
+    // immediate fill. A take-profit can try for a better price first.
+    await this.handleSell(config, position, price, reason, candles, isStopLoss);
     return true;
   }
 
@@ -318,11 +324,23 @@ class TradingEngine {
     price: number,
     strength: number,
     reason: string,
+    candles: Candle[],
   ): Promise<void> {
     if (this.halted) {
       storage.log("risk_block", `Buy blocked — ${this.haltReason}`);
       return;
     }
+
+    // Volatility targeting + fractional Kelly, when the user has opted in.
+    // Both are bounded so they can only move sizing within maxPositionPct —
+    // never past it (enforced inside sizePosition, not here).
+    const volMultiplier = config.adaptiveSizing
+      ? computeVolatilityMultiplier(candles, config.volTargetPct)
+      : 1;
+    const kellyMultiplier = config.adaptiveSizing
+      ? computeKellyMultiplier(storage.allTrades(), this.activeStrategy.meta.id, config.kellyFraction)
+      : 1;
+
     const ctx: RiskContext = {
       config,
       equity: account.equity,
@@ -331,6 +349,8 @@ class TradingEngine {
       price,
       hasPosition: false,
       ordersThisMinute: this.ordersThisMinute,
+      volMultiplier,
+      kellyMultiplier,
     };
     const decision = vetBuy(ctx, strength);
     if (!decision.allowed) {
@@ -338,8 +358,16 @@ class TradingEngine {
       return;
     }
 
+    const bar = candles[candles.length - 1];
     const order = await this.broker.submitOrder(
-      { symbol: config.symbol, side: "buy", qty: decision.qty, reason },
+      {
+        symbol: config.symbol,
+        side: "buy",
+        qty: decision.qty,
+        reason,
+        limitOffsetPct: config.limitOrderOffsetPct,
+        bar: { high: bar.high, low: bar.low },
+      },
       price,
     );
     this.ordersThisMinute++;
@@ -351,9 +379,8 @@ class TradingEngine {
       };
       storage.log(
         "order",
-        `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(
-          2,
-        )} — ${reason} (${decision.reason})`,
+        `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
+          `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} (${decision.reason})`,
         this.activeStrategy.meta.id,
       );
       sendAlert(
@@ -362,7 +389,9 @@ class TradingEngine {
         `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason}`,
       );
     } else {
-      storage.log("info", `Buy rejected — ${order.message}`);
+      // A missed maker fill is normal (no urgency on entries) — only log it
+      // as a decision, not a risk block, and don't alert on it.
+      storage.log("info", `Buy not filled — ${order.message}`, this.activeStrategy.meta.id);
     }
   }
 
@@ -371,9 +400,20 @@ class TradingEngine {
     position: Position,
     price: number,
     reason: string,
+    candles: Candle[],
+    forceTaker: boolean,
   ): Promise<void> {
+    const bar = candles[candles.length - 1];
     const order = await this.broker.submitOrder(
-      { symbol: config.symbol, side: "sell", qty: position.qty, reason },
+      {
+        symbol: config.symbol,
+        side: "sell",
+        qty: position.qty,
+        reason,
+        limitOffsetPct: config.limitOrderOffsetPct,
+        bar: { high: bar.high, low: bar.low },
+        forceTaker,
+      },
       price,
     );
     this.ordersThisMinute++;
@@ -403,9 +443,10 @@ class TradingEngine {
     this.openEntry = null;
     storage.log(
       "order",
-      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(
-        2,
-      )} — ${reason} | P&L ${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`,
+      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
+        `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} | P&L ${
+          pnl >= 0 ? "+" : ""
+        }${pnl.toFixed(2)}`,
       strategyId,
     );
     sendAlert(

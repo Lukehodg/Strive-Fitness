@@ -765,6 +765,36 @@ function SettingsPanel() {
           </Field>
         </div>
 
+        <div className="border-t border-gray-800 pt-4 space-y-4">
+          <div>
+            <p className="font-medium text-white">Execution &amp; sizing</p>
+            <p className="text-sm text-gray-400">
+              How orders fill and how much to risk per trade — the highest-certainty way to raise net returns, since it doesn't depend on predicting anything.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            <Field label={`Maker-first limit offset (${(form.limitOrderOffsetPct * 100).toFixed(2)}%, 0 = market orders)`}>
+              <Input type="range" min={0} max={0.002} step={0.0001} value={form.limitOrderOffsetPct} onChange={(e) => upd({ limitOrderOffsetPct: Number(e.target.value) })} />
+              <p className="text-xs text-gray-600 mt-1">Posts a resting order for a lower fee (0.02% vs 0.10%) and no slippage; falls back to a market fill on exits so nothing is ever stuck. Stop-losses always fill immediately regardless.</p>
+            </Field>
+            <Field label={`Kelly fraction (${(form.kellyFraction * 100).toFixed(0)}% of full Kelly)`}>
+              <Input type="range" min={0.1} max={1} step={0.05} value={form.kellyFraction} onChange={(e) => upd({ kellyFraction: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
+              <p className="text-xs text-gray-600 mt-1">Lower = more conservative sizing from a strategy's own track record. Only active once a strategy has 10+ trades.</p>
+            </Field>
+            <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(2)}% per bar)`}>
+              <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
+              <p className="text-xs text-gray-600 mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
+            </Field>
+            <div className="flex items-center justify-between rounded-lg bg-[#1E1E1E] p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Adaptive sizing</p>
+                <p className="text-xs text-gray-500">Volatility targeting + fractional Kelly. Both are bounded — they can only move sizing within your max position size above, never past it.</p>
+              </div>
+              <Switch checked={form.adaptiveSizing} onCheckedChange={(v) => upd({ adaptiveSizing: v })} />
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between border-t border-gray-800 pt-4">
           <div>
             <p className="font-medium text-white">Let AI pick the strategy</p>
