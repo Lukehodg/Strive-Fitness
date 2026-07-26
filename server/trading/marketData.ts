@@ -125,14 +125,41 @@ export interface MarketFeed {
   getPrice(symbol: string): Promise<number>;
 }
 
+/**
+ * Module-level (not per-feed-instance) cache: the engine, the improver, and
+ * API routes each call `createMarketFeed()` separately, so a cache living on
+ * the returned object would never dedupe across them. Keyed by
+ * `${symbol}:${count}`; caches the in-flight promise (not just the resolved
+ * value) so concurrent callers within the same tick share one Alpaca
+ * request/synthetic generation instead of firing one each.
+ *
+ * TTL is shorter than the engine's minimum tick interval (5s, enforced in
+ * engine.ts) so the cache can never delay the live engine's reaction to
+ * genuinely fresh data — it only dedupes near-simultaneous calls (e.g. a
+ * dashboard poll landing in the same second as an engine tick).
+ */
+const CACHE_TTL_MS = 3_000;
+const candleCache = new Map<string, { expires: number; promise: Promise<Candle[]> }>();
+
 export function createMarketFeed(): MarketFeed {
   const hasKeys = readAlpacaCredentials() !== null;
   return {
     source: hasKeys ? "alpaca" : "synthetic",
     async getCandles(symbol, count) {
-      const real = await fetchAlpacaBars(symbol, count);
-      if (real && real.length) return real;
-      return generateSyntheticCandles(symbol, count);
+      const key = `${symbol}:${count}`;
+      const now = Date.now();
+      const cached = candleCache.get(key);
+      if (cached && cached.expires > now) return cached.promise;
+
+      const promise = (async () => {
+        const real = await fetchAlpacaBars(symbol, count);
+        if (real && real.length) return real;
+        return generateSyntheticCandles(symbol, count);
+      })();
+      candleCache.set(key, { expires: now + CACHE_TTL_MS, promise });
+      // Don't cache a rejected fetch — let the next call retry immediately.
+      promise.catch(() => candleCache.delete(key));
+      return promise;
     },
     async getPrice(symbol) {
       const candles = await this.getCandles(symbol, 2);

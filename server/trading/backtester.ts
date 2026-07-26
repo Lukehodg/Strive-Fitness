@@ -22,6 +22,7 @@ import type {
 } from "@shared/schema";
 import { sharpe as sharpeOf } from "../ai/metrics";
 import { attemptFill } from "./execution";
+import { INDICATOR_LOOKBACK_WINDOW } from "./indicators";
 import { computeKellyMultiplier, computeVolatilityMultiplier, sizePosition } from "./sizing";
 import type { Strategy } from "./strategies";
 
@@ -64,7 +65,11 @@ export function backtestStrategy(
   const equityCurve: number[] = [];
 
   for (let i = WARMUP; i < candles.length; i++) {
-    const window = candles.slice(0, i + 1);
+    // Bounded trailing window, not the full history from index 0 — every
+    // indicator used by any strategy settles well within this many bars
+    // (verified), and re-slicing/re-scanning full history on every single
+    // bar would make this loop O(n²) instead of O(n).
+    const window = candles.slice(Math.max(0, i + 1 - INDICATOR_LOOKBACK_WINDOW), i + 1);
     const bar = candles[i];
     const price = bar.close;
 

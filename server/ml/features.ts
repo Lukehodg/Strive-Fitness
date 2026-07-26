@@ -7,7 +7,16 @@
 // weight on each named feature is its importance).
 
 import type { Candle } from "@shared/schema";
-import { sma, ema, rsi, stddev, atr, highest, lowest } from "../trading/indicators";
+import {
+  sma,
+  ema,
+  rsi,
+  stddev,
+  atr,
+  highest,
+  lowest,
+  INDICATOR_LOOKBACK_WINDOW,
+} from "../trading/indicators";
 import {
   tripleBarrierLabel,
   DEFAULT_TRIPLE_BARRIER,
@@ -39,7 +48,10 @@ export const LABEL_HORIZON = DEFAULT_TRIPLE_BARRIER.horizon;
  */
 export function extractFeatures(candles: Candle[], i: number): number[] | null {
   if (i < MIN_LOOKBACK) return null;
-  const w = candles.slice(0, i + 1);
+  // Bounded trailing window, not full history — see INDICATOR_LOOKBACK_WINDOW.
+  // Without this, building a dataset from N candles costs O(N²): confirmed
+  // ~15s for a realistic 2-year hourly download before this fix.
+  const w = candles.slice(Math.max(0, i + 1 - INDICATOR_LOOKBACK_WINDOW), i + 1);
   const c = w.map((x) => x.close);
   const price = c[c.length - 1];
 

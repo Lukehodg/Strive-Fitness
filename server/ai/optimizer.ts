@@ -139,13 +139,13 @@ export function optimizeStrategy(
   // 1. Search the training window (include current params as a candidate).
   const candidates: StrategyParams[] = [currentParams];
   let best: StrategyParams = currentParams;
-  let bestTrainScore = scoreOf(strategy, currentParams, train, sizing).score;
+  let bestResult = scoreOf(strategy, currentParams, train, sizing);
   for (let i = 0; i < SAMPLES; i++) {
     const cand = randomParams(specs, rand);
     candidates.push(cand);
-    const s = scoreOf(strategy, cand, train, sizing).score;
-    if (s > bestTrainScore) {
-      bestTrainScore = s;
+    const s = scoreOf(strategy, cand, train, sizing);
+    if (s.score > bestResult.score) {
+      bestResult = s;
       best = cand;
     }
   }
@@ -156,7 +156,9 @@ export function optimizeStrategy(
   const improvement = candidateOos.returnPct - baselineOos.returnPct;
 
   const validation: ProposalValidation = {
-    inSampleReturn: scoreOf(strategy, best, train, sizing).returnPct,
+    // Reuses the winner's already-computed training-window result instead
+    // of re-running an identical backtest.
+    inSampleReturn: bestResult.returnPct,
     outOfSampleReturn: candidateOos.returnPct,
     baselineOutOfSampleReturn: baselineOos.returnPct,
     improvement,

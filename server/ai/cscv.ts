@@ -13,15 +13,14 @@
 //
 // This replaces "one walk-forward path" with C(S, S/2) paths — the repo's
 // core criticism of naive backtest validation.
-
-import { mean, std } from "./metrics";
-
-/** Score used to rank configs within a window: Sharpe, falling back to mean. */
-function windowScore(returns: number[]): number {
-  const s = std(returns);
-  if (s === 0) return mean(returns) * 1e6; // rank pure-drift series by drift
-  return mean(returns) / s;
-}
+//
+// Performance note: a naive implementation re-slices and re-scans each
+// config's raw returns for every one of the C(S, S/2) splits — O(splits ×
+// configs × bars). Since each group's mean/sum-of-squares never changes
+// across splits, we compute those once per (config, group) — O(configs ×
+// bars) — and combine the relevant groups' precomputed sums for each split
+// — O(splits × configs × groups), which is far cheaper once there are more
+// bars per group than there are groups (always true here: groups=8).
 
 /** Enumerate all k-combinations of [0..n). */
 function combinations(n: number, k: number): number[][] {
@@ -49,6 +48,48 @@ export interface PBOResult {
   splits: number;
 }
 
+/** Precomputed sum/sum-of-squares for one (config, group) — enough to derive
+ *  mean and sample variance for any combination of groups without rescanning
+ *  the raw returns. */
+interface GroupAgg {
+  count: number;
+  sum: number;
+  sumSq: number;
+}
+
+function computeGroupAgg(returns: number[], start: number, end: number): GroupAgg {
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = start; i < end; i++) {
+    const v = returns[i];
+    sum += v;
+    sumSq += v * v;
+  }
+  return { count: end - start, sum, sumSq };
+}
+
+/** Combine precomputed group aggregates into a Sharpe-like mean/std ratio,
+ *  falling back to scaled mean when std is 0 (ranks pure-drift series by
+ *  drift instead of dividing by zero). */
+function combineAndScore(aggs: GroupAgg[]): number {
+  let count = 0;
+  let sum = 0;
+  let sumSq = 0;
+  for (const a of aggs) {
+    count += a.count;
+    sum += a.sum;
+    sumSq += a.sumSq;
+  }
+  if (count === 0) return 0;
+  const m = sum / count;
+  if (count < 2) return m * 1e6;
+  // Sample variance via the sum-of-squares identity — mathematically the
+  // same quantity metrics.ts's std() computes via a two-pass mean-subtract.
+  const variance = Math.max(0, (sumSq - (sum * sum) / count) / (count - 1));
+  const s = Math.sqrt(variance);
+  return s === 0 ? m * 1e6 : m / s;
+}
+
 /**
  * Compute PBO from a matrix of per-bar returns, one row per candidate config
  * (all rows aligned to the same bars). `groups` must be even.
@@ -70,14 +111,10 @@ export function probabilityOfBacktestOverfitting(
     bounds.push([g * size, g === groups - 1 ? nBars : (g + 1) * size]);
   }
 
-  const slice = (config: number, groupIdx: number[]): number[] => {
-    const out: number[] = [];
-    for (const g of groupIdx) {
-      const [a, b] = bounds[g];
-      for (let i = a; i < b; i++) out.push(returnsMatrix[config][i]);
-    }
-    return out;
-  };
+  // Precompute each config's per-group aggregate exactly once.
+  const groupAggs: GroupAgg[][] = returnsMatrix.map((returns) =>
+    bounds.map(([a, b]) => computeGroupAgg(returns, a, b)),
+  );
 
   const half = groups / 2;
   const splitsList = combinations(groups, half);
@@ -85,7 +122,7 @@ export function probabilityOfBacktestOverfitting(
   let counted = 0;
 
   for (const trainGroups of splitsList) {
-    const testGroups = [];
+    const testGroups: number[] = [];
     for (let g = 0; g < groups; g++) {
       if (!trainGroups.includes(g)) testGroups.push(g);
     }
@@ -94,7 +131,7 @@ export function probabilityOfBacktestOverfitting(
     let best = 0;
     let bestScore = -Infinity;
     for (let c = 0; c < nConfigs; c++) {
-      const s = windowScore(slice(c, trainGroups));
+      const s = combineAndScore(trainGroups.map((g) => groupAggs[c][g]));
       if (s > bestScore) {
         bestScore = s;
         best = c;
@@ -102,9 +139,9 @@ export function probabilityOfBacktestOverfitting(
     }
 
     // The winner's out-of-sample rank relative to all configs.
-    const oosScores = [];
+    const oosScores: number[] = [];
     for (let c = 0; c < nConfigs; c++) {
-      oosScores.push(windowScore(slice(c, testGroups)));
+      oosScores.push(combineAndScore(testGroups.map((g) => groupAggs[c][g])));
     }
     const winnerScore = oosScores[best];
     const rank = oosScores.filter((s) => s <= winnerScore).length; // 1..n

@@ -32,30 +32,46 @@ export const DEFAULT_TRIPLE_BARRIER: TripleBarrierOptions = {
   volLookback: 24,
 };
 
-/** Rolling stdev of simple returns ending at bar i (exclusive of future). */
-function volatilityAt(closes: number[], i: number, lookback: number): number {
+/**
+ * Rolling stdev of simple returns ending at bar i (exclusive of future).
+ * Reads closes directly off `candles` — no full-array `.map()` — so this
+ * stays O(lookback) regardless of how large the candle history is.
+ */
+function volatilityAt(candles: Candle[], i: number, lookback: number): number {
   const start = Math.max(1, i - lookback + 1);
+  let n = 0;
+  let sum = 0;
   const rets: number[] = [];
-  for (let k = start; k <= i; k++) rets.push(closes[k] / closes[k - 1] - 1);
-  if (rets.length === 0) return 0.01;
-  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
-  const varr = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length;
+  for (let k = start; k <= i; k++) {
+    const r = candles[k].close / candles[k - 1].close - 1;
+    rets.push(r);
+    sum += r;
+    n++;
+  }
+  if (n === 0) return 0.01;
+  const mean = sum / n;
+  const varr = rets.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
   return Math.sqrt(varr) || 0.005;
 }
 
 /**
  * Compute the triple-barrier label for a single bar `i`. Returns 1, 0, or null
  * if there isn't enough forward data to resolve the horizon.
+ *
+ * Reads `candles[i].close` etc. directly rather than mapping the whole array
+ * to closes on every call — `buildDataset` calls this once per bar, so a
+ * full-array `.map()` per call turned dataset construction from O(bars) into
+ * O(bars²) on any realistic download (confirmed the dominant remaining cost
+ * on a 17,520-bar dataset).
  */
 export function tripleBarrierLabel(
   candles: Candle[],
   i: number,
   opts: TripleBarrierOptions,
 ): number | null {
-  const closes = candles.map((c) => c.close);
   if (i + 1 >= candles.length) return null;
-  const vol = volatilityAt(closes, i, opts.volLookback);
-  const entry = closes[i];
+  const vol = volatilityAt(candles, i, opts.volLookback);
+  const entry = candles[i].close;
   const upper = entry * (1 + opts.upMult * vol);
   const lower = entry * (1 - opts.downMult * vol);
   const end = Math.min(candles.length - 1, i + opts.horizon);
@@ -68,5 +84,5 @@ export function tripleBarrierLabel(
   }
   // Vertical barrier: neither hit — label by net drift, but treat flat as 0
   // (no trade-worthy up move materialized).
-  return closes[end] > entry * (1 + 0.2 * opts.upMult * vol) ? 1 : 0;
+  return candles[end].close > entry * (1 + 0.2 * opts.upMult * vol) ? 1 : 0;
 }
