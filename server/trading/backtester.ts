@@ -72,6 +72,10 @@ export function backtestStrategy(
     const window = candles.slice(Math.max(0, i + 1 - INDICATOR_LOOKBACK_WINDOW), i + 1);
     const bar = candles[i];
     const price = bar.close;
+    // A limit order decided on `bar`'s close rests during the NEXT bar — that
+    // is the only bar whose range may legitimately decide the fill. Using
+    // `bar` itself would be lookahead (see attemptFill's docs).
+    const restingBar = candles[i + 1] ?? null;
 
     // Check stop-loss / take-profit before the strategy's own exit logic.
     if (open) {
@@ -86,7 +90,7 @@ export function backtestStrategy(
       }
       if (forcedExit) {
         if (sizing) {
-          const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, bar, forceTaker, true);
+          const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, forceTaker, true);
           cash += open.qty * fill.price * (1 - fill.feeRate);
           trades.push(closeTrade(strategy, open, bar, forcedExit, fill.price));
         } else {
@@ -101,7 +105,7 @@ export function backtestStrategy(
 
     if (!open && signal.action === "buy") {
       if (sizing) {
-        const fill = attemptFill("buy", price, sizing.limitOrderOffsetPct, bar, false, false);
+        const fill = attemptFill("buy", price, sizing.limitOrderOffsetPct, restingBar, false, false);
         if (fill.filled) {
           const vol = sizing.adaptive
             ? computeVolatilityMultiplier(window, sizing.volTargetPct, VOL_LOOKBACK)
@@ -135,7 +139,7 @@ export function backtestStrategy(
       }
     } else if (open && signal.action === "sell") {
       if (sizing) {
-        const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, bar, false, true);
+        const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, false, true);
         cash += open.qty * fill.price * (1 - fill.feeRate);
         trades.push(closeTrade(strategy, open, bar, signal.reason, fill.price));
       } else {

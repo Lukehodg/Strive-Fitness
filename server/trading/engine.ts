@@ -13,6 +13,7 @@ import type {
   BotStatus,
   Candle,
   MarketRegime,
+  Order,
   Position,
   Trade,
 } from "@shared/schema";
@@ -203,6 +204,16 @@ class TradingEngine {
       this.lastPrice = price;
       this.broker.mark(config.symbol, price);
 
+      // Settle any limit order left resting by the previous tick against the
+      // bar that has since elapsed. This must happen before new signals are
+      // evaluated — and it is the only honest place to decide those fills,
+      // since a bar that has already closed when the order was placed cannot
+      // legitimately fill it (that would be lookahead).
+      const latestBar = candles[candles.length - 1];
+      for (const settled of this.broker.resolvePending?.(latestBar, price) ?? []) {
+        this.applyResolvedOrder(config, settled);
+      }
+
       this.rolloverDayIfNeeded();
       this.rolloverMinuteIfNeeded();
 
@@ -371,7 +382,32 @@ class TradingEngine {
       price,
     );
     this.ordersThisMinute++;
-    if (order.status === "filled") {
+    this.applyResolvedOrder(config, order, decision.reason);
+  }
+
+  /**
+   * Record the outcome of an order. Called both for orders that settle
+   * immediately (market/stop) and — a tick later, via `resolvePending` — for
+   * limit orders that had to rest until a bar elapsed against them.
+   */
+  private applyResolvedOrder(config: BotConfig, order: Order, sizingNote?: string): void {
+    if (order.status === "pending") {
+      storage.log(
+        "info",
+        `${order.side === "buy" ? "Buy" : "Sell"} limit resting @ ${order.price.toFixed(2)}` +
+          ` — settles next tick${sizingNote ? ` (${sizingNote})` : ""}`,
+        this.activeStrategy.meta.id,
+      );
+      return;
+    }
+
+    if (order.side === "buy") {
+      if (order.status !== "filled") {
+        // A missed maker fill is normal (no urgency on entries) — only log it
+        // as a decision, not a risk block, and don't alert on it.
+        storage.log("info", `Buy not filled — ${order.message}`, this.activeStrategy.meta.id);
+        return;
+      }
       this.openEntry = {
         price: order.price,
         time: order.createdAt,
@@ -380,19 +416,62 @@ class TradingEngine {
       storage.log(
         "order",
         `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
-          `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} (${decision.reason})`,
+          `${order.fillType ? ` (${order.fillType})` : ""} — ${order.reason ?? ""}` +
+          `${sizingNote ? ` (${sizingNote})` : ""}`,
         this.activeStrategy.meta.id,
       );
       sendAlert(
         "info",
         `BUY ${config.symbol}`,
-        `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason}`,
+        `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${order.reason ?? ""}`,
       );
-    } else {
-      // A missed maker fill is normal (no urgency on entries) — only log it
-      // as a decision, not a risk block, and don't alert on it.
-      storage.log("info", `Buy not filled — ${order.message}`, this.activeStrategy.meta.id);
+      return;
     }
+
+    if (order.status !== "filled") {
+      storage.log("info", `Sell rejected — ${order.message}`);
+      return;
+    }
+    this.recordSellFill(config, order);
+  }
+
+  /** Turn a filled exit into a completed Trade in the log. */
+  private recordSellFill(config: BotConfig, order: Order): void {
+    const entryPrice = this.openEntry?.price ?? order.price;
+    const entryTime = this.openEntry?.time ?? order.createdAt;
+    const strategyId = this.openEntry?.strategyId ?? this.activeStrategy.meta.id;
+    const reason = order.reason ?? "";
+    const pnl = (order.price - entryPrice) * order.qty;
+    const trade: Trade = {
+      id: order.id,
+      symbol: config.symbol,
+      strategy: strategyId,
+      qty: order.qty,
+      entryPrice,
+      exitPrice: order.price,
+      entryTime,
+      exitTime: order.createdAt,
+      pnl,
+      returnPct: entryPrice > 0 ? (order.price - entryPrice) / entryPrice : 0,
+      reason,
+    };
+    storage.addTrade(trade);
+    this.openEntry = null;
+    storage.log(
+      "order",
+      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
+        `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} | P&L ${
+          pnl >= 0 ? "+" : ""
+        }${pnl.toFixed(2)}`,
+      strategyId,
+    );
+    sendAlert(
+      "info",
+      `SELL ${config.symbol}`,
+      `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason} | P&L ${
+        pnl >= 0 ? "+" : ""
+      }${pnl.toFixed(2)}`,
+    );
   }
 
   private async handleSell(
@@ -417,45 +496,7 @@ class TradingEngine {
       price,
     );
     this.ordersThisMinute++;
-    if (order.status !== "filled") {
-      storage.log("info", `Sell rejected — ${order.message}`);
-      return;
-    }
-
-    const entryPrice = this.openEntry?.price ?? position.avgEntryPrice;
-    const entryTime = this.openEntry?.time ?? position.openedAt;
-    const strategyId = this.openEntry?.strategyId ?? this.activeStrategy.meta.id;
-    const pnl = (order.price - entryPrice) * order.qty;
-    const trade: Trade = {
-      id: order.id,
-      symbol: config.symbol,
-      strategy: strategyId,
-      qty: order.qty,
-      entryPrice,
-      exitPrice: order.price,
-      entryTime,
-      exitTime: order.createdAt,
-      pnl,
-      returnPct: (order.price - entryPrice) / entryPrice,
-      reason,
-    };
-    storage.addTrade(trade);
-    this.openEntry = null;
-    storage.log(
-      "order",
-      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
-        `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} | P&L ${
-          pnl >= 0 ? "+" : ""
-        }${pnl.toFixed(2)}`,
-      strategyId,
-    );
-    sendAlert(
-      "info",
-      `SELL ${config.symbol}`,
-      `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason} | P&L ${
-        pnl >= 0 ? "+" : ""
-      }${pnl.toFixed(2)}`,
-    );
+    this.applyResolvedOrder(config, order);
   }
 
   // -- Housekeeping -------------------------------------------------------

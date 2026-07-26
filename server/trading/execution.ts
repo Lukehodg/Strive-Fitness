@@ -33,17 +33,40 @@ export interface FillResult {
 
 const NOT_FILLED: FillResult = { filled: false, price: 0, feeRate: 0, fillType: "maker" };
 
+/** Price a resting limit order is posted at, `offsetPct` through the market. */
+export function limitPriceFor(
+  side: "buy" | "sell",
+  referencePrice: number,
+  offsetPct: number,
+): number {
+  return side === "buy"
+    ? referencePrice * (1 - offsetPct)
+    : referencePrice * (1 + offsetPct);
+}
+
 /**
- * Attempt a fill for one order, given the bar it's being evaluated against.
+ * Attempt a fill for one order.
  *
- * - `offsetPct <= 0` or no `bar`: always an immediate taker/market fill
- *   (this is the "limit orders disabled" / real-broker path).
+ * `restingBar` is the bar during which the limit order RESTS — i.e. the bar
+ * AFTER the one whose close produced `referencePrice`. This distinction is
+ * the whole ballgame: checking the limit against the *decision* bar's own
+ * high/low is lookahead bias. That bar has already closed, so its range is
+ * known; a limit priced off its close would then "fill" only at prices better
+ * than that close, handing every trade a risk-free ~`offsetPct` improvement
+ * on both entry and exit. Measured on drift-neutral data, that fabricated
+ * ~0.12%/round-trip turned a losing strategy into a reliable +20%/month.
+ *
+ * Pass `null` when the resting bar isn't known yet (a live order that hasn't
+ * had a bar elapse against it) — the caller must then treat the order as
+ * pending rather than filled.
+ *
+ * - `offsetPct <= 0` or no `restingBar`: immediate taker/market fill.
  * - `forceTaker`: always an immediate taker fill regardless of offset — use
  *   this for stop-losses, which must never be delayed for a better price.
  * - Otherwise: posts a resting limit `offsetPct` through the reference price
- *   and fills only if the bar's high/low range reaches it. Entries that
- *   don't fill are simply skipped (no urgency — the strategy re-evaluates
- *   next tick). Exits that don't fill fall back to an immediate taker fill,
+ *   and fills only if the resting bar's range reaches it. Entries that don't
+ *   fill are simply skipped (no urgency — the strategy re-evaluates next
+ *   tick). Exits that don't fill fall back to an immediate taker fill,
  *   because an exit that never happens is a risk-management failure, not a
  *   cost optimization.
  *
@@ -54,16 +77,14 @@ export function attemptFill(
   side: "buy" | "sell",
   referencePrice: number,
   offsetPct: number,
-  bar: Pick<Candle, "high" | "low"> | null,
+  restingBar: Pick<Candle, "high" | "low"> | null,
   forceTaker: boolean,
   isExit: boolean,
 ): FillResult {
-  if (!forceTaker && offsetPct > 0 && bar) {
-    const limitPrice =
-      side === "buy"
-        ? referencePrice * (1 - offsetPct)
-        : referencePrice * (1 + offsetPct);
-    const touched = side === "buy" ? bar.low <= limitPrice : bar.high >= limitPrice;
+  if (!forceTaker && offsetPct > 0 && restingBar) {
+    const limitPrice = limitPriceFor(side, referencePrice, offsetPct);
+    const touched =
+      side === "buy" ? restingBar.low <= limitPrice : restingBar.high >= limitPrice;
     if (touched) {
       return { filled: true, price: limitPrice, feeRate: MAKER_FEE_RATE, fillType: "maker" };
     }

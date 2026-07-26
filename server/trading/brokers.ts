@@ -4,7 +4,12 @@
 
 import { randomUUID } from "crypto";
 import type { Order, OrderRequest, Position } from "@shared/schema";
-import { attemptFill } from "./execution";
+import {
+  limitPriceFor,
+  MAKER_FEE_RATE,
+  TAKER_FEE_RATE,
+  TAKER_SLIPPAGE_RATE,
+} from "./execution";
 
 export interface AccountSnapshot {
   cash: number;
@@ -16,7 +21,11 @@ export interface AccountSnapshot {
 
 export interface Broker {
   readonly kind: "paper" | "alpaca";
-  /** Submit an order. Resolves with the resulting fill (or a rejection). */
+  /**
+   * Submit an order. Resolves with the resulting fill, a rejection, or —
+   * for a simulated resting limit order — a `pending` status that a later
+   * `resolvePending` call settles.
+   */
   submitOrder(req: OrderRequest, markPrice: number): Promise<Order>;
   /** Current open position for a symbol, or null if flat. */
   getPosition(symbol: string): Promise<Position | null>;
@@ -24,16 +33,33 @@ export interface Broker {
   getAccount(markPrice: number): Promise<AccountSnapshot>;
   /** Update the mark price used for unrealized P&L. */
   mark(symbol: string, price: number): void;
+  /**
+   * Settle any resting limit orders against the bar that has just elapsed.
+   * Only simulated brokers need this — a real venue manages its own book.
+   */
+  resolvePending?(
+    restingBar: { high: number; low: number },
+    markPrice: number,
+  ): Order[];
 }
 
 // ---------------------------------------------------------------------------
 // PaperBroker — fully in-memory simulated fills. No credentials, no network.
 // ---------------------------------------------------------------------------
 
+/** An order resting on the simulated book, awaiting the next bar. */
+interface RestingOrder {
+  base: Order;
+  req: OrderRequest;
+  limitPrice: number;
+  isExit: boolean;
+}
+
 export class PaperBroker implements Broker {
   readonly kind = "paper" as const;
   private cash: number;
   private positions = new Map<string, Position>();
+  private resting: RestingOrder[] = [];
 
   constructor(startingCash = 10_000) {
     this.cash = startingCash;
@@ -55,25 +81,80 @@ export class PaperBroker implements Broker {
       return { ...base, status: "rejected", message: "Invalid quantity or price" };
     }
 
-    // This system is long/flat-only, so a sell is always an exit — it must
-    // never silently fail to fill. A buy is always an entry — no urgency, a
-    // maker order that doesn't fill this tick can simply be retried.
+    // This system is long/flat-only, so a sell is always an exit.
     const isExit = req.side === "sell";
-    const fill = attemptFill(
-      req.side,
-      markPrice,
-      req.limitOffsetPct ?? 0,
-      req.bar ?? null,
-      req.forceTaker ?? false,
-      isExit,
-    );
-    if (!fill.filled) {
-      return { ...base, status: "rejected", message: "Limit order not filled this tick" };
+    const offset = req.limitOffsetPct ?? 0;
+    const wantsMaker = !(req.forceTaker ?? false) && offset > 0;
+
+    // A resting limit order can only be settled by a bar that elapses AFTER
+    // it is placed. We do not have that bar yet, so the order genuinely
+    // rests — resolvePending() settles it on the next tick. Deciding the fill
+    // now, from the bar that produced `markPrice`, would be lookahead: that
+    // bar has already closed, so its range is known.
+    if (wantsMaker) {
+      const limitPrice = limitPriceFor(req.side, markPrice, offset);
+      if (isExit) {
+        const existing = this.positions.get(req.symbol);
+        if (!existing || existing.qty < req.qty - 1e-9) {
+          return { ...base, status: "rejected", message: "No position to sell" };
+        }
+      } else if (req.qty * limitPrice * (1 + MAKER_FEE_RATE) > this.cash + 1e-9) {
+        return { ...base, status: "rejected", message: "Insufficient cash" };
+      }
+      const pending: Order = { ...base, status: "pending", price: limitPrice };
+      this.resting.push({ base: pending, req, limitPrice, isExit });
+      return pending;
     }
 
-    const fillPrice = fill.price;
+    // Market / forced-taker order: fills immediately at the reference price.
+    return this.settle(base, req, markPrice * (req.side === "buy" ? 1 + TAKER_SLIPPAGE_RATE : 1 - TAKER_SLIPPAGE_RATE), TAKER_FEE_RATE, "taker", markPrice);
+  }
+
+  /**
+   * Settle resting orders against the bar that has now elapsed. Touched
+   * limits fill as makers; an untouched EXIT falls back to a taker fill
+   * (an exit that never happens is a risk failure, not a saving), while an
+   * untouched ENTRY is simply cancelled and the strategy re-evaluates.
+   */
+  resolvePending(
+    restingBar: { high: number; low: number },
+    markPrice: number,
+  ): Order[] {
+    if (!this.resting.length) return [];
+    const queue = this.resting;
+    this.resting = [];
+    const out: Order[] = [];
+
+    for (const r of queue) {
+      const touched =
+        r.req.side === "buy" ? restingBar.low <= r.limitPrice : restingBar.high >= r.limitPrice;
+      if (touched) {
+        out.push(this.settle(r.base, r.req, r.limitPrice, MAKER_FEE_RATE, "maker", markPrice));
+      } else if (r.isExit) {
+        const takerPrice = markPrice * (1 - TAKER_SLIPPAGE_RATE);
+        out.push(this.settle(r.base, r.req, takerPrice, TAKER_FEE_RATE, "taker", markPrice));
+      } else {
+        out.push({
+          ...r.base,
+          status: "rejected",
+          message: "Resting buy not filled — cancelled, will re-evaluate",
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Apply cash/position effects of a fill and produce the final Order. */
+  private settle(
+    base: Order,
+    req: OrderRequest,
+    fillPrice: number,
+    feeRate: number,
+    fillType: "maker" | "taker",
+    markPrice: number,
+  ): Order {
     const notional = req.qty * fillPrice;
-    const fee = notional * fill.feeRate;
+    const fee = notional * feeRate;
 
     if (req.side === "buy") {
       if (notional + fee > this.cash + 1e-9) {
@@ -84,8 +165,7 @@ export class PaperBroker implements Broker {
       if (existing) {
         const totalQty = existing.qty + req.qty;
         existing.avgEntryPrice =
-          (existing.avgEntryPrice * existing.qty + fillPrice * req.qty) /
-          totalQty;
+          (existing.avgEntryPrice * existing.qty + fillPrice * req.qty) / totalQty;
         existing.qty = totalQty;
         existing.markPrice = markPrice;
       } else {
@@ -108,7 +188,7 @@ export class PaperBroker implements Broker {
       if (existing.qty <= 1e-9) this.positions.delete(req.symbol);
     }
 
-    return { ...base, status: "filled", price: fillPrice, fillType: fill.fillType };
+    return { ...base, status: "filled", price: fillPrice, fillType };
   }
 
   async getPosition(symbol: string): Promise<Position | null> {

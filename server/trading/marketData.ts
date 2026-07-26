@@ -52,8 +52,15 @@ export function generateSyntheticCandles(
   for (let i = 0; i < count; i++) {
     if (regimeLeft <= 0) {
       // Pick a new regime: trend up, trend down, or range.
+      //
+      // Up and down MUST be equally likely. An asymmetry here injects a net
+      // upward drift that compounds silently and makes every strategy look
+      // profitable for no reason other than a rigged uptrend: the previous
+      // 40%/30%/30% split gave +0.006%/bar, which is only ~+3% over a 500-bar
+      // backtest window (easy to miss) but ~+1236% over a month of 1-minute
+      // bars. Keep the flat-regime share at 30% and split the rest evenly.
       const r = rand();
-      drift = r < 0.4 ? 0.0006 : r < 0.7 ? -0.0006 : 0;
+      drift = r < 0.35 ? 0.0006 : r < 0.7 ? -0.0006 : 0;
       regimeLeft = 30 + Math.floor(rand() * 90);
     }
     regimeLeft--;

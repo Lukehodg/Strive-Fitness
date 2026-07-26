@@ -181,14 +181,23 @@ table by most DIY trading bots, and they're on by default here.
 - **Maker-first limit orders.** Instead of always crossing the spread with a
   market order, entries and take-profit exits post a resting limit order
   slightly through the current price (`limitOrderOffsetPct`, default 0.06%).
-  If the bar's range reaches it, you pay a maker fee (0.02%) with **no added
-  slippage** instead of a taker fee (0.10%) plus slippage — roughly an 80%+
-  cut in per-trade cost. Entries that don't fill are simply skipped (no
-  urgency; the strategy re-evaluates next tick). Exits always guarantee a
-  fill — if the maker order doesn't touch, it falls back to a market order
-  rather than leaving you stuck in a position. **Stop-losses always fill
-  immediately**, full taker, no delay — a stop that waits for a better price
-  is how a bounded loss becomes an unbounded one.
+  If the range of the bar the order **rests in** reaches it, you pay a maker
+  fee (0.02%) with **no added slippage** instead of a taker fee (0.10%) plus
+  slippage — roughly an 80%+ cut in per-trade cost. Entries that don't fill
+  are simply skipped (no urgency; the strategy re-evaluates next tick). Exits
+  always guarantee a fill — if the maker order doesn't touch, it falls back
+  to a market order rather than leaving you stuck in a position.
+  **Stop-losses always fill immediately**, full taker, no delay — a stop that
+  waits for a better price is how a bounded loss becomes an unbounded one.
+- **Resting orders settle on the *next* bar — never their own.** A limit
+  order priced off a bar's close cannot be filled by that same bar: it has
+  already closed, so its high/low are known, and "filling" against them is
+  lookahead bias. Doing so hands every trade a risk-free improvement on both
+  entry and exit; measured on drift-neutral data, that fabricated ~0.12% per
+  round trip turned a losing strategy into a reliable +20%/month mirage. Both
+  the backtester and the paper broker therefore leave limit orders genuinely
+  **resting**, and settle them only against the bar that elapses afterwards.
+  `npm run check:execution` asserts this invariant.
 - **Volatility-targeted sizing.** Position size scales down when the market
   is choppier than your `volTargetPct` and up (toward, never past, your max
   position size) when it's calmer — so realized risk per trade stays roughly
