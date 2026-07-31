@@ -40,7 +40,7 @@ export interface Broker {
   resolvePending?(
     restingBar: { high: number; low: number },
     markPrice: number,
-  ): Order[];
+  ): Order[] | Promise<Order[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -245,9 +245,30 @@ export interface AlpacaCredentials {
   baseUrl: string;
 }
 
+/** Alpaca order states that are final — no further transition is coming. */
+const ALPACA_TERMINAL = new Set([
+  "filled",
+  "canceled",
+  "expired",
+  "rejected",
+  "done_for_day",
+  "stopped",
+  "suspended",
+]);
+
+/** Round a crypto quantity DOWN to a precision Alpaca accepts. */
+function roundQty(qty: number): number {
+  return Math.floor(qty * 1e9) / 1e9;
+}
+
+/** Smallest order notional worth sending (Alpaca crypto rejects dust). */
+const MIN_NOTIONAL = 1;
+
 export class AlpacaBroker implements Broker {
   readonly kind = "alpaca" as const;
   private lastMark = new Map<string, number>();
+  /** Orders submitted to the venue that have not reached a terminal state. */
+  private working = new Map<string, { req: OrderRequest; base: Order; isExit: boolean }>();
 
   constructor(private creds: AlpacaCredentials) {}
 
@@ -259,67 +280,229 @@ export class AlpacaBroker implements Broker {
     };
   }
 
+  /**
+   * Submit an order and report ONLY what the venue confirms.
+   *
+   * The previous implementation returned `status: res.ok ? "filled" : ...`
+   * with `price: filled_avg_price || markPrice`. Both are wrong for real
+   * money: a market order POST returns HTTP 200 with status "accepted"/"new"
+   * and a null `filled_avg_price`, so the engine recorded a position it did
+   * not yet own, at a price it had invented from the last candle close. Every
+   * downstream P&L, stop-loss and take-profit then keyed off that fiction —
+   * including the daily-loss kill-switch.
+   *
+   * Now an unfilled order comes back `pending` and is reconciled against the
+   * venue in resolvePending(), so recorded fills are always real fills at
+   * real prices.
+   */
   async submitOrder(req: OrderRequest, markPrice: number): Promise<Order> {
-    const body = {
-      symbol: req.symbol,
-      qty: req.qty,
-      side: req.side,
-      type: "market",
-      time_in_force: "gtc",
-    };
-    const res = await fetch(`${this.creds.baseUrl}/v2/orders`, {
-      method: "POST",
-      headers: this.headers(),
-      body: JSON.stringify(body),
-    });
-    const data: any = await res.json().catch(() => ({}));
-    const order: Order = {
-      id: data.id ?? "unknown",
+    const qty = roundQty(req.qty);
+    const base: Order = {
+      id: "unsubmitted",
       symbol: req.symbol,
       side: req.side,
-      qty: req.qty,
-      price: Number(data.filled_avg_price) || markPrice,
-      status: res.ok ? "filled" : "rejected",
+      qty,
+      price: markPrice,
+      status: "pending",
       reason: req.reason,
-      message: res.ok ? undefined : data.message || `HTTP ${res.status}`,
       createdAt: Date.now(),
     };
-    return order;
+
+    if (!(qty > 0) || !(markPrice > 0)) {
+      return { ...base, status: "rejected", message: "Invalid quantity or price" };
+    }
+    if (qty * markPrice < MIN_NOTIONAL) {
+      return {
+        ...base,
+        status: "rejected",
+        message: `Order notional ${(qty * markPrice).toFixed(2)} below venue minimum ${MIN_NOTIONAL}`,
+      };
+    }
+
+    // Honour the maker-first policy the backtester assumes. Sending a market
+    // order for everything (the previous behaviour) meant live paid taker fees
+    // plus spread on every trade while backtests priced ~88% of fills as
+    // makers — a systematic overstatement of live returns.
+    const offset = req.limitOffsetPct ?? 0;
+    const useLimit = !(req.forceTaker ?? false) && offset > 0;
+    const limitPrice = useLimit ? limitPriceFor(req.side, markPrice, offset) : 0;
+
+    const body: Record<string, unknown> = {
+      symbol: req.symbol,
+      qty: String(qty),
+      side: req.side,
+      type: useLimit ? "limit" : "market",
+      time_in_force: "gtc",
+    };
+    if (useLimit) body.limit_price = limitPrice.toFixed(2);
+
+    let data: any;
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/orders`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify(body),
+      });
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          ...base,
+          status: "rejected",
+          message: data?.message || `HTTP ${res.status}`,
+        };
+      }
+    } catch (err) {
+      return { ...base, status: "rejected", message: `Network error: ${(err as Error).message}` };
+    }
+
+    const submitted: Order = { ...base, id: String(data.id ?? "unknown") };
+    const resolved = this.fromVenue(submitted, data);
+    if (resolved.status !== "pending") return resolved;
+
+    this.working.set(submitted.id, { req: { ...req, qty }, base: submitted, isExit: req.side === "sell" });
+    return { ...submitted, price: useLimit ? limitPrice : markPrice };
+  }
+
+  /** Translate a venue order payload into our Order, or leave it pending. */
+  private fromVenue(base: Order, data: any): Order {
+    const status = String(data?.status ?? "");
+    const filledQty = Number(data?.filled_qty ?? 0);
+    const filledPrice = Number(data?.filled_avg_price ?? 0);
+
+    if (status === "filled" && filledQty > 0 && filledPrice > 0) {
+      return {
+        ...base,
+        status: "filled",
+        qty: filledQty,
+        price: filledPrice,
+        fillType: String(data?.type) === "limit" ? "maker" : "taker",
+      };
+    }
+    if (ALPACA_TERMINAL.has(status)) {
+      // Partial fills still count for what actually executed.
+      if (filledQty > 0 && filledPrice > 0) {
+        return {
+          ...base,
+          status: "filled",
+          qty: filledQty,
+          price: filledPrice,
+          fillType: String(data?.type) === "limit" ? "maker" : "taker",
+          message: `Partially filled (${status})`,
+        };
+      }
+      return { ...base, status: "rejected", message: `Venue reported ${status}` };
+    }
+    return { ...base, status: "pending" };
+  }
+
+  /**
+   * Reconcile working orders against the venue. Mirrors PaperBroker's
+   * semantics so backtest and live behave the same: an unfilled ENTRY is
+   * cancelled and re-evaluated next tick, while an unfilled EXIT is escalated
+   * to a market order, because an exit that never happens is a risk failure.
+   */
+  async resolvePending(
+    _restingBar: { high: number; low: number },
+    markPrice: number,
+  ): Promise<Order[]> {
+    if (!this.working.size) return [];
+    const out: Order[] = [];
+
+    for (const [id, entry] of Array.from(this.working.entries())) {
+      let data: any;
+      try {
+        const res = await fetch(`${this.creds.baseUrl}/v2/orders/${id}`, {
+          headers: this.headers(),
+        });
+        if (!res.ok) continue; // transient — try again next tick
+        data = await res.json();
+      } catch {
+        continue;
+      }
+
+      const settled = this.fromVenue(entry.base, data);
+      if (settled.status !== "pending") {
+        this.working.delete(id);
+        out.push(settled);
+        continue;
+      }
+
+      // Still working. Don't let it linger: cancel, and for an exit escalate.
+      await this.cancel(id);
+      this.working.delete(id);
+      if (entry.isExit) {
+        const market = await this.submitOrder(
+          { ...entry.req, forceTaker: true, limitOffsetPct: 0 },
+          markPrice,
+        );
+        out.push(market);
+      } else {
+        out.push({
+          ...entry.base,
+          status: "rejected",
+          message: "Resting buy not filled — cancelled, will re-evaluate",
+        });
+      }
+    }
+    return out;
+  }
+
+  private async cancel(id: string): Promise<void> {
+    try {
+      await fetch(`${this.creds.baseUrl}/v2/orders/${id}`, {
+        method: "DELETE",
+        headers: this.headers(),
+      });
+    } catch {
+      /* best effort — the next reconcile will pick up the true state */
+    }
   }
 
   async getPosition(symbol: string): Promise<Position | null> {
     // Alpaca uses symbols without a slash for positions (e.g. BTCUSD).
     const sym = symbol.replace("/", "");
-    const res = await fetch(`${this.creds.baseUrl}/v2/positions/${sym}`, {
-      headers: this.headers(),
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) return null;
-    const p: any = await res.json();
-    const qty = Number(p.qty);
-    const avg = Number(p.avg_entry_price);
-    const mark = Number(p.current_price) || this.lastMark.get(symbol) || avg;
-    return {
-      symbol,
-      qty,
-      avgEntryPrice: avg,
-      markPrice: mark,
-      unrealizedPnl: Number(p.unrealized_pl) || (mark - avg) * qty,
-      openedAt: Date.now(),
-    };
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/positions/${sym}`, {
+        headers: this.headers(),
+      });
+      if (!res.ok) return null; // 404 = flat
+      const p: any = await res.json();
+      const qty = Number(p.qty);
+      if (!(qty > 0)) return null;
+      const avg = Number(p.avg_entry_price);
+      const mark = Number(p.current_price) || this.lastMark.get(symbol) || avg;
+      return {
+        symbol,
+        qty,
+        avgEntryPrice: avg,
+        markPrice: mark,
+        unrealizedPnl: Number(p.unrealized_pl) || (mark - avg) * qty,
+        openedAt: Date.now(),
+      };
+    } catch {
+      return null;
+    }
   }
 
+  /**
+   * NOTE: this reports the WHOLE account. Position sizing (maxPositionPct)
+   * and the daily-loss kill-switch therefore measure against everything in
+   * the account, including assets this bot never traded. Use a dedicated
+   * Alpaca account for the bot so those limits mean what you expect.
+   */
   async getAccount(markPrice: number): Promise<AccountSnapshot> {
-    const res = await fetch(`${this.creds.baseUrl}/v2/account`, {
-      headers: this.headers(),
-    });
-    if (!res.ok) {
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/account`, {
+        headers: this.headers(),
+      });
+      if (!res.ok) return { cash: 0, positionsValue: 0, equity: 0 };
+      const a: any = await res.json();
+      const cash = Number(a.cash) || 0;
+      const equity = Number(a.equity) || cash;
+      return { cash, positionsValue: equity - cash, equity };
+    } catch {
       return { cash: 0, positionsValue: 0, equity: 0 };
     }
-    const a: any = await res.json();
-    const cash = Number(a.cash) || 0;
-    const equity = Number(a.equity) || cash;
-    return { cash, positionsValue: equity - cash, equity };
   }
 
   mark(symbol: string, price: number): void {

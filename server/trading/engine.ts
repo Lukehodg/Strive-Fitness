@@ -224,7 +224,7 @@ class TradingEngine {
       // since a bar that has already closed when the order was placed cannot
       // legitimately fill it (that would be lookahead).
       const latestBar = candles[candles.length - 1];
-      for (const settled of this.broker.resolvePending?.(latestBar, price) ?? []) {
+      for (const settled of (await this.broker.resolvePending?.(latestBar, price)) ?? []) {
         this.applyResolvedOrder(config, settled);
       }
 

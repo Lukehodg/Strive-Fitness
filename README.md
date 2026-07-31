@@ -275,7 +275,58 @@ and its confidence **sizes the bets** that pass (the risk manager scales the
 position accordingly). The AI Lab shows its accuracy and what fraction of
 signals it approves.
 
-## Going live (real money)
+## Stage 1: Alpaca paper trading (real prices, no money at risk)
+
+**Do this before any real money.** It is the only way to test against real
+market data, which is the single biggest gap in every backtest in this repo —
+all of the simulated results here run on synthetic prices.
+
+Alpaca exposes the *same* REST API for paper and live; only the base URL and
+keys differ. So this exercises the exact live code path end to end.
+
+```
+ALPACA_KEY_ID=...
+ALPACA_SECRET_KEY=...
+ALPACA_BASE_URL=https://paper-api.alpaca.markets    # <- paper endpoint
+```
+
+Then set **mode: live** in Settings.
+
+> **Naming trap:** the app's "live" mode only means *"route orders to Alpaca
+> instead of the internal simulator."* With `ALPACA_BASE_URL` pointing at the
+> paper endpoint, **no real money is involved.** Real money requires
+> deliberately changing that URL to `https://api.alpaca.markets`.
+
+What to watch, in order of importance:
+
+1. **Do recorded fill prices match Alpaca's dashboard?** The broker now reports
+   only venue-confirmed fills at real `filled_avg_price`. If these diverge,
+   stop — every P&L number and the kill-switch depend on them.
+2. **What fraction of fills are maker vs taker?** Backtests assume ~88% maker.
+   If live is mostly taker, real costs are ~0.1-0.2%/round trip higher than
+   every backtest in this repo claims.
+3. **Does net P&L after fees beat simply holding?** That is the only bar that
+   matters. Fee drag alone runs 1.5-3% of capital per month at ~450 trades.
+
+Use a **dedicated Alpaca account**. `getAccount` reports whole-account equity,
+so position sizing and the daily-loss kill-switch measure against everything in
+the account, including assets this bot never traded.
+
+### What the live order path guarantees
+
+- Orders are reported `filled` **only** when the venue confirms it, at the real
+  `filled_avg_price` — never at an assumed price.
+- Limit (maker) orders are actually sent when `limitOrderOffsetPct > 0`, so
+  live execution matches the backtester's cost model.
+- An unfilled entry is cancelled and re-evaluated; an unfilled **exit** is
+  escalated to a market order, because an exit that never happens is a risk
+  failure. Stop-losses always go straight to market.
+- Dust orders below the venue minimum are refused locally rather than sent.
+
+These paths are covered by a mock-venue test using real Alpaca response shapes,
+but **have not been run against Alpaca's servers** — that is what stage 1 is for.
+
+## Stage 2: going live (real money)
 
 Live trading is a first-class mode, but off until *you* turn it on:
 
