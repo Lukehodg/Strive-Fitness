@@ -515,10 +515,25 @@ export class AlpacaBroker implements Broker {
  * trading isn't configured, which keeps the platform in paper mode.
  */
 export function readAlpacaCredentials(): AlpacaCredentials | null {
-  const keyId = process.env.ALPACA_KEY_ID;
-  const secretKey = process.env.ALPACA_SECRET_KEY;
+  const keyId = process.env.ALPACA_KEY_ID?.trim();
+  const secretKey = process.env.ALPACA_SECRET_KEY?.trim();
   if (!keyId || !secretKey) return null;
-  const baseUrl =
-    process.env.ALPACA_BASE_URL || "https://paper-api.alpaca.markets";
+  const baseUrl = normalizeAlpacaBaseUrl(process.env.ALPACA_BASE_URL);
   return { keyId, secretKey, baseUrl };
+}
+
+/**
+ * Normalize the trading endpoint to a bare origin.
+ *
+ * Alpaca's dashboard shows the endpoint WITH the API version appended
+ * ("https://paper-api.alpaca.markets/v2"), so pasting it verbatim is the
+ * obvious thing to do — but every request in this file appends "/v2" itself,
+ * which would produce "/v2/v2/orders" and 404 on absolutely everything.
+ * Strip a trailing slash and a trailing version segment so both forms work.
+ */
+export function normalizeAlpacaBaseUrl(raw?: string): string {
+  const fallback = "https://paper-api.alpaca.markets";
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  return trimmed.replace(/\/+$/, "").replace(/\/v\d+$/, "");
 }
