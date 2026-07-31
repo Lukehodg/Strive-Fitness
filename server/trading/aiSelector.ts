@@ -61,7 +61,18 @@ export function detectRegime(candles: Candle[]): MarketRegime {
  * paying entry/exit costs each time. Requiring a clear margin keeps the
  * incumbent unless a challenger is decisively ahead.
  */
-export const SWITCH_MARGIN = 8;
+export const SWITCH_MARGIN = 4;
+
+/**
+ * Bonus applied to a strategy suited to the current regime. SWITCH_MARGIN
+ * must stay BELOW this: when the two were both 8, a challenger whose only
+ * advantage was fitting the regime could never clear the hysteresis, so
+ * regime detection — the entire point of the selector — was structurally
+ * unable to change anything. Observed live: in a "ranging" market the engine
+ * sat on SMA Trend (0 trades) instead of switching to RSI Mean Reversion,
+ * blocked by 0.36 of a point.
+ */
+export const REGIME_FIT_BONUS = 8;
 
 /**
  * Score and rank all strategies on the given history. Score blends
@@ -88,7 +99,7 @@ export function selectStrategy(
       stats.maxDrawdown * 40 +
       (stats.winRate - 0.5) * 10;
     // Reward strategies suited to the current regime.
-    if (regimeFit) score += 8;
+    if (regimeFit) score += REGIME_FIT_BONUS;
     // Distrust results from too few trades (statistically weak).
     if (stats.totalTrades < 3) score -= 10;
 
@@ -109,7 +120,12 @@ export function selectStrategy(
   let held = false;
   if (currentStrategyId && top.strategyId !== currentStrategyId) {
     const incumbent = scores.find((s) => s.strategyId === currentStrategyId);
-    if (incumbent && top.score < incumbent.score + margin) {
+    // Hysteresis exists to stop us flip-flopping between strategies that are
+    // BOTH working. An incumbent that produced no trades at all over the
+    // window has no track record to protect — keeping it just means sitting
+    // idle forever — so it gets no protection.
+    const incumbentHasRecord = (incumbent?.trades ?? 0) > 0;
+    if (incumbent && incumbentHasRecord && top.score < incumbent.score + margin) {
       top = incumbent;
       held = true;
     }
