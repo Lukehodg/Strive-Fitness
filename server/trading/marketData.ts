@@ -34,8 +34,33 @@ function mulberry32(seed: number) {
 }
 
 /**
+ * Bars per anchor block (7 days). The walk is regenerated from the start of
+ * the block containing `endTime`, so every call within a block sees the SAME
+ * series and simply reads a different amount of it.
+ */
+const BLOCK_BARS = 10_080;
+
+/**
  * Generate `count` one-minute candles ending at `endTime`. The walk switches
  * between trending and ranging regimes so no single strategy dominates.
+ *
+ * The series is defined on the ABSOLUTE one-minute grid and anchored to a
+ * fixed block boundary — never to `count` or to a coarse bucket of `endTime`.
+ * That matters because the live feed calls this repeatedly as time passes:
+ *
+ *   - Seeding by `count` made the same feed report different prices depending
+ *     on how much history the caller asked for (getPrice() asks for 2 bars,
+ *     the engine asks for 200 — they disagreed by ~6%).
+ *   - Seeding by `floor(endTime / (count * MINUTE))` held the seed constant
+ *     for `count` minutes, so the whole series regenerated identically on
+ *     every tick — the engine saw a frozen market for 200 minutes at a time,
+ *     then a ~13% instantaneous gap when the bucket rolled (bigger than both
+ *     the 3% stop-loss and the 6% take-profit).
+ *
+ * Anchoring to the absolute grid makes consecutive minutes yield consecutive
+ * bars (one genuinely new bar per minute) and makes the price at a given
+ * instant independent of `count`. The walk restarts at a block boundary once
+ * every 30 days, which is the one remaining seam.
  */
 export function generateSyntheticCandles(
   symbol: string,
@@ -43,13 +68,19 @@ export function generateSyntheticCandles(
   endTime = Date.now(),
   startPrice = 60_000,
 ): Candle[] {
-  const rand = mulberry32(hashSeed(symbol) ^ Math.floor(endTime / (count * MINUTE)));
+  const endIndex = Math.floor(endTime / MINUTE);
+  // Anchor one full block back so at least BLOCK_BARS of history always
+  // precedes `endIndex`, however many bars the caller asks for.
+  const anchorIndex = (Math.floor(endIndex / BLOCK_BARS) - 1) * BLOCK_BARS;
+  const total = endIndex - anchorIndex + 1;
+
+  const rand = mulberry32(hashSeed(symbol) ^ (anchorIndex >>> 0));
   const candles: Candle[] = [];
   let price = startPrice;
   let drift = 0;
   let regimeLeft = 0;
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < total; i++) {
     if (regimeLeft <= 0) {
       // Pick a new regime: trend up, trend down, or range.
       //
@@ -73,10 +104,31 @@ export function generateSyntheticCandles(
     const high = Math.max(open, close) * (1 + rand() * vol);
     const low = Math.min(open, close) * (1 - rand() * vol);
     const volume = 5 + rand() * 20;
-    const time = endTime - (count - 1 - i) * MINUTE;
+    const time = (anchorIndex + i) * MINUTE;
     candles.push({ time, open, high, low, close, volume });
     price = close;
   }
+  // Keep the quoted level plausible without touching a single return. An
+  // unbiased 7-day walk can wander several-fold from its starting point, which
+  // reads as broken in the UI ("BTC at $391,598"). Rescaling every bar by ONE
+  // constant leaves all returns, ratios and indicator readings bit-identical —
+  // strategies are scale-invariant — so this is presentation only. The
+  // reference bar is fixed for the block (never `endIndex`), so the factor
+  // cannot change between ticks and history is never rewritten.
+  const referenceIdx = Math.min(BLOCK_BARS, candles.length - 1);
+  const scale = startPrice / candles[referenceIdx].close;
+  if (Number.isFinite(scale) && scale > 0) {
+    for (const c of candles) {
+      c.open *= scale;
+      c.high *= scale;
+      c.low *= scale;
+      c.close *= scale;
+    }
+  }
+
+  // Hand back only the tail the caller asked for. The bars themselves are the
+  // same objects any other caller would see for those same minutes.
+  if (count < candles.length) return candles.slice(candles.length - count);
   return candles;
 }
 
