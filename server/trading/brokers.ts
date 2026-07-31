@@ -30,8 +30,8 @@ export interface Broker {
   submitOrder(req: OrderRequest, markPrice: number): Promise<Order>;
   /** Current open position for a symbol, or null if flat. */
   getPosition(symbol: string): Promise<Position | null>;
-  /** Account cash/equity. `markPrice` marks any open position. */
-  getAccount(markPrice: number): Promise<AccountSnapshot>;
+  /** Account cash/equity. Positions are valued at their own marks. */
+  getAccount(markPrice?: number): Promise<AccountSnapshot>;
   /** Update the mark price used for unrealized P&L. */
   mark(symbol: string, price: number): void;
   /**
@@ -39,8 +39,7 @@ export interface Broker {
    * Only simulated brokers need this — a real venue manages its own book.
    */
   resolvePending?(
-    restingBar: { high: number; low: number },
-    markPrice: number,
+    bars: Record<string, { high: number; low: number; close: number }>,
   ): Order[] | Promise<Order[]>;
   /**
    * Whether this instrument can be traded right now. Crypto is 24/7, but US
@@ -124,17 +123,22 @@ export class PaperBroker implements Broker {
    * untouched ENTRY is simply cancelled and the strategy re-evaluates.
    */
   resolvePending(
-    restingBar: { high: number; low: number },
-    markPrice: number,
+    bars: Record<string, { high: number; low: number; close: number }>,
   ): Order[] {
     if (!this.resting.length) return [];
     const queue = this.resting;
-    this.resting = [];
     const out: Order[] = [];
+    // Only settle orders we actually have a fresh bar for; anything else keeps
+    // resting. Settling every symbol against one symbol's bar would fill
+    // orders on price action that never happened in that instrument.
+    this.resting = queue.filter((r) => !bars[r.req.symbol]);
 
     for (const r of queue) {
+      const bar = bars[r.req.symbol];
+      if (!bar) continue;
+      const markPrice = bar.close;
       const touched =
-        r.req.side === "buy" ? restingBar.low <= r.limitPrice : restingBar.high >= r.limitPrice;
+        r.req.side === "buy" ? bar.low <= r.limitPrice : bar.high >= r.limitPrice;
       if (touched) {
         out.push(this.settle(r.base, r.req, r.limitPrice, MAKER_FEE_RATE, "maker", markPrice));
       } else if (r.isExit) {
@@ -202,10 +206,14 @@ export class PaperBroker implements Broker {
     return this.positions.get(symbol) ?? null;
   }
 
-  async getAccount(markPrice: number): Promise<AccountSnapshot> {
+  async getAccount(markPrice?: number): Promise<AccountSnapshot> {
     let positionsValue = 0;
     for (const p of Array.from(this.positions.values())) {
-      positionsValue += p.qty * markPrice;
+      // Each position is valued at ITS OWN mark. Using a single caller-supplied
+      // price valued every holding at one symbol's price — harmless while only
+      // one symbol could be held, badly wrong the moment the engine holds two.
+      const mark = p.markPrice > 0 ? p.markPrice : (markPrice ?? 0);
+      positionsValue += p.qty * mark;
     }
     return {
       cash: this.cash,
@@ -409,8 +417,7 @@ export class AlpacaBroker implements Broker {
    * to a market order, because an exit that never happens is a risk failure.
    */
   async resolvePending(
-    _restingBar: { high: number; low: number },
-    markPrice: number,
+    bars: Record<string, { high: number; low: number; close: number }>,
   ): Promise<Order[]> {
     if (!this.working.size) return [];
     const out: Order[] = [];
@@ -438,6 +445,7 @@ export class AlpacaBroker implements Broker {
       await this.cancel(id);
       this.working.delete(id);
       if (entry.isExit) {
+        const markPrice = bars[entry.req.symbol]?.close ?? entry.base.price;
         const market = await this.submitOrder(
           { ...entry.req, forceTaker: true, limitOffsetPct: 0 },
           markPrice,

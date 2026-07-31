@@ -31,6 +31,7 @@ import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
 import { selectStrategy } from "./aiSelector";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
+import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
 
 const CANDLE_COUNT = 200;
 /**
@@ -209,31 +210,66 @@ class TradingEngine {
 
   // -- Main loop ----------------------------------------------------------
 
+  /** Every symbol the engine may trade this tick, primary first, deduped. */
+  private universeOf(config: BotConfig): string[] {
+    return Array.from(new Set([config.symbol, ...(config.extraSymbols ?? [])])).filter(Boolean);
+  }
+
   private async tick(): Promise<void> {
     try {
       const config = storage.getConfig();
       this.applyConfigBroker(config);
 
-      const candles = await this.feed.getCandles(config.symbol, CANDLE_COUNT);
-      if (!candles.length) return;
-      const price = candles[candles.length - 1].close;
-      this.lastPrice = price;
-      this.broker.mark(config.symbol, price);
+      const universe = this.universeOf(config);
 
-      // Settle any limit order left resting by the previous tick against the
-      // bar that has since elapsed. This must happen before new signals are
-      // evaluated — and it is the only honest place to decide those fills,
-      // since a bar that has already closed when the order was placed cannot
-      // legitimately fill it (that would be lookahead).
-      const latestBar = candles[candles.length - 1];
-      for (const settled of (await this.broker.resolvePending?.(latestBar, price)) ?? []) {
+      // Pull each symbol's history, skipping any that is closed or has no
+      // data. Doing this once up front means the portfolio decisions below
+      // all see the same snapshot of the market.
+      const candlesBySymbol: Record<string, Candle[]> = {};
+      const barsBySymbol: Record<string, { high: number; low: number; close: number }> = {};
+      const closedSymbols: string[] = [];
+      for (const symbol of universe) {
+        const open = (await this.broker.isMarketOpen?.(symbol)) ?? true;
+        if (!open) {
+          closedSymbols.push(symbol);
+          continue;
+        }
+        const candles = await this.feed.getCandles(symbol, CANDLE_COUNT);
+        if (!candles.length) continue;
+        candlesBySymbol[symbol] = candles;
+        const bar = candles[candles.length - 1];
+        barsBySymbol[symbol] = { high: bar.high, low: bar.low, close: bar.close };
+        this.broker.mark(symbol, bar.close);
+      }
+
+      if (closedSymbols.length && !this.marketClosedLogged) {
+        this.marketClosedLogged = true;
+        storage.log("info", `Market closed for ${closedSymbols.join(", ")} — standing down on those`);
+      } else if (!closedSymbols.length && this.marketClosedLogged) {
+        this.marketClosedLogged = false;
+        storage.log("info", "All markets open — resuming");
+      }
+
+      const tradable = Object.keys(candlesBySymbol);
+      if (!tradable.length) {
+        this.lastEvaluatedAt = Date.now();
+        return;
+      }
+      this.lastPrice = barsBySymbol[config.symbol]?.close ?? barsBySymbol[tradable[0]].close;
+
+      // Settle limit orders left resting by the previous tick, each against
+      // its OWN symbol's elapsed bar. This must happen before new signals are
+      // evaluated, and is the only honest place to decide those fills: a bar
+      // that had already closed when the order was placed cannot legitimately
+      // fill it (that would be lookahead).
+      for (const settled of (await this.broker.resolvePending?.(barsBySymbol)) ?? []) {
         this.applyResolvedOrder(config, settled);
       }
 
       this.rolloverDayIfNeeded();
       this.rolloverMinuteIfNeeded();
 
-      const account = await this.broker.getAccount(price);
+      const account = await this.broker.getAccount();
       storage.addEquityPoint({
         time: Date.now(),
         equity: account.equity,
@@ -262,43 +298,106 @@ class TradingEngine {
         );
       }
 
-      // Pick the strategy (AI auto-select or user's fixed choice).
-      this.updateStrategy(config, candles);
-
-      // US equities are shut nights, weekends and holidays. Firing orders
-      // into a closed market just accumulates rejects (or queues surprise
-      // fills at the next open), so stand down until it reopens. Crypto is
-      // 24/7 and always reports open.
-      const marketOpen = (await this.broker.isMarketOpen?.(config.symbol)) ?? true;
-      if (!marketOpen) {
-        if (!this.marketClosedLogged) {
-          this.marketClosedLogged = true;
-          storage.log("info", `${config.symbol} market is closed — standing down until it reopens`);
-        }
-        this.lastEvaluatedAt = Date.now();
-        return;
-      }
-      if (this.marketClosedLogged) {
-        this.marketClosedLogged = false;
-        storage.log("info", `${config.symbol} market is open — resuming`);
-      }
-
-      const position = await this.broker.getPosition(config.symbol);
-      const hasPosition = position !== null && position.qty > 0;
-
-      // Enforce per-trade stop-loss / take-profit before strategy logic.
-      if (hasPosition && position && (await this.checkProtectiveExit(config, position, price, candles))) {
-        this.lastEvaluatedAt = Date.now();
-        return;
-      }
-
-      const signal = this.activeStrategy.evaluate(candles, hasPosition);
+      // Strategy selection still runs on the primary symbol — it picks HOW to
+      // trade, while the portfolio logic below picks WHAT.
+      this.updateStrategy(config, candlesBySymbol[config.symbol] ?? candlesBySymbol[tradable[0]]);
       this.lastEvaluatedAt = Date.now();
 
-      if (signal.action === "buy" && !hasPosition) {
-        await this.handleBuy(config, account, price, signal.strength, signal.reason, candles);
-      } else if (signal.action === "sell" && hasPosition && position) {
-        await this.handleSell(config, position, price, signal.reason, candles, false);
+      // 1. EXITS FIRST, always. Freeing capital and cutting losers takes
+      //    priority over any new opportunity, and an exit is never blocked by
+      //    the kill-switch.
+      const openPositions: OpenExposure[] = [];
+      for (const symbol of tradable) {
+        const position = await this.broker.getPosition(symbol);
+        if (!position || position.qty <= 0) continue;
+        const candles = candlesBySymbol[symbol];
+        const price = barsBySymbol[symbol].close;
+
+        if (await this.checkProtectiveExit(config, position, price, candles, symbol)) continue;
+
+        const signal = this.activeStrategy.evaluate(candles, true);
+        if (signal.action === "sell") {
+          await this.handleSell(config, position, price, signal.reason, candles, false, symbol);
+          continue;
+        }
+        openPositions.push({ symbol, notional: position.qty * price });
+      }
+
+      if (this.halted) return;
+
+      // 2. ENTRIES. Rank every candidate that is signalling, strongest
+      //    conviction first, so limited capital goes to the best opportunity
+      //    rather than whichever symbol happens to be first alphabetically.
+      const candidates: Array<{ symbol: string; strength: number; reason: string }> = [];
+      for (const symbol of tradable) {
+        if (openPositions.some((p) => p.symbol === symbol)) continue;
+        const signal = this.activeStrategy.evaluate(candlesBySymbol[symbol], false);
+        if (signal.action === "buy") {
+          candidates.push({ symbol, strength: signal.strength, reason: signal.reason });
+        }
+      }
+      candidates.sort((a, b) => b.strength - a.strength);
+
+      for (const candidate of candidates) {
+        const price = barsBySymbol[candidate.symbol].close;
+        const fresh = await this.broker.getAccount();
+
+        // Correlation of this candidate against everything already held.
+        const candidateReturns = returnsOf(candlesBySymbol[candidate.symbol]);
+        const correlations: Record<string, number> = {};
+        for (const held of openPositions) {
+          const heldCandles = candlesBySymbol[held.symbol];
+          correlations[held.symbol] = heldCandles
+            ? correlation(candidateReturns, returnsOf(heldCandles))
+            : 1; // unknown: assume fully correlated, the conservative reading
+        }
+
+        const requested = fresh.equity * config.maxPositionPct * candidate.strength;
+        const verdict = vetPortfolioEntry(
+          candidate.symbol,
+          fresh.equity,
+          openPositions,
+          correlations,
+          {
+            maxConcurrentPositions: config.maxConcurrentPositions,
+            maxTotalExposurePct: config.maxTotalExposurePct,
+            maxCorrelatedExposurePct: config.maxCorrelatedExposurePct,
+          },
+          requested,
+        );
+        if (!verdict.allowed) {
+          storage.log("risk_block", `${candidate.symbol}: ${verdict.reason}`, this.activeStrategy.meta.id);
+          continue;
+        }
+
+        // Translate the portfolio ceiling back into a conviction the
+        // per-trade sizing understands, so both limits apply and the tighter
+        // one wins.
+        const cappedStrength =
+          fresh.equity * config.maxPositionPct > 0
+            ? Math.min(candidate.strength, verdict.maxNotional / (fresh.equity * config.maxPositionPct))
+            : 0;
+        if (cappedStrength <= 0) continue;
+
+        const before = await this.broker.getPosition(candidate.symbol);
+        await this.handleBuy(
+          config,
+          fresh,
+          price,
+          cappedStrength,
+          candidate.reason,
+          candlesBySymbol[candidate.symbol],
+          candidate.symbol,
+        );
+        const after = await this.broker.getPosition(candidate.symbol);
+        const filledNow = after && (!before || after.qty > before.qty);
+        // A resting limit order has not filled yet, but it has committed the
+        // capital — count it against the limits so the next candidate in this
+        // same tick cannot spend the same money twice.
+        openPositions.push({
+          symbol: candidate.symbol,
+          notional: filledNow ? after!.qty * price : verdict.maxNotional,
+        });
       }
     } catch (err) {
       storage.log("info", `Tick error: ${(err as Error).message}`);
@@ -346,6 +445,7 @@ class TradingEngine {
     position: Position,
     price: number,
     candles: Candle[],
+    symbol: string,
   ): Promise<boolean> {
     const change = (price - position.avgEntryPrice) / position.avgEntryPrice;
     let reason: string | null = null;
@@ -359,7 +459,7 @@ class TradingEngine {
     if (!reason) return false;
     // A stop-loss must never wait for a better price — always a guaranteed,
     // immediate fill. A take-profit can try for a better price first.
-    await this.handleSell(config, position, price, reason, candles, isStopLoss);
+    await this.handleSell(config, position, price, reason, candles, isStopLoss, symbol);
     return true;
   }
 
@@ -370,6 +470,7 @@ class TradingEngine {
     strength: number,
     reason: string,
     candles: Candle[],
+    symbol: string,
   ): Promise<void> {
     if (this.halted) {
       storage.log("risk_block", `Buy blocked — ${this.haltReason}`);
@@ -406,7 +507,7 @@ class TradingEngine {
     const bar = candles[candles.length - 1];
     const order = await this.broker.submitOrder(
       {
-        symbol: config.symbol,
+        symbol,
         side: "buy",
         qty: decision.qty,
         reason,
@@ -515,11 +616,12 @@ class TradingEngine {
     reason: string,
     candles: Candle[],
     forceTaker: boolean,
+    symbol: string,
   ): Promise<void> {
     const bar = candles[candles.length - 1];
     const order = await this.broker.submitOrder(
       {
-        symbol: config.symbol,
+        symbol,
         side: "sell",
         qty: position.qty,
         reason,

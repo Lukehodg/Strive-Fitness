@@ -275,6 +275,49 @@ and its confidence **sizes the bets** that pass (the risk manager scales the
 position accordingly). The AI Lab shows its accuracy and what fraction of
 signals it approves.
 
+## Multi-symbol trading (the AI picks what to trade)
+
+Set `extraSymbols` and the engine trades a universe instead of one instrument.
+Crypto and equities can be mixed freely — asset-class rules apply per symbol.
+
+```bash
+curl -X PATCH localhost:5000/api/config -H "Content-Type: application/json" \
+  -d '{"symbol":"BTC/USD","extraSymbols":["ETH/USD","AAPL","NVDA"]}'
+```
+
+Each tick the engine now: prices every tradable symbol, **exits first** (freeing
+capital and cutting losers takes priority over any new idea, and exits are never
+blocked by the kill-switch), then ranks everything that is signalling by
+conviction and fills the best first, so limited capital goes to the strongest
+opportunity rather than whichever symbol sorts first.
+
+### Portfolio limits — why per-trade caps are not enough
+
+Five positions each inside the 25% per-trade cap is 125% of equity, and if they
+are all crypto it is really *one* position with five sets of fees. So three
+portfolio limits sit on top of the per-trade cap:
+
+| Limit | Default | What it stops |
+|---|---|---|
+| `maxConcurrentPositions` | 3 | Death by a thousand small positions |
+| `maxTotalExposurePct` | 0.60 | Aggregate leverage creeping past equity |
+| `maxCorrelatedExposurePct` | 0.35 | **Diversification that isn't** |
+
+The third is the one that matters. Holding BTC and ETH is close to holding
+double BTC; naive diversification counts it as two independent bets. Exposure is
+weighted by correlation against what you already hold, so a near-duplicate gets
+throttled (in tests, a 0.95-correlated candidate is cut from $2,000 to $650)
+while a genuinely uncorrelated one gets full size.
+
+Correlation is used as an **absolute** value. A strongly negative correlation is
+a real hedge for a long/short book, but this system is long/flat only — two
+inversely-correlated longs still both lose in the regime that hurts them.
+
+Unknown correlation is treated as fully correlated, which is the conservative
+reading rather than the flattering one.
+
+Verify the rules with `npm run check:portfolio` (23 checks).
+
 ## Trading stocks as well as crypto
 
 Set **Symbol** in Settings to any Alpaca-supported instrument. The asset class

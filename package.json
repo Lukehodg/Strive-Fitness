@@ -11,7 +11,8 @@
     "check": "tsc",
     "check:execution": "tsx server/trading/executionChecks.ts",
     "db:push": "drizzle-kit push",
-    "screen": "python screener/screen.py"
+    "screen": "python screener/screen.py",
+    "check:portfolio": "tsx server/trading/portfolioChecks.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",

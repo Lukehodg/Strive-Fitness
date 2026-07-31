@@ -30,7 +30,7 @@ async function main() {
     const b = new PaperBroker(1000);
     await b.submitOrder({ symbol: "BTC/USD", side: "buy", qty: 0.01, limitOffsetPct: OFFSET }, 100);
     const limit = 100 * (1 - OFFSET);
-    const [settled] = b.resolvePending({ high: 101, low: limit - 0.5 }, 100);
+    const [settled] = b.resolvePending({ "BTC/USD": { high: 101, low: limit - 0.5, close: 100 } });
     const pos = await b.getPosition("BTC/USD");
     check("touched resting buy fills", settled.status === "filled", `status=${settled.status}`);
     check("fills as maker", settled.fillType === "maker", `fillType=${settled.fillType}`);
@@ -42,7 +42,7 @@ async function main() {
   {
     const b = new PaperBroker(1000);
     await b.submitOrder({ symbol: "BTC/USD", side: "buy", qty: 0.01, limitOffsetPct: OFFSET }, 100);
-    const [settled] = b.resolvePending({ high: 101, low: 99.99 }, 100); // never dips to limit
+    const [settled] = b.resolvePending({ "BTC/USD": { high: 101, low: 99.99, close: 100 } }); // never dips to limit
     check("untouched resting buy is cancelled", settled.status === "rejected", `status=${settled.status}`);
     check("no position after cancel", (await b.getPosition("BTC/USD")) === null);
   }
@@ -53,7 +53,7 @@ async function main() {
     await b.submitOrder({ symbol: "BTC/USD", side: "buy", qty: 0.01 }, 100); // market entry
     const posBefore = await b.getPosition("BTC/USD");
     await b.submitOrder({ symbol: "BTC/USD", side: "sell", qty: 0.01, limitOffsetPct: OFFSET }, 100);
-    const [settled] = b.resolvePending({ high: 100.0, low: 99 }, 100); // never reaches limit above
+    const [settled] = b.resolvePending({ "BTC/USD": { high: 100.0, low: 99, close: 100 } }); // never reaches limit above
     check("entry via market order filled", posBefore !== null);
     check("untouched resting sell still fills", settled.status === "filled", `status=${settled.status}`);
     check("sell falls back to taker", settled.fillType === "taker", `fillType=${settled.fillType}`);

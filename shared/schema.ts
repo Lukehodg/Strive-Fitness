@@ -178,8 +178,23 @@ export type TradingMode = (typeof TradingModes)[number];
 
 /** User-tunable configuration. All risk limits are enforced server-side. */
 export interface BotConfig {
-  /** Trading symbol, e.g. "BTC/USD". */
+  /** Primary trading symbol, e.g. "BTC/USD". Always part of the universe. */
   symbol: string;
+  /**
+   * Extra symbols the engine may trade alongside `symbol`. Empty keeps the
+   * original single-symbol behaviour. Crypto ("BTC/USD") and equities
+   * ("AAPL") can be mixed; asset-class rules are applied per symbol.
+   */
+  extraSymbols?: string[];
+  /** Max positions held simultaneously across the whole universe. */
+  maxConcurrentPositions: number;
+  /** Ceiling on summed position value, as a fraction of equity. */
+  maxTotalExposurePct: number;
+  /**
+   * Ceiling on correlation-weighted exposure. Holding BTC and ETH is close to
+   * holding double BTC; this is what stops "diversification" that isn't.
+   */
+  maxCorrelatedExposurePct: number;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
@@ -238,6 +253,10 @@ export type AutonomyLevel = (typeof AutonomyLevels)[number];
 
 export const DEFAULT_CONFIG: BotConfig = {
   symbol: "BTC/USD",
+  extraSymbols: [],
+  maxConcurrentPositions: 3,
+  maxTotalExposurePct: 0.6,
+  maxCorrelatedExposurePct: 0.35,
   mode: "paper",
   maxPositionPct: 0.25,
   dailyLossLimitPct: 0.05,
@@ -479,6 +498,10 @@ export interface MetaModelStatus {
 export const updateConfigSchema = z
   .object({
     symbol: z.string().min(3).max(20),
+    extraSymbols: z.array(z.string().min(1).max(20)).max(20).optional(),
+    maxConcurrentPositions: z.number().int().min(1).max(10).optional(),
+    maxTotalExposurePct: z.number().min(0.05).max(1).optional(),
+    maxCorrelatedExposurePct: z.number().min(0.05).max(1).optional(),
     mode: z.enum(TradingModes),
     maxPositionPct: z.number().min(0.01).max(1),
     dailyLossLimitPct: z.number().min(0.005).max(0.5),
