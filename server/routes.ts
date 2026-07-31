@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { loadScreen } from "./screener";
 import { engine } from "./trading/engine";
 import {
   STRATEGY_LIST,
@@ -251,6 +252,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -- Alerts -------------------------------------------------------------
+
+  // Fundamental stock screen (produced offline by screener/screen.py).
+  app.get("/api/screen", (_req: Request, res: Response) => {
+    const screen = loadScreen();
+    if (!screen) {
+      return res.json({
+        available: false,
+        message:
+          "No screen yet. Run: python screener/screen.py (set FMP_API_KEY for full coverage).",
+      });
+    }
+    res.json({ available: true, ...screen });
+  });
 
   app.get("/api/alerts", (req: Request, res: Response) => {
     const limit = Number(req.query.limit) || 100;
