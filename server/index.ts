@@ -8,6 +8,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { networkInterfaces } from "os";
 import { registerRoutes } from "./routes";
+import { readAlpacaCredentials } from "./trading/brokers";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -84,6 +85,28 @@ app.use((req, res, next) => {
           log(`on your phone (same Wi-Fi): http://${a.address}:${port}`);
         }
       }
+    }
+
+    // State the data source unmissably at boot.
+    //
+    // Running on synthetic prices while believing you are on real ones is the
+    // single most dangerous failure this app has: everything looks healthy,
+    // the engine ticks, trades appear, and none of it means anything. It is
+    // also easy to hit (a .env Notepad saved as ".env.txt" is enough), so it
+    // gets an explicit banner rather than a field buried in /api/status.
+    const creds = readAlpacaCredentials();
+    if (creds) {
+      log(`market data: ALPACA (real prices) — endpoint ${creds.baseUrl}`);
+      log(
+        creds.baseUrl.includes("paper-api")
+          ? "orders: Alpaca PAPER account — no real money at risk"
+          : "orders: *** ALPACA LIVE — REAL MONEY *** set ALPACA_BASE_URL to https://paper-api.alpaca.markets to use paper",
+      );
+    } else {
+      log("market data: SYNTHETIC (simulated prices — NOT a real market)");
+      log("  no Alpaca keys found. Create a .env next to package.json with");
+      log("  ALPACA_KEY_ID / ALPACA_SECRET_KEY, then restart. On Windows check");
+      log("  Notepad did not save it as .env.txt (run: dir /a .env*)");
     }
   });
 })();
