@@ -275,6 +275,46 @@ and its confidence **sizes the bets** that pass (the risk manager scales the
 position accordingly). The AI Lab shows its accuracy and what fraction of
 signals it approves.
 
+## Trading stocks as well as crypto
+
+Set **Symbol** in Settings to any Alpaca-supported instrument. The asset class
+is inferred from the spelling — no extra configuration:
+
+| Symbol | Asset class | Hours | Fees |
+|---|---|---|---|
+| `BTC/USD`, `ETH/USD` | crypto (slash) | 24/7 | 0.10% taker / 0.02% maker |
+| `AAPL`, `SPY`, `NVDA` | US equity | market hours only | commission-free |
+
+Handled automatically per asset class: the market-data endpoint
+(`/v1beta3/crypto` vs `/v2/stocks`), the position symbol (`BTCUSD` vs `AAPL`),
+time-in-force (`gtc` vs `day`), and the fee model.
+
+Two equity-specific behaviours worth knowing:
+
+- **Market hours.** Equities are shut nights, weekends and holidays — roughly
+  75% of the time. The engine asks Alpaca's `/v2/clock` (so holidays and
+  half-days are handled properly, not hardcoded) and stands down until the
+  market reopens rather than firing orders into a closed venue.
+- **Fractional shares can't use limit orders.** Alpaca rejects fractional
+  limit orders, so a position of 12.7 shares is rounded down to 12 to keep the
+  cheaper maker fill. Below one share it falls back to a market order.
+
+### ⚠️ Pattern Day Trader rule — this matters for stocks
+
+US margin accounts under **$25,000** are limited to **3 day trades per 5
+business days**. This engine averages ~450 round trips a month, so a small
+real-money stock account would be flagged as a Pattern Day Trader almost
+immediately and then restricted from opening new positions.
+
+This does not affect: crypto (exempt), Alpaca paper accounts (funded at
+$100k), or cash accounts (settlement rules apply instead). But it does mean
+**this strategy is not viable on a small real-money stock account.** Crypto has
+no such restriction, which is why it remains the better fit for small capital.
+
+Data note: free Alpaca plans serve IEX rather than full SIP consolidated data,
+so equity bars are thinner than what a paid feed would show. Override with
+`ALPACA_DATA_FEED=sip` if you have a subscription.
+
 ## Stage 1: Alpaca paper trading (real prices, no money at risk)
 
 **Do this before any real money.** It is the only way to test against real

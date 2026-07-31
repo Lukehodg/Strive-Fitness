@@ -4,6 +4,7 @@
 
 import { randomUUID } from "crypto";
 import type { Order, OrderRequest, Position } from "@shared/schema";
+import { assetClassOf, positionSymbol, roundQtyFor, timeInForce } from "./assets";
 import {
   limitPriceFor,
   MAKER_FEE_RATE,
@@ -41,6 +42,12 @@ export interface Broker {
     restingBar: { high: number; low: number },
     markPrice: number,
   ): Order[] | Promise<Order[]>;
+  /**
+   * Whether this instrument can be traded right now. Crypto is 24/7, but US
+   * equities are closed nights, weekends and holidays — roughly 75% of the
+   * time — so without this the engine would fire orders into a shut market.
+   */
+  isMarketOpen?(symbol: string): boolean | Promise<boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -256,11 +263,6 @@ const ALPACA_TERMINAL = new Set([
   "suspended",
 ]);
 
-/** Round a crypto quantity DOWN to a precision Alpaca accepts. */
-function roundQty(qty: number): number {
-  return Math.floor(qty * 1e9) / 1e9;
-}
-
 /** Smallest order notional worth sending (Alpaca crypto rejects dust). */
 const MIN_NOTIONAL = 1;
 
@@ -269,6 +271,7 @@ export class AlpacaBroker implements Broker {
   private lastMark = new Map<string, number>();
   /** Orders submitted to the venue that have not reached a terminal state. */
   private working = new Map<string, { req: OrderRequest; base: Order; isExit: boolean }>();
+  private clockCache: { open: boolean; expires: number } | null = null;
 
   constructor(private creds: AlpacaCredentials) {}
 
@@ -296,7 +299,12 @@ export class AlpacaBroker implements Broker {
    * real prices.
    */
   async submitOrder(req: OrderRequest, markPrice: number): Promise<Order> {
-    const qty = roundQty(req.qty);
+    const offsetRaw = req.limitOffsetPct ?? 0;
+    const wantLimit = !(req.forceTaker ?? false) && offsetRaw > 0;
+    // Equities reject FRACTIONAL limit orders, so a sub-share position has to
+    // cross as a market order. roundQtyFor tells us which we actually get.
+    const rounded = roundQtyFor(req.symbol, req.qty, wantLimit);
+    const qty = rounded.qty;
     const base: Order = {
       id: "unsubmitted",
       symbol: req.symbol,
@@ -323,16 +331,15 @@ export class AlpacaBroker implements Broker {
     // order for everything (the previous behaviour) meant live paid taker fees
     // plus spread on every trade while backtests priced ~88% of fills as
     // makers — a systematic overstatement of live returns.
-    const offset = req.limitOffsetPct ?? 0;
-    const useLimit = !(req.forceTaker ?? false) && offset > 0;
-    const limitPrice = useLimit ? limitPriceFor(req.side, markPrice, offset) : 0;
+    const useLimit = rounded.canUseLimit;
+    const limitPrice = useLimit ? limitPriceFor(req.side, markPrice, offsetRaw) : 0;
 
     const body: Record<string, unknown> = {
       symbol: req.symbol,
       qty: String(qty),
       side: req.side,
       type: useLimit ? "limit" : "market",
-      time_in_force: "gtc",
+      time_in_force: timeInForce(req.symbol),
     };
     if (useLimit) body.limit_price = limitPrice.toFixed(2);
 
@@ -459,8 +466,8 @@ export class AlpacaBroker implements Broker {
   }
 
   async getPosition(symbol: string): Promise<Position | null> {
-    // Alpaca uses symbols without a slash for positions (e.g. BTCUSD).
-    const sym = symbol.replace("/", "");
+    // Crypto positions drop the slash (BTCUSD); equities use the bare ticker.
+    const sym = positionSymbol(symbol);
     try {
       const res = await fetch(`${this.creds.baseUrl}/v2/positions/${sym}`, {
         headers: this.headers(),
@@ -507,6 +514,30 @@ export class AlpacaBroker implements Broker {
 
   mark(symbol: string, price: number): void {
     this.lastMark.set(symbol, price);
+  }
+
+  /**
+   * Crypto trades continuously. For equities we ask Alpaca's clock rather
+   * than hardcoding 09:30-16:00 ET, because that would silently trade through
+   * market holidays and half-days. Cached briefly so it costs one call a
+   * minute, not one per tick.
+   */
+  async isMarketOpen(symbol: string): Promise<boolean> {
+    if (assetClassOf(symbol) === "crypto") return true;
+    const now = Date.now();
+    if (this.clockCache && now < this.clockCache.expires) return this.clockCache.open;
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/clock`, { headers: this.headers() });
+      if (!res.ok) return this.clockCache?.open ?? true;
+      const c: any = await res.json();
+      const open = Boolean(c?.is_open);
+      this.clockCache = { open, expires: now + 60_000 };
+      return open;
+    } catch {
+      // Network blip: fall back to the last known state rather than blocking
+      // trading outright, and never cache the failure.
+      return this.clockCache?.open ?? true;
+    }
   }
 }
 

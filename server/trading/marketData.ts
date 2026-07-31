@@ -6,6 +6,7 @@
 
 import type { Candle } from "@shared/schema";
 import { readAlpacaCredentials } from "./brokers";
+import { assetClassOf, barsUrl } from "./assets";
 
 const MINUTE = 60_000;
 
@@ -133,7 +134,7 @@ export function generateSyntheticCandles(
 }
 
 // ---------------------------------------------------------------------------
-// Alpaca crypto bars
+// Alpaca market data (crypto + equities)
 // ---------------------------------------------------------------------------
 
 async function fetchAlpacaBars(
@@ -148,7 +149,14 @@ async function fetchAlpacaBars(
       timeframe: "1Min",
       limit: String(Math.min(count, 1000)),
     });
-    const url = `https://data.alpaca.markets/v1beta3/crypto/us/bars?${params}`;
+    // Equities and crypto live behind different market-data endpoints.
+    if (assetClassOf(symbol) === "stock") {
+      // Free Alpaca data plans only serve IEX, and delayed SIP data is
+      // rejected outright — asking for IEX explicitly keeps stock bars
+      // working on a default account instead of erroring.
+      params.set("feed", process.env.ALPACA_DATA_FEED || "iex");
+    }
+    const url = barsUrl(symbol, params);
     const res = await fetch(url, {
       headers: {
         "APCA-API-KEY-ID": creds.keyId,

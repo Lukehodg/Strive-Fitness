@@ -81,6 +81,8 @@ class TradingEngine {
   private lastTickCompletedAt: number | null = null;
   private watchdog: NodeJS.Timeout | null = null;
   private stallAlerted = false;
+  /** Avoids repeating the "market closed" line on every tick overnight. */
+  private marketClosedLogged = false;
 
   constructor() {
     this.applyConfigBroker(storage.getConfig());
@@ -262,6 +264,24 @@ class TradingEngine {
 
       // Pick the strategy (AI auto-select or user's fixed choice).
       this.updateStrategy(config, candles);
+
+      // US equities are shut nights, weekends and holidays. Firing orders
+      // into a closed market just accumulates rejects (or queues surprise
+      // fills at the next open), so stand down until it reopens. Crypto is
+      // 24/7 and always reports open.
+      const marketOpen = (await this.broker.isMarketOpen?.(config.symbol)) ?? true;
+      if (!marketOpen) {
+        if (!this.marketClosedLogged) {
+          this.marketClosedLogged = true;
+          storage.log("info", `${config.symbol} market is closed — standing down until it reopens`);
+        }
+        this.lastEvaluatedAt = Date.now();
+        return;
+      }
+      if (this.marketClosedLogged) {
+        this.marketClosedLogged = false;
+        storage.log("info", `${config.symbol} market is open — resuming`);
+      }
 
       const position = await this.broker.getPosition(config.symbol);
       const hasPosition = position !== null && position.qty > 0;
