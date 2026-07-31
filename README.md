@@ -277,6 +277,32 @@ signals it approves.
 
 ## Multi-symbol trading (the AI picks what to trade)
 
+### Universe presets
+
+```bash
+curl localhost:5000/api/universes                        # list presets
+curl -X POST localhost:5000/api/universes/everything/apply
+```
+
+| Preset | Symbols | Notes |
+|---|---|---|
+| `crypto` | 15 | 24/7, exempt from PDT — the only one viable on a small real account |
+| `stocks` | 15 | Mega caps, market hours only |
+| `etfs` | 10 | Index/sector ETFs, tighter spreads |
+| `everything` | 40 | All of the above |
+
+**A wide universe does not mean a big book.** The engine scans everything each
+tick, but the portfolio limits still decide what it may hold — 3 concurrent
+positions and 60% total exposure by default. Breadth buys *selection*, not
+risk: more candidates to pick the best from.
+
+Symbols are fetched with a bounded worker pool (8 in flight). Sequentially, 40
+symbols at ~200ms each would take ~8s per tick and starve the loop; unbounded,
+it would burst through Alpaca's ~200 requests/minute limit. Measured: 8023ms
+sequential vs 1006ms at concurrency 8, peak 8 in flight. A failure on one
+symbol is logged and skipped — it never aborts the tick.
+
+
 Set `extraSymbols` and the engine trades a universe instead of one instrument.
 Crypto and equities can be mixed freely — asset-class rules apply per symbol.
 

@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loadScreen } from "./screener";
+import { UNIVERSE_PRESETS, getPreset } from "./trading/universes";
 import { engine } from "./trading/engine";
 import {
   STRATEGY_LIST,
@@ -252,6 +253,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -- Alerts -------------------------------------------------------------
+
+  // Ready-made trading universes, and a one-call way to apply one.
+  app.get("/api/universes", (_req: Request, res: Response) => {
+    res.json({
+      presets: UNIVERSE_PRESETS.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        count: p.symbols.length,
+        symbols: p.symbols,
+      })),
+      current: {
+        symbol: storage.getConfig().symbol,
+        extraSymbols: storage.getConfig().extraSymbols ?? [],
+      },
+    });
+  });
+
+  app.post("/api/universes/:id/apply", (req: Request, res: Response) => {
+    const preset = getPreset(req.params.id);
+    if (!preset) {
+      return res.status(404).json({
+        message: `Unknown preset. Options: ${UNIVERSE_PRESETS.map((p) => p.id).join(", ")}`,
+      });
+    }
+    const [primary, ...rest] = preset.symbols;
+    const updated = storage.setConfig({ symbol: primary, extraSymbols: rest });
+    storage.log("info", `Universe set to "${preset.name}" (${preset.symbols.length} symbols)`);
+    res.json({
+      applied: preset.id,
+      count: preset.symbols.length,
+      symbol: updated.symbol,
+      extraSymbols: updated.extraSymbols,
+    });
+  });
 
   // Fundamental stock screen (produced offline by screener/screen.py).
   app.get("/api/screen", (_req: Request, res: Response) => {

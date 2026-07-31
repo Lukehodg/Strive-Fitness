@@ -35,6 +35,28 @@ import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./
 
 const CANDLE_COUNT = 200;
 /**
+ * Symbols fetched concurrently per tick. Alpaca's free data tier allows
+ * ~200 requests/minute; 8 in flight keeps a large universe well inside that
+ * while cutting tick time roughly 8x versus fetching one at a time.
+ */
+const FETCH_CONCURRENCY = 8;
+
+/** Run `worker` over `items` with at most `limit` in flight at once. */
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index]);
+    }
+  });
+  await Promise.all(runners);
+}
+/**
  * Re-run AI strategy selection at most this often (ms).
  *
  * Measured over 8 independent simulated months: at the previous 5-minute
@@ -228,19 +250,28 @@ class TradingEngine {
       const candlesBySymbol: Record<string, Candle[]> = {};
       const barsBySymbol: Record<string, { high: number; low: number; close: number }> = {};
       const closedSymbols: string[] = [];
-      for (const symbol of universe) {
-        const open = (await this.broker.isMarketOpen?.(symbol)) ?? true;
-        if (!open) {
-          closedSymbols.push(symbol);
-          continue;
+      // Fetched in parallel with a bounded worker pool. Sequentially, a
+      // 50-symbol universe at ~200ms per round-trip would take ~10s per tick
+      // and starve the loop; unbounded, it would burst straight through the
+      // venue's rate limit. A failure on one symbol must never abort the tick,
+      // so each worker isolates its own errors.
+      await mapWithConcurrency(universe, FETCH_CONCURRENCY, async (symbol) => {
+        try {
+          const open = (await this.broker.isMarketOpen?.(symbol)) ?? true;
+          if (!open) {
+            closedSymbols.push(symbol);
+            return;
+          }
+          const candles = await this.feed.getCandles(symbol, CANDLE_COUNT);
+          if (!candles.length) return;
+          candlesBySymbol[symbol] = candles;
+          const bar = candles[candles.length - 1];
+          barsBySymbol[symbol] = { high: bar.high, low: bar.low, close: bar.close };
+          this.broker.mark(symbol, bar.close);
+        } catch (err) {
+          storage.log("info", `${symbol}: data unavailable (${(err as Error).message})`);
         }
-        const candles = await this.feed.getCandles(symbol, CANDLE_COUNT);
-        if (!candles.length) continue;
-        candlesBySymbol[symbol] = candles;
-        const bar = candles[candles.length - 1];
-        barsBySymbol[symbol] = { high: bar.high, low: bar.low, close: bar.close };
-        this.broker.mark(symbol, bar.close);
-      }
+      });
 
       if (closedSymbols.length && !this.marketClosedLogged) {
         this.marketClosedLogged = true;
