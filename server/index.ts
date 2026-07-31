@@ -71,10 +71,7 @@ app.use((req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    // reusePort is a POSIX socket option. Windows rejects it outright with
-    // ENOTSUP, which crashed `npm run dev` before the server ever bound —
-    // so the app simply would not start on Windows at all.
-    ...(process.platform === "win32" ? {} : { reusePort: true }),
+    reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
     // Print the LAN address so you can open the app on your phone (same Wi-Fi).
