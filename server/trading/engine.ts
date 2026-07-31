@@ -586,14 +586,14 @@ class TradingEngine {
       void this.protectPosition(config, order);
       storage.log(
         "order",
-        `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
+        `BUY ${order.qty.toFixed(6)} ${order.symbol} @ ${order.price.toFixed(2)}` +
           `${order.fillType ? ` (${order.fillType})` : ""} — ${order.reason ?? ""}` +
           `${sizingNote ? ` (${sizingNote})` : ""}`,
         this.activeStrategy.meta.id,
       );
       sendAlert(
         "info",
-        `BUY ${config.symbol}`,
+        `BUY ${order.symbol}`,
         `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${order.reason ?? ""}`,
       );
       return;
@@ -615,7 +615,7 @@ class TradingEngine {
     const pnl = (order.price - entryPrice) * order.qty;
     const trade: Trade = {
       id: order.id,
-      symbol: config.symbol,
+      symbol: order.symbol,
       strategy: strategyId,
       qty: order.qty,
       entryPrice,
@@ -630,7 +630,7 @@ class TradingEngine {
     this.openEntry = null;
     storage.log(
       "order",
-      `SELL ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
+      `SELL ${order.qty.toFixed(6)} ${order.symbol} @ ${order.price.toFixed(2)}` +
         `${order.fillType ? ` (${order.fillType})` : ""} — ${reason} | P&L ${
           pnl >= 0 ? "+" : ""
         }${pnl.toFixed(2)}`,
@@ -638,7 +638,7 @@ class TradingEngine {
     );
     sendAlert(
       "info",
-      `SELL ${config.symbol}`,
+      `SELL ${order.symbol}`,
       `${order.qty.toFixed(6)} @ ${order.price.toFixed(2)} (${config.mode}) — ${reason} | P&L ${
         pnl >= 0 ? "+" : ""
       }${pnl.toFixed(2)}`,
