@@ -7,6 +7,9 @@
 //   npm run train -- --symbol ETH/USD --interval 1h --bars 26000
 //   npm run train -- --refresh          # force a fresh download
 
+// Load .env first — the downloader may use provider credentials.
+import "dotenv/config";
+
 import { loadHistory, type Interval } from "./dataSource";
 import { signalModel } from "./signalModel";
 

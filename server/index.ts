@@ -1,3 +1,10 @@
+// Load .env before ANY other import runs — brokers.ts and marketData.ts read
+// process.env at module scope to decide paper vs live and synthetic vs real
+// market data. Without this the app silently ignored a filled-in .env file:
+// keys appeared configured to the user while the platform quietly stayed on
+// synthetic data, which is exactly the failure you would not notice.
+import "dotenv/config";
+
 import express, { type Request, Response, NextFunction } from "express";
 import { networkInterfaces } from "os";
 import { registerRoutes } from "./routes";
