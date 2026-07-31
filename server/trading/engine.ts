@@ -579,6 +579,11 @@ class TradingEngine {
         time: order.createdAt,
         strategyId: this.activeStrategy.meta.id,
       };
+      // Park protection at the venue immediately. Until this exists the
+      // position is only guarded while this process is alive — a laptop
+      // closing overnight would leave it completely unprotected through a
+      // 24/7 crypto market.
+      void this.protectPosition(config, order);
       storage.log(
         "order",
         `BUY ${order.qty.toFixed(6)} ${config.symbol} @ ${order.price.toFixed(2)}` +
@@ -640,6 +645,41 @@ class TradingEngine {
     );
   }
 
+  /**
+   * Place a venue-side stop-loss for a freshly opened position, so protection
+   * survives this process dying. Engine-side stop checks stay as a faster
+   * backstop for when it is running.
+   */
+  private async protectPosition(config: BotConfig, entry: Order): Promise<void> {
+    if (!this.broker.placeProtectiveStop) return;
+    const stopPrice = entry.price * (1 - config.stopLossPct);
+    try {
+      const stop = await this.broker.placeProtectiveStop(entry.symbol, entry.qty, stopPrice);
+      if (!stop) return;
+      if (stop.status === "rejected") {
+        storage.log(
+          "risk_block",
+          `Could not park a stop at the venue for ${entry.symbol} (${stop.message}) — ` +
+            `position is only protected while this app is running`,
+        );
+        sendAlert(
+          "warning",
+          "No venue-side stop",
+          `${entry.symbol} has no resting stop at the broker. If this app stops, the ` +
+            `position is unprotected.`,
+        );
+        return;
+      }
+      storage.log(
+        "info",
+        `Protective stop resting at broker for ${entry.symbol} @ ${stopPrice.toFixed(2)} ` +
+          `(survives app restarts)`,
+      );
+    } catch (err) {
+      storage.log("info", `Protective stop failed for ${entry.symbol}: ${(err as Error).message}`);
+    }
+  }
+
   private async handleSell(
     config: BotConfig,
     position: Position,
@@ -650,6 +690,11 @@ class TradingEngine {
     symbol: string,
   ): Promise<void> {
     const bar = candles[candles.length - 1];
+    // Clear the venue stop first. Selling while it still rests risks the stop
+    // firing afterwards against a position that no longer exists.
+    if (this.broker.hasProtectiveStop?.(symbol)) {
+      await this.broker.cancelProtectiveStop?.(symbol);
+    }
     const order = await this.broker.submitOrder(
       {
         symbol,

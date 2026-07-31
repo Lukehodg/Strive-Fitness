@@ -194,6 +194,36 @@ The pipeline uses techniques from the quant-ML literature to stay honest:
 
 ## Risk controls (always on)
 
+### Venue-side stop-losses (protection that survives a crash)
+
+Engine-side stops only work while the engine is running. Close the laptop with
+an open crypto position and nothing is watching it through a 24/7 market — the
+3% stop simply does not exist until the app comes back.
+
+So when an entry fills, a stop-loss is **parked at the broker**:
+
+| | |
+|---|---|
+| Crypto | `stop_limit`, GTC (Alpaca has no plain `stop` for crypto) |
+| Equities | `stop`, GTC |
+| Limit price | 0.5% below the trigger, so it fills through a fast move |
+
+Deliberately the **stop only**, not a bracket with a take-profit attached.
+Alpaca does not support OCO/bracket for crypto, so a paired take-profit would
+have to be managed by this process — and if it filled while the process was
+down, the stop would be left live against a position that no longer exists.
+Losing a take-profit to downtime costs upside; losing a stop costs money.
+
+The engine's own stop check stays as a faster backstop when it is running, and
+the venue stop is cancelled before any discretionary exit so it cannot fire
+afterwards against a position that is already closed. If the broker rejects the
+stop you get a `risk_block` entry and a warning alert — a position silently
+running without protection is exactly what this feature exists to prevent.
+
+This does **not** remove the need for an always-on host. It protects the
+downside; it does not keep trading while you are away.
+
+
 - **Max position size** — a cap on the fraction of equity per trade.
 - **Daily-loss kill-switch** — halts all new entries if the account drops past
   your daily limit; clears at the next trading day or on manual Resume.

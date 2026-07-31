@@ -47,6 +47,24 @@ export interface Broker {
    * time — so without this the engine would fire orders into a shut market.
    */
   isMarketOpen?(symbol: string): boolean | Promise<boolean>;
+  /**
+   * Park a stop-loss AT THE VENUE so the position stays protected even if
+   * this process dies. Engine-side stops only work while the engine runs;
+   * a laptop closing overnight otherwise leaves a position completely
+   * unguarded through a 24/7 crypto market.
+   *
+   * Returns null when the broker cannot do this (the paper broker IS the
+   * app, so venue-side protection is meaningless there).
+   */
+  placeProtectiveStop?(
+    symbol: string,
+    qty: number,
+    stopPrice: number,
+  ): Promise<Order | null>;
+  /** Cancel a resting venue stop, e.g. before exiting for another reason. */
+  cancelProtectiveStop?(symbol: string): Promise<void>;
+  /** True when a venue-side stop is currently protecting this symbol. */
+  hasProtectiveStop?(symbol: string): boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +298,8 @@ export class AlpacaBroker implements Broker {
   /** Orders submitted to the venue that have not reached a terminal state. */
   private working = new Map<string, { req: OrderRequest; base: Order; isExit: boolean }>();
   private clockCache: { open: boolean; expires: number } | null = null;
+  /** symbol -> venue order id of the resting protective stop. */
+  private protectiveStops = new Map<string, string>();
 
   constructor(private creds: AlpacaCredentials) {}
 
@@ -522,6 +542,95 @@ export class AlpacaBroker implements Broker {
 
   mark(symbol: string, price: number): void {
     this.lastMark.set(symbol, price);
+  }
+
+  /**
+   * Place a resting stop-loss at the venue.
+   *
+   * Deliberately the stop only, not a bracket with a take-profit attached:
+   * Alpaca does not support OCO/bracket orders for crypto, so a paired
+   * take-profit would have to be managed by this process — and if it fills
+   * while the process is down, the stop would remain live against a position
+   * that no longer exists. Losing a take-profit to downtime costs upside;
+   * losing a stop costs money, so only the stop is parked at the venue.
+   */
+  async placeProtectiveStop(
+    symbol: string,
+    qty: number,
+    stopPrice: number,
+  ): Promise<Order | null> {
+    const rounded = roundQtyFor(symbol, qty, false);
+    if (!(rounded.qty > 0) || !(stopPrice > 0)) return null;
+    await this.cancelProtectiveStop(symbol);
+
+    const isCrypto = assetClassOf(symbol) === "crypto";
+    const body: Record<string, unknown> = {
+      symbol,
+      qty: String(rounded.qty),
+      side: "sell",
+      // Crypto supports stop_limit but not plain stop; equities take either.
+      // The limit sits below the trigger so the order still fills through a
+      // fast move instead of chasing the price down.
+      type: isCrypto ? "stop_limit" : "stop",
+      stop_price: stopPrice.toFixed(2),
+      // Protection must outlive the session, so GTC on both asset classes.
+      time_in_force: "gtc",
+    };
+    if (isCrypto) body.limit_price = (stopPrice * 0.995).toFixed(2);
+
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/orders`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify(body),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          id: "unsubmitted",
+          symbol,
+          side: "sell",
+          qty: rounded.qty,
+          price: stopPrice,
+          status: "rejected",
+          message: data?.message || `HTTP ${res.status}`,
+          createdAt: Date.now(),
+        };
+      }
+      this.protectiveStops.set(symbol, String(data.id));
+      return {
+        id: String(data.id),
+        symbol,
+        side: "sell",
+        qty: rounded.qty,
+        price: stopPrice,
+        status: "pending",
+        reason: "Protective stop (resting at venue)",
+        createdAt: Date.now(),
+      };
+    } catch (err) {
+      return {
+        id: "unsubmitted",
+        symbol,
+        side: "sell",
+        qty: rounded.qty,
+        price: stopPrice,
+        status: "rejected",
+        message: `Network error: ${(err as Error).message}`,
+        createdAt: Date.now(),
+      };
+    }
+  }
+
+  async cancelProtectiveStop(symbol: string): Promise<void> {
+    const id = this.protectiveStops.get(symbol);
+    if (!id) return;
+    this.protectiveStops.delete(symbol);
+    await this.cancel(id);
+  }
+
+  hasProtectiveStop(symbol: string): boolean {
+    return this.protectiveStops.has(symbol);
   }
 
   /**
