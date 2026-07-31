@@ -33,8 +33,22 @@ import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 
 const CANDLE_COUNT = 200;
-/** Re-run AI strategy selection at most this often (ms). */
-const RESELECT_INTERVAL_MS = 5 * 60_000;
+/**
+ * Re-run AI strategy selection at most this often (ms).
+ *
+ * Measured over 8 independent simulated months: at the previous 5-minute
+ * cadence with no switching margin the selector churned through ~1,156
+ * strategy switches per month. Moving to 30 minutes plus the hysteresis
+ * margin in aiSelector cuts that to ~145 and lowers median max drawdown
+ * from 2.35% to 1.87%, with no cost to returns.
+ *
+ * Deliberately NOT tuned to the best-scoring cell of that sweep: the spread
+ * across settings (10.35%-11.73% median) is within noise for 8 samples, and
+ * picking the top cell would be exactly the overfitting the PBO/DSR gates in
+ * ai/cscv.ts and ai/metrics.ts exist to prevent. These values were chosen for
+ * low churn and low drawdown, which are the robust effects.
+ */
+const RESELECT_INTERVAL_MS = 30 * 60_000;
 
 class TradingEngine {
   private feed: MarketFeed = createMarketFeed();
@@ -282,7 +296,7 @@ class TradingEngine {
       const now = Date.now();
       if (now - this.lastSelectionAt >= RESELECT_INTERVAL_MS) {
         this.lastSelectionAt = now;
-        const result = selectStrategy(candles);
+        const result = selectStrategy(candles, this.activeStrategy.meta.id);
         this.regime = result.regime;
         if (result.chosen.meta.id !== this.activeStrategy.meta.id) {
           storage.log(

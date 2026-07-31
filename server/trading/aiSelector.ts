@@ -51,11 +51,31 @@ export function detectRegime(candles: Candle[]): MarketRegime {
 }
 
 /**
+ * How much better a challenger must score than the strategy currently running
+ * before we actually switch.
+ *
+ * Selection here is IN-SAMPLE: every strategy is scored by backtesting it on
+ * the same recent window we are about to trade forward from. Small score
+ * differences over a few hundred bars are mostly noise, so switching on every
+ * tiny lead means constantly chasing whichever strategy just got lucky —
+ * paying entry/exit costs each time. Requiring a clear margin keeps the
+ * incumbent unless a challenger is decisively ahead.
+ */
+export const SWITCH_MARGIN = 8;
+
+/**
  * Score and rank all strategies on the given history. Score blends
  * risk-adjusted return with regime fit; drawdown is penalized so a strategy
  * can't win purely by taking big risks.
+ *
+ * Pass `currentStrategyId` to apply switching hysteresis: the incumbent is
+ * kept unless a rival beats it by at least `margin`.
  */
-export function selectStrategy(candles: Candle[]): SelectionResult {
+export function selectStrategy(
+  candles: Candle[],
+  currentStrategyId?: string,
+  margin = SWITCH_MARGIN,
+): SelectionResult {
   const regime = detectRegime(candles);
   const scores: StrategyScore[] = STRATEGY_LIST.map((strategy) => {
     const result = backtestStrategy(strategy, candles);
@@ -84,16 +104,28 @@ export function selectStrategy(candles: Candle[]): SelectionResult {
     };
   }).sort((a, b) => b.score - a.score);
 
-  const top = scores[0];
+  // Hysteresis: keep the incumbent unless a rival is decisively ahead.
+  let top = scores[0];
+  let held = false;
+  if (currentStrategyId && top.strategyId !== currentStrategyId) {
+    const incumbent = scores.find((s) => s.strategyId === currentStrategyId);
+    if (incumbent && top.score < incumbent.score + margin) {
+      top = incumbent;
+      held = true;
+    }
+  }
+
   const chosen =
     STRATEGY_LIST.find((s) => s.meta.id === top.strategyId) ?? STRATEGY_LIST[0];
 
-  const rationale =
-    `Market looks ${regime.replace("_", " ")}. ` +
-    `Chose ${top.strategyName} (recent return ${(top.returnPct * 100).toFixed(
-      1,
-    )}%, win rate ${(top.winRate * 100).toFixed(0)}%, ` +
-    `${top.trades} trades${top.regimeFit ? ", fits regime" : ""}).`;
+  const rationale = held
+    ? `Market looks ${regime.replace("_", " ")}. Staying with ${top.strategyName} — ` +
+      `no rival is clearly ahead (needs a ${margin}-point edge to justify switching).`
+    : `Market looks ${regime.replace("_", " ")}. ` +
+      `Chose ${top.strategyName} (recent return ${(top.returnPct * 100).toFixed(
+        1,
+      )}%, win rate ${(top.winRate * 100).toFixed(0)}%, ` +
+      `${top.trades} trades${top.regimeFit ? ", fits regime" : ""}).`;
 
   return { regime, chosen, scores, rationale };
 }

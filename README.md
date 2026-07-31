@@ -63,6 +63,34 @@ The "AI" is deliberately **transparent and deterministic** — adaptive,
 data-driven *selection* between audited strategies. No opaque model and no
 self-modifying code decides your trades.
 
+### A known limitation of auto-selection
+
+Auto-selection scores every strategy by backtesting it on the *same* recent
+window it is about to trade forward from. That is **in-sample selection**, and
+over a few hundred bars the score differences are largely noise.
+
+Measured over 8 independent simulated months, auto-selection finished roughly
+**5-6 percentage points behind simply holding the best single strategy** — and
+no setting fixed it:
+
+| reselect interval | switch margin | median month | switches/month | max DD |
+|---|---|---|---|---|
+| 5 min | 0 (old default) | 10.91% | 1,156 | 2.35% |
+| 15 min | 8 | 11.73% | 177 | 1.97% |
+| **30 min** | **8 (current)** | **11.22%** | **145** | **1.87%** |
+| 60 min | 15 | 11.42% | 11 | 2.83% |
+
+Hysteresis (`SWITCH_MARGIN` in `aiSelector.ts`) cuts churn ~8x and lowers
+drawdown, which is a real gain — but it does **not** close the performance gap.
+The gap is structural: picking the recent in-sample winner chases noise. Fixing
+it properly means selecting on *out-of-sample* evidence, the way `ai/optimizer.ts`
+already does for parameters. Until then, treat auto-selection as a convenience,
+not an edge — and consider fixing a single strategy in Settings.
+
+Those numbers come from synthetic data with strong built-in momentum, so they
+flatter trend-following strategies specifically; the ~5-6pp shortfall is the
+durable finding, not the individual returns.
+
 ## Self-improvement ("AI Lab")
 
 An adjacent engine continuously tries to make the strategies better — safely.
