@@ -30,8 +30,26 @@ export interface Broker {
   submitOrder(req: OrderRequest, markPrice: number): Promise<Order>;
   /** Current open position for a symbol, or null if flat. */
   getPosition(symbol: string): Promise<Position | null>;
-  /** Account cash/equity. Positions are valued at their own marks. */
-  getAccount(markPrice?: number): Promise<AccountSnapshot>;
+  /**
+   * EVERY open position, whatever the configured universe says.
+   *
+   * Discovery must come from the broker, not from config: change the universe
+   * while holding something and a config-driven scan stops seeing it, so the
+   * position gets no exits, no take-profit, and stops counting toward the
+   * exposure limits — while the account still very much owns it.
+   */
+  listPositions?(): Promise<Position[]>;
+  /**
+   * Account cash/equity, or NULL when the broker cannot be reached.
+   *
+   * Null must not be conflated with an empty account. Returning zeroes on a
+   * failed request made a transient outage look like a total wipeout: the
+   * daily-loss kill-switch read equity 0 against the day's opening balance and
+   * halted trading with "daily loss limit reached", and position sizing would
+   * have sized against zero equity. Observed live when the broker restarted
+   * mid-run.
+   */
+  getAccount(markPrice?: number): Promise<AccountSnapshot | null>;
   /** Update the mark price used for unrealized P&L. */
   mark(symbol: string, price: number): void;
   /**
@@ -222,6 +240,10 @@ export class PaperBroker implements Broker {
 
   async getPosition(symbol: string): Promise<Position | null> {
     return this.positions.get(symbol) ?? null;
+  }
+
+  async listPositions(): Promise<Position[]> {
+    return Array.from(this.positions.values()).filter((p) => p.qty > 0);
   }
 
   async getAccount(markPrice?: number): Promise<AccountSnapshot> {
@@ -519,24 +541,52 @@ export class AlpacaBroker implements Broker {
     }
   }
 
+  /** Every open position at the venue, regardless of configured universe. */
+  async listPositions(): Promise<Position[]> {
+    try {
+      const res = await fetch(`${this.creds.baseUrl}/v2/positions`, { headers: this.headers() });
+      if (!res.ok) return [];
+      const raw: any[] = await res.json();
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .map((p) => {
+          const qty = Number(p.qty);
+          const avg = Number(p.avg_entry_price);
+          const mark = Number(p.current_price) || avg;
+          return {
+            symbol: String(p.symbol),
+            qty,
+            avgEntryPrice: avg,
+            markPrice: mark,
+            unrealizedPnl: Number(p.unrealized_pl) || (mark - avg) * qty,
+            openedAt: Date.now(),
+          } as Position;
+        })
+        .filter((p) => p.qty > 0);
+    } catch {
+      return [];
+    }
+  }
+
   /**
    * NOTE: this reports the WHOLE account. Position sizing (maxPositionPct)
    * and the daily-loss kill-switch therefore measure against everything in
    * the account, including assets this bot never traded. Use a dedicated
    * Alpaca account for the bot so those limits mean what you expect.
    */
-  async getAccount(markPrice: number): Promise<AccountSnapshot> {
+  async getAccount(markPrice?: number): Promise<AccountSnapshot | null> {
     try {
       const res = await fetch(`${this.creds.baseUrl}/v2/account`, {
         headers: this.headers(),
       });
-      if (!res.ok) return { cash: 0, positionsValue: 0, equity: 0 };
+      if (!res.ok) return null;
       const a: any = await res.json();
       const cash = Number(a.cash) || 0;
       const equity = Number(a.equity) || cash;
       return { cash, positionsValue: equity - cash, equity };
     } catch {
-      return { cash: 0, positionsValue: 0, equity: 0 };
+      // Unreachable != empty. Say "unknown" and let the caller stand down.
+      return null;
     }
   }
 

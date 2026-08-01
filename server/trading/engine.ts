@@ -31,6 +31,7 @@ import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
 import { selectStrategy } from "./aiSelector";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
+import { positionSymbol } from "./assets";
 import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
 
 const CANDLE_COUNT = 200;
@@ -118,6 +119,12 @@ class TradingEngine {
   private stallAlerted = false;
   /** Avoids repeating the "market closed" line on every tick overnight. */
   private marketClosedLogged = false;
+  /** Symbols already warned about as held-but-unpriced, so it logs once. */
+  private unwatchedLogged = new Set<string>();
+  /** Last risk_block reason logged per symbol, to stop per-tick repetition. */
+  private lastRiskBlock = new Map<string, string>();
+  /** Avoids repeating the broker-unreachable line on every tick. */
+  private brokerUnreachableLogged = false;
 
   constructor() {
     this.applyConfigBroker(storage.getConfig());
@@ -251,6 +258,21 @@ class TradingEngine {
 
   // -- Main loop ----------------------------------------------------------
 
+  /**
+   * Map a broker-format symbol back to the app's canonical spelling.
+   *
+   * Venues quote crypto positions without the slash ("MKRUSD"), but everything
+   * else here keys on "MKR/USD". Left unconverted, the same position is
+   * discovered under both spellings and counted TWICE against the exposure
+   * limits — and assetClassOf("MKRUSD") reports "stock", applying equity
+   * rules (market hours, whole-share rounding) to a crypto position.
+   */
+  private canonicalize(brokerSymbol: string, universe: string[]): string {
+    if (universe.includes(brokerSymbol)) return brokerSymbol;
+    const match = universe.find((u) => positionSymbol(u) === brokerSymbol);
+    return match ?? brokerSymbol;
+  }
+
   /** Every symbol the engine may trade this tick, primary first, deduped. */
   private universeOf(config: BotConfig): string[] {
     return Array.from(new Set([config.symbol, ...(config.extraSymbols ?? [])])).filter(Boolean);
@@ -320,6 +342,21 @@ class TradingEngine {
       this.rolloverMinuteIfNeeded();
 
       const account = await this.broker.getAccount();
+      if (!account) {
+        // Broker unreachable. Standing down is right, but it must NOT look
+        // like a loss: treating unknown equity as zero trips the kill-switch
+        // and would size positions against nothing.
+        if (!this.brokerUnreachableLogged) {
+          this.brokerUnreachableLogged = true;
+          storage.log("risk_block", "Broker unreachable — no new orders until it responds");
+        }
+        this.lastEvaluatedAt = Date.now();
+        return;
+      }
+      if (this.brokerUnreachableLogged) {
+        this.brokerUnreachableLogged = false;
+        storage.log("info", "Broker reachable again — resuming");
+      }
       storage.addEquityPoint({
         time: Date.now(),
         equity: account.equity,
@@ -356,12 +393,44 @@ class TradingEngine {
       // 1. EXITS FIRST, always. Freeing capital and cutting losers takes
       //    priority over any new opportunity, and an exit is never blocked by
       //    the kill-switch.
+      //    Position discovery walks the WHOLE universe, not just the symbols
+      //    that returned data this tick. A position whose feed failed still
+      //    consumes capital and still carries risk; leaving it out of
+      //    openPositions would hide it from the exposure and concurrency
+      //    limits and let the engine open more on top of it.
+      // Ask the BROKER what we own, falling back to the universe only when it
+      // cannot say. Anything held but no longer in the universe still needs
+      // managing — see listPositions().
+      const held = (await this.broker.listPositions?.()) ?? [];
+      const discovery = held.length
+        ? Array.from(new Set([...held.map((p) => this.canonicalize(p.symbol, universe)), ...universe]))
+        : universe;
+
       const openPositions: OpenExposure[] = [];
-      for (const symbol of tradable) {
+      for (const symbol of discovery) {
         const position = await this.broker.getPosition(symbol);
         if (!position || position.qty <= 0) continue;
+
         const candles = candlesBySymbol[symbol];
-        const price = barsBySymbol[symbol].close;
+        const bar = barsBySymbol[symbol];
+        if (!candles || !bar) {
+          // No fresh price: count the exposure at its last known mark so the
+          // limits stay honest, but say plainly that it could not be
+          // risk-checked — a position nobody is watching is worth a warning.
+          const stale = position.markPrice > 0 ? position.markPrice : position.avgEntryPrice;
+          openPositions.push({ symbol, notional: position.qty * stale });
+          if (!this.unwatchedLogged.has(symbol)) {
+            this.unwatchedLogged.add(symbol);
+            storage.log(
+              "risk_block",
+              `Holding ${symbol} but no price this tick — stop-loss and take-profit ` +
+                `cannot be evaluated until data returns`,
+            );
+          }
+          continue;
+        }
+        this.unwatchedLogged.delete(symbol);
+        const price = bar.close;
 
         if (await this.checkProtectiveExit(config, position, price, candles, symbol)) continue;
 
@@ -391,6 +460,9 @@ class TradingEngine {
       for (const candidate of candidates) {
         const price = barsBySymbol[candidate.symbol].close;
         const fresh = await this.broker.getAccount();
+        // Broker went away mid-tick: stop opening risk rather than sizing
+        // against an unknown balance.
+        if (!fresh) break;
 
         // Correlation of this candidate against everything already held.
         const candidateReturns = returnsOf(candlesBySymbol[candidate.symbol]);
@@ -416,9 +488,18 @@ class TradingEngine {
           requested,
         );
         if (!verdict.allowed) {
-          storage.log("risk_block", `${candidate.symbol}: ${verdict.reason}`, this.activeStrategy.meta.id);
+          // Log a given block ONCE per symbol until its reason changes. A
+          // 15-symbol universe on a 5s tick otherwise repeats the same line
+          // every few seconds — 145 of 159 entries in one observed run were
+          // the identical "At position limit" message, pushing the actual
+          // fills off the decision log entirely.
+          if (this.lastRiskBlock.get(candidate.symbol) !== verdict.reason) {
+            this.lastRiskBlock.set(candidate.symbol, verdict.reason);
+            storage.log("risk_block", `${candidate.symbol}: ${verdict.reason}`, this.activeStrategy.meta.id);
+          }
           continue;
         }
+        this.lastRiskBlock.delete(candidate.symbol);
 
         // Translate the portfolio ceiling back into a conviction the
         // per-trade sizing understands, so both limits apply and the tighter
@@ -785,6 +866,27 @@ class TradingEngine {
   async getPosition(): Promise<Position | null> {
     const config = storage.getConfig();
     return this.broker.getPosition(config.symbol);
+  }
+
+  /**
+   * Every open position across the traded universe.
+   *
+   * getPosition() only ever looked at config.symbol, so once the engine could
+   * hold several symbols the dashboard reported "no position" while three were
+   * open — the primary symbol simply happened not to be one of them.
+   */
+  async getPositions(): Promise<Position[]> {
+    const universe = this.universeOf(storage.getConfig());
+    const fromBroker = await this.broker.listPositions?.();
+    if (fromBroker) {
+      return fromBroker.map((p) => ({ ...p, symbol: this.canonicalize(p.symbol, universe) }));
+    }
+    const out: Position[] = [];
+    for (const symbol of universe) {
+      const p = await this.broker.getPosition(symbol);
+      if (p && p.qty > 0) out.push(p);
+    }
+    return out;
   }
 
   get feedSource(): "alpaca" | "synthetic" {

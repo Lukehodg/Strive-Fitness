@@ -91,6 +91,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(await engine.getPosition());
   });
 
+  // Every open position, across the whole universe.
+  app.get("/api/positions", async (_req: Request, res: Response) => {
+    res.json(await engine.getPositions());
+  });
+
   app.get("/api/trades", (req: Request, res: Response) => {
     const limit = Number(req.query.limit) || 100;
     res.json(storage.getTrades(limit));

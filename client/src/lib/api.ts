@@ -94,6 +94,7 @@ export const api = {
   config: () => json<BotConfig>("/api/config"),
   equity: () => json<EquityPoint[]>("/api/equity?limit=500"),
   position: () => json<Position | null>("/api/position"),
+  positions: () => json<Position[]>("/api/positions"),
   trades: () => json<Trade[]>("/api/trades?limit=100"),
   performance: () => json<PerformanceStats>("/api/performance"),
   decisions: () => json<DecisionLogEntry[]>("/api/decisions?limit=100"),
