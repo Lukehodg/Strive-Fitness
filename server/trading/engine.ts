@@ -97,8 +97,20 @@ class TradingEngine {
 
   // Track our open entry so we can record a completed Trade on exit. The
   // broker holds authoritative position state; this mirrors entry metadata.
-  private openEntry: { price: number; time: number; strategyId: string } | null =
-    null;
+  /**
+   * Entry metadata per OPEN SYMBOL, used to build the completed Trade on exit.
+   *
+   * This was a single nullable object, which was correct only while one
+   * position could exist. Once the engine could hold several at once, opening
+   * a second position overwrote the first's entry, and the first exit nulled
+   * the record entirely — so remaining exits fell back to the exit price and
+   * booked pnl = 0. Wrong P&L then fed straight back into position sizing,
+   * because the Kelly multiplier reads the trade history.
+   */
+  private openEntries = new Map<
+    string,
+    { price: number; time: number; strategyId: string }
+  >();
 
   // Watchdog: detect a wedged loop (running but not ticking).
   private lastTickCompletedAt: number | null = null;
@@ -116,7 +128,7 @@ class TradingEngine {
       () => ({
         paperBroker:
           this.broker instanceof PaperBroker ? this.broker.snapshot() : null,
-        openEntry: this.openEntry,
+        openEntries: Array.from(this.openEntries.entries()),
         dayStartEquity: this.dayStartEquity,
         dayStamp: this.dayStamp,
         halted: this.halted,
@@ -125,7 +137,8 @@ class TradingEngine {
       (data) => {
         const d = data as {
           paperBroker: { cash: number; positions: never[] } | null;
-          openEntry: { price: number; time: number; strategyId: string } | null;
+          openEntries?: Array<[string, { price: number; time: number; strategyId: string }]>;
+          openEntry?: { price: number; time: number; strategyId: string } | null;
           dayStartEquity: number;
           dayStamp: string;
           halted: boolean;
@@ -134,7 +147,13 @@ class TradingEngine {
         if (d.paperBroker && this.broker instanceof PaperBroker) {
           this.broker.restore(d.paperBroker);
         }
-        if (d.openEntry !== undefined) this.openEntry = d.openEntry;
+        if (Array.isArray(d.openEntries)) {
+          this.openEntries = new Map(d.openEntries);
+        } else if (d.openEntry) {
+          // Restoring state written before multi-symbol: attribute the single
+          // entry to the configured primary symbol rather than dropping it.
+          this.openEntries = new Map([[storage.getConfig().symbol, d.openEntry]]);
+        }
         if (typeof d.dayStartEquity === "number") this.dayStartEquity = d.dayStartEquity;
         if (typeof d.dayStamp === "string") this.dayStamp = d.dayStamp;
         if (typeof d.halted === "boolean") this.halted = d.halted;
@@ -574,11 +593,11 @@ class TradingEngine {
         storage.log("info", `Buy not filled — ${order.message}`, this.activeStrategy.meta.id);
         return;
       }
-      this.openEntry = {
+      this.openEntries.set(order.symbol, {
         price: order.price,
         time: order.createdAt,
         strategyId: this.activeStrategy.meta.id,
-      };
+      });
       // Park protection at the venue immediately. Until this exists the
       // position is only guarded while this process is alive — a laptop
       // closing overnight would leave it completely unprotected through a
@@ -608,9 +627,18 @@ class TradingEngine {
 
   /** Turn a filled exit into a completed Trade in the log. */
   private recordSellFill(config: BotConfig, order: Order): void {
-    const entryPrice = this.openEntry?.price ?? order.price;
-    const entryTime = this.openEntry?.time ?? order.createdAt;
-    const strategyId = this.openEntry?.strategyId ?? this.activeStrategy.meta.id;
+    const entry = this.openEntries.get(order.symbol);
+    if (!entry) {
+      // No entry record for this symbol: booking a trade would invent a P&L.
+      // Say so rather than silently recording a zero-profit round trip.
+      storage.log(
+        "info",
+        `Exited ${order.symbol} with no recorded entry — P&L not booked for this trade`,
+      );
+    }
+    const entryPrice = entry?.price ?? order.price;
+    const entryTime = entry?.time ?? order.createdAt;
+    const strategyId = entry?.strategyId ?? this.activeStrategy.meta.id;
     const reason = order.reason ?? "";
     const pnl = (order.price - entryPrice) * order.qty;
     const trade: Trade = {
@@ -627,7 +655,7 @@ class TradingEngine {
       reason,
     };
     storage.addTrade(trade);
-    this.openEntry = null;
+    this.openEntries.delete(order.symbol);
     storage.log(
       "order",
       `SELL ${order.qty.toFixed(6)} ${order.symbol} @ ${order.price.toFixed(2)}` +

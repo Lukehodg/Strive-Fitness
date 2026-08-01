@@ -69,13 +69,31 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
+  // A second instance MUST fail to start, loudly.
+  //
+  // reusePort was set here (a Replit template default). On Linux SO_REUSEPORT
+  // lets several processes bind the same port and the kernel load-balances
+  // between them, so starting the app twice silently succeeded and BOTH
+  // engines traded the same broker account. Every safety limit is per-process
+  // in-memory state — max concurrent positions, the orders-per-minute cap, the
+  // daily-loss kill-switch — so N instances meant N times the intended risk,
+  // while the dashboard showed whichever process happened to answer.
+  //
+  // Observed during verification: three instances live at once, one recording
+  // an entry and another handling its exit, which booked the trade at zero P&L.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      log(`FATAL: port ${port} is already in use — another instance is running.`);
+      log("Only one engine may run at a time: two would trade the same account,");
+      log("each enforcing its own position and loss limits. Stop the other first.");
+      process.exit(1);
+    }
+    throw err;
+  });
+
   server.listen({
     port,
     host: "0.0.0.0",
-    // reusePort is a POSIX socket option. Windows rejects it outright with
-    // ENOTSUP, which crashed `npm run dev` before the server ever bound —
-    // so the app simply would not start on Windows at all.
-    ...(process.platform === "win32" ? {} : { reusePort: true }),
   }, () => {
     log(`serving on port ${port}`);
     // Print the LAN address so you can open the app on your phone (same Wi-Fi).
