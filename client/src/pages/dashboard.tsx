@@ -61,9 +61,17 @@ export default function Dashboard() {
   const backtest = useQuery({ queryKey: ["/api/backtest"], queryFn: api.backtest, refetchInterval: 30000 });
 
   const openPositions = positions.data ?? [];
+  const watching = 1 + (cfg.data?.extraSymbols?.length ?? 0);
   const unrealPnl = openPositions.reduce((a, p) => a + p.unrealizedPnl, 0);
   const costBasis = openPositions.reduce((a, p) => a + p.avgEntryPrice * p.qty, 0);
   const unrealPct = costBasis > 0 ? unrealPnl / costBasis : 0;
+
+  // Vertical span of the plotted equity, used to pick tick precision.
+  const equitySpan = (() => {
+    const vals = (equity.data ?? []).map((e) => e.equity);
+    if (vals.length < 2) return 0;
+    return Math.max(...vals) - Math.min(...vals);
+  })();
 
   const invalidateAll = () =>
     ["/api/status", "/api/equity", "/api/position", "/api/positions", "/api/decisions", "/api/config"].forEach((k) =>
@@ -137,9 +145,58 @@ export default function Dashboard() {
               ? `${pct(unrealPct)} unreal. · ${openPositions.map((p) => p.symbol).slice(0, 3).join(", ")}${openPositions.length > 3 ? "…" : ""}`
               : `watching ${1 + (cfg.data?.extraSymbols?.length ?? 0)} symbol${(cfg.data?.extraSymbols?.length ?? 0) ? "s" : ""}`
           }
-          positive={openPositions.length ? unrealPnl >= 0 : undefined}
         />
       </div>
+
+      {/* What we currently hold. With one symbol the stat tile was enough; with
+          a universe you need to see which positions are open and how each is
+          doing, not just a count. */}
+      {openPositions.length > 0 && (
+        <Card className="bg-[#2A2A2A] border-gray-800 mb-6">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>Open positions</span>
+              <span className={`text-sm font-normal ${unrealPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {unrealPnl >= 0 ? "+" : ""}{money(unrealPnl)} unrealised
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-xs">
+                    <th className="text-left font-normal pb-2">Symbol</th>
+                    <th className="text-right font-normal pb-2">Quantity</th>
+                    <th className="text-right font-normal pb-2">Entry</th>
+                    <th className="text-right font-normal pb-2">Now</th>
+                    <th className="text-right font-normal pb-2">P&amp;L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openPositions.map((p) => {
+                    const basis = p.avgEntryPrice * p.qty;
+                    const ret = basis > 0 ? p.unrealizedPnl / basis : 0;
+                    const up = p.unrealizedPnl >= 0;
+                    return (
+                      <tr key={p.symbol} className="border-t border-gray-800">
+                        <td className="py-2 text-white font-medium">{p.symbol}</td>
+                        <td className="py-2 text-right text-gray-300">{p.qty.toFixed(6)}</td>
+                        <td className="py-2 text-right text-gray-300">{money(p.avgEntryPrice)}</td>
+                        <td className="py-2 text-right text-gray-300">{money(p.markPrice)}</td>
+                        <td className={`py-2 text-right ${up ? "text-emerald-400" : "text-red-400"}`}>
+                          {up ? "+" : ""}{money(p.unrealizedPnl)}
+                          <span className="text-xs text-gray-500 ml-2">{pct(ret)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Equity chart */}
       <Card className="bg-[#2A2A2A] border-gray-800 mb-6">
@@ -147,7 +204,14 @@ export default function Dashboard() {
           <CardTitle className="text-base flex items-center justify-between">
             <span>Equity curve</span>
             <span className="text-sm font-normal text-gray-400">
-              {s?.lastPrice ? `${s.symbol} ${money(s.lastPrice)}` : ""} · updated {timeAgo(s?.lastEvaluatedAt ?? null)}
+              {/* Showing one symbol's price while trading a basket implies the
+                  chart is about that symbol. Name the basket instead. */}
+              {watching > 1
+                ? `${watching} symbols`
+                : s?.lastPrice
+                  ? `${s.symbol} ${money(s.lastPrice)}`
+                  : ""}{" "}
+              · updated {timeAgo(s?.lastEvaluatedAt ?? null)}
             </span>
           </CardTitle>
         </CardHeader>
@@ -158,9 +222,24 @@ export default function Dashboard() {
                 <LineChart data={equityData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#3a3a3a" />
                   <XAxis dataKey="t" tick={{ fill: "#888", fontSize: 11 }} minTickGap={40} />
-                  <YAxis domain={["auto", "auto"]} tick={{ fill: "#888", fontSize: 11 }} width={70} tickFormatter={(v) => `$${Math.round(v)}`} />
+                  <YAxis
+                    domain={["auto", "auto"]}
+                    tick={{ fill: "#888", fontSize: 11 }}
+                    width={78}
+                    tickFormatter={(v) => equityTick(v, equitySpan)}
+                  />
                   <Tooltip contentStyle={{ background: "#1E1E1E", border: "1px solid #444", borderRadius: 8 }} formatter={(v: number) => money(v)} />
-                  <Line type="monotone" dataKey="equity" stroke="#10b981" strokeWidth={2} dot={false} />
+                  {/* Animation off: recharts draws the line behind a growing
+                      clip-path and restarts it on every refetch, so at a 5s
+                      refresh the curve blanked and redrew continuously. */}
+                  <Line
+                    type="monotone"
+                    dataKey="equity"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -185,7 +264,13 @@ export default function Dashboard() {
             <Badge variant="outline" className="capitalize">{(s?.regime ?? "unknown").replace("_", " ")}</Badge>
           </div>
           {recommendation.data && (
-            <p className="text-sm text-gray-400">{recommendation.data.rationale}</p>
+            <p className="text-sm text-gray-400">
+              <span className="text-gray-500">Latest read:</span>{" "}
+              {recommendation.data.rationale}
+              {cfg.data?.autoSelectStrategy === false && (
+                <span className="text-gray-600"> (auto-select is off, so this is advisory only)</span>
+              )}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -718,6 +803,21 @@ function ProposalStatusBadge({ status }: { status: string }) {
     pending: "bg-amber-700",
   };
   return <Badge className={`${map[status] ?? "bg-gray-700"} text-xs`}>{status.replace("_", " ")}</Badge>;
+}
+
+/**
+ * Axis label with enough precision to actually distinguish the ticks.
+ *
+ * This was `$${Math.round(v)}`, so an account moving a dollar or two — the
+ * normal state early on — rendered six identical "$10000" labels and the
+ * chart told you nothing. Precision now follows the plotted range.
+ */
+function equityTick(v: number, span: number): string {
+  const decimals = span >= 500 ? 0 : span >= 50 ? 1 : 2;
+  return `$${v.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
 }
 
 function fmtNum(n: number) {
