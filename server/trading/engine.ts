@@ -144,6 +144,10 @@ class TradingEngine {
         paperBroker:
           this.broker instanceof PaperBroker ? this.broker.snapshot() : null,
         openEntries: Array.from(this.openEntries.entries()),
+        // Without this the confidence governor forgets the drawdown on every
+        // restart: peak resets to current equity, so "8% below peak" reads as
+        // "0.0% below peak" and full size is restored at the worst moment.
+        peakEquity: this.peakEquity,
         dayStartEquity: this.dayStartEquity,
         dayStamp: this.dayStamp,
         halted: this.halted,
@@ -154,6 +158,7 @@ class TradingEngine {
           paperBroker: { cash: number; positions: never[] } | null;
           openEntries?: Array<[string, { price: number; time: number; strategyId: string }]>;
           openEntry?: { price: number; time: number; strategyId: string } | null;
+          peakEquity?: number;
           dayStartEquity: number;
           dayStamp: string;
           halted: boolean;
@@ -169,6 +174,7 @@ class TradingEngine {
           // entry to the configured primary symbol rather than dropping it.
           this.openEntries = new Map([[storage.getConfig().symbol, d.openEntry]]);
         }
+        if (typeof d.peakEquity === "number") this.peakEquity = d.peakEquity;
         if (typeof d.dayStartEquity === "number") this.dayStartEquity = d.dayStartEquity;
         if (typeof d.dayStamp === "string") this.dayStamp = d.dayStamp;
         if (typeof d.halted === "boolean") this.halted = d.halted;
