@@ -80,16 +80,62 @@ no setting fixed it:
 | **30 min** | **8 (current)** | **11.22%** | **145** | **1.87%** |
 | 60 min | 15 | 11.42% | 11 | 2.83% |
 
-Hysteresis (`SWITCH_MARGIN` in `aiSelector.ts`) cuts churn ~8x and lowers
-drawdown, which is a real gain — but it does **not** close the performance gap.
-The gap is structural: picking the recent in-sample winner chases noise. Fixing
-it properly means selecting on *out-of-sample* evidence, the way `ai/optimizer.ts`
-already does for parameters. Until then, treat auto-selection as a convenience,
-not an edge — and consider fixing a single strategy in Settings.
-
 Those numbers come from synthetic data with strong built-in momentum, so they
-flatter trend-following strategies specifically; the ~5-6pp shortfall is the
-durable finding, not the individual returns.
+flatter trend-following strategies specifically; the shortfall is the durable
+finding, not the individual returns.
+
+#### What the shortfall actually was — and the fix
+
+The obvious diagnosis was the scoring: pick the in-sample winner, chase noise.
+So the fix looked obvious too — score strategies out-of-sample instead.
+
+**That was wrong, and measuring it is what showed why.**
+`trading/selection.ts` implements consistency-across-sub-periods scoring with
+shrinkage and a dispersion penalty. Measured against the existing selector on
+20 independent walk-forward price paths, ranked on 10 and confirmed on 10
+unseen ones:
+
+- As first written it was **far worse** — 35.20% vs 67.92% (t = −4.90) — and
+  switched 8 times per run against the incumbent's 2.4. More jittery, not less.
+- Tuned as far as it would go, it drew **level and no further**: +0.39pp,
+  t = 0.11.
+- The sweep showed the scoring changes barely mattered. What dominated
+  everything was **how often the engine switched**.
+
+| `SWITCH_MARGIN` | validate return | switches per run |
+|---|---|---|
+| 4 (old default) | 83.90% | 2.9 |
+| 8 | 88.25% | 0.9 |
+| **12 (current)** | **92.61%** | **0.4** |
+| 20 | 94.76% | 0.2 |
+| 40 | 91.70% | 0.1 |
+
+At margin 4 the selector trailed the best fixed strategy by **14.10pp
+(t = −3.36, significant)**. At margin 20 that gap fell to **3.25pp (t = −1.08,
+no longer distinguishable from noise)**.
+
+**Most of what looked like bad strategy *choice* was churn.** The selector was
+picking reasonably and then paying to change its mind.
+
+Honesty about strength: differences between margins are directionally
+consistent across both halves, but none individually clears significance (best
+t = 1.83, needs 2.26). 12 was chosen as the conservative end of a 12–20 plateau
+— don't read it as precisely optimal. What *is* well supported is that 4 was
+the worst value tested, on both halves.
+
+`selection.ts` is kept, unwired, as the record of the failed experiment.
+
+Reproduce any of this:
+
+```bash
+npx tsx server/trading/selectionEval.ts    # policies vs fixed vs oracle
+npx tsx server/trading/selectionSweep.ts   # settings, train/validate split
+npx tsx server/trading/marginEval.ts       # the margin result above
+```
+
+Still true: auto-selection is not an *edge*. It is now roughly on par with
+holding one good strategy rather than measurably behind it. Fixing a single
+strategy in Settings (`autoSelectStrategy: false`) remains a defensible choice.
 
 ## Self-improvement ("AI Lab")
 

@@ -55,22 +55,58 @@ export function detectRegime(candles: Candle[]): MarketRegime {
  * before we actually switch.
  *
  * Selection here is IN-SAMPLE: every strategy is scored by backtesting it on
- * the same recent window we are about to trade forward from. Small score
- * differences over a few hundred bars are mostly noise, so switching on every
- * tiny lead means constantly chasing whichever strategy just got lucky —
- * paying entry/exit costs each time. Requiring a clear margin keeps the
- * incumbent unless a challenger is decisively ahead.
+ * the same recent window we are about to trade forward from, and the winner is
+ * the maximum of several noisy estimates — which systematically picks whichever
+ * strategy got luckiest rather than whichever is best. Switching on every tiny
+ * lead therefore means chasing what just worked, and paying entry/exit costs
+ * for the privilege.
+ *
+ * RAISED FROM 4 TO 12 ON EVIDENCE. Walk-forward measurement over 20 independent
+ * price paths, ranked on 10 and confirmed on 10 unseen ones
+ * (trading/marginEval.ts), found switching frequency dominated everything else
+ * about selection:
+ *
+ *     margin    validate return    switches per run
+ *        4          83.90%              2.9
+ *        8          88.25%              0.9
+ *       12          92.61%              0.4
+ *       20          94.76%              0.2
+ *       40          91.70%              0.1
+ *
+ * At margin 4 the selector trailed simply holding the best fixed strategy by
+ * 14.10pp (t=-3.36, significant). At margin 20 that gap fell to 3.25pp
+ * (t=-1.08, no longer distinguishable from noise). So most of what looked like
+ * bad strategy CHOICE was really churn.
+ *
+ * Honesty about strength: the differences between margins are directionally
+ * consistent across both halves but none individually clears significance
+ * (best t=1.83 vs 2.26 needed). 12 was chosen over 20 as the conservative end
+ * of a 12-20 plateau that performs about the same; do not read 12 as precisely
+ * optimal. What IS well supported is that 4 was the worst value tested, on
+ * both halves.
  */
-export const SWITCH_MARGIN = 4;
+export const SWITCH_MARGIN = 12;
 
 /**
- * Bonus applied to a strategy suited to the current regime. SWITCH_MARGIN
- * must stay BELOW this: when the two were both 8, a challenger whose only
- * advantage was fitting the regime could never clear the hysteresis, so
- * regime detection — the entire point of the selector — was structurally
- * unable to change anything. Observed live: in a "ranging" market the engine
- * sat on SMA Trend (0 trades) instead of switching to RSI Mean Reversion,
- * blocked by 0.36 of a point.
+ * Bonus applied to a strategy suited to the current regime.
+ *
+ * HISTORY, because this interacts with SWITCH_MARGIN in a way that already
+ * caused one bug: when the two were both 8, a challenger whose only advantage
+ * was fitting the regime could never clear the hysteresis, so regime detection
+ * was structurally unable to change anything. Observed live — in a "ranging"
+ * market the engine sat on SMA Trend with 0 trades instead of switching to RSI
+ * Mean Reversion, blocked by 0.36 of a point.
+ *
+ * That deadlock is now prevented by the zero-trade exemption below rather than
+ * by the ordering of these two constants: an incumbent that has produced no
+ * trades has no record to protect and gets no hysteresis at all, so it can
+ * always be replaced however large the margin is.
+ *
+ * The deliberate consequence of margin (12) now exceeding this bonus (8) is
+ * that regime fit ALONE no longer flips an incumbent that is actively trading.
+ * Given the measurement above — switching costs more than it gains — that is
+ * the intended behaviour, not an oversight. Regime fit still decides the
+ * initial pick and breaks ties.
  */
 export const REGIME_FIT_BONUS = 8;
 
