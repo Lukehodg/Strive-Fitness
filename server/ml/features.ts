@@ -125,6 +125,13 @@ export interface Dataset {
 export function buildDataset(
   candles: Candle[],
   labelOpts: TripleBarrierOptions = DEFAULT_TRIPLE_BARRIER,
+  /**
+   * Optional extra features per bar, indexed the same way as `candles` — used
+   * to append news features. Omitted, the dataset is exactly what it was
+   * before, so the existing model is unaffected until an ablation says the
+   * extras earn their place.
+   */
+  extra?: number[][],
 ): Dataset {
   const X: number[][] = [];
   const y: number[] = [];
@@ -134,7 +141,7 @@ export function buildDataset(
     if (!feats) continue;
     const label = tripleBarrierLabel(candles, i, labelOpts);
     if (label === null) continue;
-    X.push(feats);
+    X.push(extra ? [...feats, ...extra[i]] : feats);
     y.push(label);
   }
   return { X, y };

@@ -30,6 +30,13 @@ export interface ConfidenceInput {
   regimeFit: boolean;
   /** ML validation edge over baseline, or null when the model isn't trading. */
   mlEdge: number | null;
+  /**
+   * Minutes until the next broad-market scheduled release, or null when none
+   * is in sight. Symbol-specific events are handled by the per-symbol blackout
+   * in events.ts; this is the account-wide "the whole tape is about to move"
+   * signal, which is a different thing from "don't enter XLE right now".
+   */
+  minutesToBroadEvent?: number | null;
 }
 
 export interface ConfidenceFactor {
@@ -121,7 +128,22 @@ export function assessConfidence(input: ConfidenceInput): ConfidenceResult {
     detail: input.regimeFit ? "strategy suits the regime" : "strategy is off-regime",
   });
 
-  // 6. ML edge, only when the model is actually cleared to trade.
+  // 6. Scheduled event risk. Not a forecast of the release — only that the
+  //    next two hours are a worse time to be adding leverage than a quiet
+  //    Tuesday, because realised volatility around these prints is reliably
+  //    higher whichever way they come out. Tapers back in over two hours
+  //    rather than switching, so risk returns gradually after the print.
+  const mins = input.minutesToBroadEvent;
+  if (mins !== null && mins !== undefined) {
+    const eventScore = clamp01(mins / 120);
+    factors.push({
+      name: "Event risk",
+      score: eventScore,
+      detail: `scheduled release in ${Math.round(mins)}m`,
+    });
+  }
+
+  // 7. ML edge, only when the model is actually cleared to trade.
   if (input.mlEdge !== null) {
     const mlScore = clamp01(0.5 + input.mlEdge * 10);
     factors.push({

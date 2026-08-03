@@ -1,0 +1,5 @@
+{
+  "validThrough": "2000-01-01T00:00:00Z",
+  "note": "FOMC decisions, CPI prints and OPEC+ meetings are announced but not derivable from a standing rule, so they cannot be computed the way payrolls and the EIA reports are. This file ships EMPTY on purpose: seeding it with guessed dates would create blackout windows at the wrong times, which is worse than having none, because the bot would size up right into a release it thought had passed. Paste the real dates in and push validThrough forward; until you do, the dashboard reports the calendar as stale rather than pretending the schedule is clear. FOMC: federalreserve.gov/monetarypolicy/fomccalendars.htm — use the decision day, 14:00 ET. CPI and payrolls revisions: bls.gov/schedule/news_release — 08:30 ET. OPEC+: opec.org/opec_web/en/press_room/meetings.htm. etDateTime is an ET wall clock (no timezone suffix); scope omitted means broad market; severity defaults to high.",
+  "events": []
+}

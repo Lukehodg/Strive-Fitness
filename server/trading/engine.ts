@@ -34,6 +34,7 @@ import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 import { positionSymbol } from "./assets";
 import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
 import { assessConfidence, type ConfidenceResult } from "./confidence";
+import { checkBlackout, nextBroadEvent } from "./events";
 
 const CANDLE_COUNT = 200;
 /**
@@ -443,6 +444,12 @@ class TradingEngine {
         peakEquity: this.peakEquity,
         regimeFit: this.activeStrategy.meta.bestRegimes.includes(this.regime as MarketRegime),
         mlEdge: null,
+        minutesToBroadEvent: config.eventBlackout
+          ? (() => {
+              const e = nextBroadEvent(Date.now(), 120);
+              return e ? (e.at - Date.now()) / 60_000 : null;
+            })()
+          : null,
       });
       if (config.confidenceGovernor) {
         // Log on band changes only; per-tick would drown the decision log.
@@ -536,6 +543,19 @@ class TradingEngine {
         // Opening near the bell just books a round trip's costs for a position
         // the flatten rule will close minutes later.
         if (await this.tooLateToEnter(config, symbol)) continue;
+        // Scheduled release imminent. Entries only — anything already open is
+        // left alone, because closing into the same thin pre-release book is
+        // not obviously safer than holding with the stop already at the venue.
+        if (config.eventBlackout) {
+          const verdict = checkBlackout(symbol, Date.now(), {
+            beforeMinutes: config.eventBlackoutBeforeMinutes,
+            afterMinutes: config.eventBlackoutAfterMinutes,
+          });
+          if (verdict.blocked) {
+            this.noteBlock(symbol, verdict.reason);
+            continue;
+          }
+        }
         const signal = this.activeStrategy.evaluate(candlesBySymbol[symbol], false);
         if (signal.action === "buy") {
           candidates.push({ symbol, strength: signal.strength, reason: signal.reason });
@@ -577,15 +597,7 @@ class TradingEngine {
           requested,
         );
         if (!verdict.allowed) {
-          // Log a given block ONCE per symbol until its reason changes. A
-          // 15-symbol universe on a 5s tick otherwise repeats the same line
-          // every few seconds — 145 of 159 entries in one observed run were
-          // the identical "At position limit" message, pushing the actual
-          // fills off the decision log entirely.
-          if (this.lastRiskBlock.get(candidate.symbol) !== verdict.reason) {
-            this.lastRiskBlock.set(candidate.symbol, verdict.reason);
-            storage.log("risk_block", `${candidate.symbol}: ${verdict.reason}`, this.activeStrategy.meta.id);
-          }
+          this.noteBlock(candidate.symbol, verdict.reason);
           continue;
         }
         this.lastRiskBlock.delete(candidate.symbol);
@@ -963,6 +975,19 @@ class TradingEngine {
   /** Latest confidence reading, or null before the first tick. */
   getConfidence(): ConfidenceResult | null {
     return this.confidence;
+  }
+
+  /**
+   * Record why a symbol was skipped, ONCE per symbol until the reason changes.
+   *
+   * A 15-symbol universe on a 5s tick otherwise repeats the same line every
+   * few seconds — 145 of 159 entries in one observed run were the identical
+   * "At position limit" message, pushing the actual fills off the log.
+   */
+  private noteBlock(symbol: string, reason: string): void {
+    if (this.lastRiskBlock.get(symbol) === reason) return;
+    this.lastRiskBlock.set(symbol, reason);
+    storage.log("risk_block", `${symbol}: ${reason}`, this.activeStrategy.meta.id);
   }
 
   /**

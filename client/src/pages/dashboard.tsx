@@ -46,6 +46,14 @@ function timeAgo(ts: number | null) {
   return `${Math.floor(s / 3600)}h ago`;
 }
 
+/** Countdown to a scheduled release. Negative means it has already happened. */
+function formatCountdown(minutes: number) {
+  if (minutes < 0) return `${Math.abs(minutes)}m ago`;
+  if (minutes < 60) return `in ${minutes}m`;
+  if (minutes < 1440) return `in ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return `in ${Math.floor(minutes / 1440)}d ${Math.floor((minutes % 1440) / 60)}h`;
+}
+
 export default function Dashboard() {
   const qc = useQueryClient();
 
@@ -55,6 +63,7 @@ export default function Dashboard() {
   const positions = useQuery({ queryKey: ["/api/positions"], queryFn: api.positions, refetchInterval: REFRESH_MS });
   const cfg = useQuery({ queryKey: ["/api/config"], queryFn: api.config, refetchInterval: REFRESH_MS });
   const confidence = useQuery({ queryKey: ["/api/confidence"], queryFn: api.confidence, refetchInterval: REFRESH_MS });
+  const events = useQuery({ queryKey: ["/api/events"], queryFn: api.events, refetchInterval: REFRESH_MS });
   const perf = useQuery({ queryKey: ["/api/performance"], queryFn: api.performance, refetchInterval: REFRESH_MS });
   const trades = useQuery({ queryKey: ["/api/trades"], queryFn: api.trades, refetchInterval: REFRESH_MS });
   const decisions = useQuery({ queryKey: ["/api/decisions"], queryFn: api.decisions, refetchInterval: REFRESH_MS });
@@ -202,6 +211,68 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Scheduled releases. The bot standing down needs a visible reason —
+          otherwise "why has it not traded all morning" has no answer. */}
+      {events.data?.enabled && (
+        <Card className="term-panel mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <span className="term-label">Scheduled releases</span>
+              {events.data.blocked.length > 0 && (
+                <span className="term-mono text-xs term-down">
+                  {events.data.blocked.length} symbol{events.data.blocked.length === 1 ? "" : "s"} on hold
+                </span>
+              )}
+            </div>
+
+            {/* A calendar that has run out looks exactly like a calm market.
+                That failure has to be loud, not a silent absence of rows. */}
+            {events.data.calendarStale && (
+              <div className="term-inset p-3 mb-3 border-l-2 border-[#ffb01f]">
+                <p className="text-xs term-value">
+                  FOMC / CPI / OPEC dates are not loaded — those blackouts are NOT running.
+                </p>
+                <p className="text-xs term-dim mt-1">
+                  Payrolls, EIA inventories and triple witching are derived from standing
+                  schedules and still apply. To add the rest, paste the published dates into{" "}
+                  <span className="term-mono">server/data/eventCalendar.json</span>.
+                </p>
+              </div>
+            )}
+
+            {events.data.blocked.length > 0 && (
+              <div className="mb-3 space-y-1">
+                {events.data.blocked.map((b) => (
+                  <div key={b.symbol} className="flex items-baseline gap-2 text-xs">
+                    <span className="term-mono term-down w-20 shrink-0">{b.symbol}</span>
+                    <span className="term-dim">{b.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {events.data.upcoming.length === 0 ? (
+              <p className="text-xs term-dim">Nothing scheduled in the next 7 days.</p>
+            ) : (
+              <div className="space-y-1">
+                {events.data.upcoming.slice(0, 6).map((e) => (
+                  <div key={`${e.kind}-${e.at}`} className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className="term-dim truncate">
+                      <span className={e.severity === "high" ? "term-value" : "term-dim"}>●</span>{" "}
+                      {e.title}
+                    </span>
+                    <span className="term-mono shrink-0">
+                      <span className="term-dim mr-2">{e.scope}</span>
+                      {formatCountdown(e.minutesAway)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -975,6 +1046,18 @@ function SettingsPanel() {
             <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(2)}% per bar)`}>
               <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
               <p className="text-xs text-[#5a656c] mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
+            </Field>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Event blackout</p>
+                <p className="text-xs term-dim">Stops opening positions around scheduled releases — payrolls, EIA inventories, triple witching, plus any FOMC/CPI dates you load. Makes no prediction about the release; it just declines to hold leverage through one. Open positions are left alone.</p>
+              </div>
+              <Switch checked={form.eventBlackout} onCheckedChange={(v) => upd({ eventBlackout: v })} />
+            </div>
+            <Field label={`Stand down ${form.eventBlackoutBeforeMinutes}m before / ${form.eventBlackoutAfterMinutes}m after`}>
+              <Input type="range" min={0} max={120} step={5} value={form.eventBlackoutBeforeMinutes} onChange={(e) => upd({ eventBlackoutBeforeMinutes: Number(e.target.value) })} disabled={!form.eventBlackout} />
+              <Input type="range" min={0} max={120} step={5} value={form.eventBlackoutAfterMinutes} onChange={(e) => upd({ eventBlackoutAfterMinutes: Number(e.target.value) })} disabled={!form.eventBlackout} />
+              <p className="text-xs text-[#5a656c] mt-1">Medium-severity events use half these windows. Longer windows mean fewer trades, not safer ones — the point is to skip the minutes where the spread widens.</p>
             </Field>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>

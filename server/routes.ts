@@ -14,6 +14,9 @@ import {
 import { backtestStrategy } from "./trading/backtester";
 import { selectStrategy } from "./trading/aiSelector";
 import { createMarketFeed } from "./trading/marketData";
+import {
+  eventsBetween, checkBlackout, isCalendarStale, calendarValidThrough,
+} from "./trading/events";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
 import {
@@ -264,6 +267,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const c = engine.getConfidence();
     if (!c) return res.json({ available: false, message: "No reading yet — start the engine." });
     res.json({ available: true, enabled: storage.getConfig().confidenceGovernor, ...c });
+  });
+
+  // Upcoming scheduled releases, and which held/watched symbols they gate.
+  app.get("/api/events", (_req: Request, res: Response) => {
+    const config = storage.getConfig();
+    const now = Date.now();
+    const settings = {
+      beforeMinutes: config.eventBlackoutBeforeMinutes,
+      afterMinutes: config.eventBlackoutAfterMinutes,
+    };
+    const upcoming = eventsBetween(now, now + 7 * 86_400_000).slice(0, 12);
+    const symbols = [config.symbol, ...(config.extraSymbols ?? [])];
+    const blocked = symbols
+      .map((s) => ({ symbol: s, ...checkBlackout(s, now, settings) }))
+      .filter((v) => v.blocked)
+      .map((v) => ({ symbol: v.symbol, reason: v.reason }));
+
+    res.json({
+      enabled: config.eventBlackout,
+      // A calendar that has run out looks exactly like a calm market, so this
+      // is reported rather than logged once and forgotten.
+      calendarStale: isCalendarStale(now),
+      calendarValidThrough: calendarValidThrough(),
+      blocked,
+      upcoming: upcoming.map((e) => ({
+        kind: e.kind,
+        title: e.title,
+        at: e.at,
+        minutesAway: Math.round((e.at - now) / 60_000),
+        scope: e.scope === "*" ? "all symbols" : e.scope.join(", "),
+        severity: e.severity,
+        source: e.source,
+      })),
+    });
   });
 
   // Trading profiles: risk settings and strategy parameters as one set.

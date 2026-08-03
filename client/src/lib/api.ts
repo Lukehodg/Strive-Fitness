@@ -10,6 +10,25 @@ export interface ConfidenceResponse {
   message?: string;
 }
 
+export interface UpcomingEvent {
+  kind: string;
+  title: string;
+  at: number;
+  minutesAway: number;
+  scope: string;
+  severity: "high" | "medium";
+  source: "rule" | "calendar";
+}
+
+export interface EventsResponse {
+  enabled: boolean;
+  /** True when the dated half of the calendar no longer covers today. */
+  calendarStale: boolean;
+  calendarValidThrough: number | null;
+  blocked: Array<{ symbol: string; reason: string }>;
+  upcoming: UpcomingEvent[];
+}
+
 export interface UniversePresetInfo {
   id: string;
   name: string;
@@ -132,6 +151,7 @@ export const api = {
   universes: () => json<UniversesResponse>("/api/universes"),
   profiles: () => json<ProfilesResponse>("/api/profiles"),
   confidence: () => json<ConfidenceResponse>("/api/confidence"),
+  events: () => json<EventsResponse>("/api/events"),
   applyUniverse: (id: string) =>
     fetch(`/api/universes/${id}/apply`, { method: "POST" }).then((r) => r.json()),
   applyProfile: (id: string) =>

@@ -94,5 +94,18 @@ check("summary names the weakest factor when not full confidence",
 check("ml edge only counted when the model trades",
   assessConfidence({ ...base, mlEdge: null }).factors.every((f) => f.name !== "Model edge"));
 
+// --- scheduled event risk ----------------------------------------------------
+check("no event in sight adds no factor",
+  assessConfidence({ ...base, minutesToBroadEvent: null })
+    .factors.every((f) => f.name !== "Event risk"));
+const imminent = assessConfidence({ ...base, minutesToBroadEvent: 5 });
+const distant = assessConfidence({ ...base, minutesToBroadEvent: 110 });
+check("an imminent release lowers confidence", imminent.score < good.score,
+  `${good.score.toFixed(2)} -> ${imminent.score.toFixed(2)}`);
+check("risk returns as the release recedes", distant.score > imminent.score,
+  `5m=${imminent.score.toFixed(2)} vs 110m=${distant.score.toFixed(2)}`);
+check("an event alone does not stop trading (it is a taper, not a switch)",
+  imminent.allowEntries, `score=${imminent.score.toFixed(2)}`);
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
 process.exit(failures ? 1 : 0);

@@ -221,6 +221,17 @@ export interface BotConfig {
    * limits — see trading/confidence.ts for why that asymmetry is deliberate.
    */
   confidenceGovernor: boolean;
+  /**
+   * Event blackout: don't open new positions around scheduled releases
+   * (payrolls, EIA inventories, FOMC). This makes no prediction about what a
+   * release will do — it only declines to be holding leverage through one.
+   * See trading/events.ts.
+   */
+  eventBlackout: boolean;
+  /** Minutes before a scheduled release to stop opening positions. */
+  eventBlackoutBeforeMinutes: number;
+  /** Minutes after it to keep standing down while the spread is wide. */
+  eventBlackoutAfterMinutes: number;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
@@ -289,6 +300,9 @@ export const DEFAULT_CONFIG: BotConfig = {
   maxHoldingMinutes: 240,
   maxOrdersPerMinute: 3,
   confidenceGovernor: true,
+  eventBlackout: true,
+  eventBlackoutBeforeMinutes: 30,
+  eventBlackoutAfterMinutes: 15,
   mode: "paper",
   maxPositionPct: 0.25,
   dailyLossLimitPct: 0.05,
@@ -540,6 +554,9 @@ export const updateConfigSchema = z
     maxHoldingMinutes: z.number().int().min(5).max(1440).optional(),
     maxOrdersPerMinute: z.number().int().min(1).max(60).optional(),
     confidenceGovernor: z.boolean().optional(),
+    eventBlackout: z.boolean().optional(),
+    eventBlackoutBeforeMinutes: z.number().int().min(0).max(240).optional(),
+    eventBlackoutAfterMinutes: z.number().int().min(0).max(240).optional(),
     mode: z.enum(TradingModes),
     maxPositionPct: z.number().min(0.01).max(1),
     dailyLossLimitPct: z.number().min(0.005).max(0.5),

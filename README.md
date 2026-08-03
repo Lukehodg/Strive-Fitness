@@ -192,7 +192,124 @@ The pipeline uses techniques from the quant-ML literature to stay honest:
 - **Richer features** — MACD-style EMA spread, Bollinger %b, ATR, and volume,
   on top of returns / RSI / momentum / range position.
 
+### News sentiment — built, measured, and NOT trading
+
+`server/trading/news.ts` pulls headlines from Alpaca's news API (same keys, no
+scraping, no terms-of-service problem) and scores them with a finance-specific
+lexicon. `server/ml/newsFeatures.ts` turns that stream into four per-bar
+features.
+
+Alpaca was chosen over scraping for one reason that outweighs breadth: it has
+**history**. Sentiment you can only observe live cannot be backtested, and a
+signal you cannot backtest is a guess with extra steps.
+
+**Nothing here sizes a trade until an ablation says it earns its place.**
+
+```bash
+npx tsx server/ml/newsAblation.ts              # self-test, no keys needed
+npx tsx server/ml/newsAblation.ts AAPL 180     # real news, needs your keys
+```
+
+Same candles, same labels, same folds, same seed — the only difference is four
+extra columns. Then a paired t-test across folds, because they are the same
+folds. Adding a feature almost always raises *in-sample* accuracy; the only
+question worth asking is whether it raises *out-of-sample* ranking by more than
+the noise in the estimate.
+
+The self-test validates the instrument before you trust its readings, on two
+synthetic conditions with known answers: **noise** news must report no edge,
+**planted** news must report a large one. A harness that can't detect a planted
+edge is not evidence of absence, and one that finds an edge in pure noise is
+worse than useless.
+
+> **A negative verdict is the expected outcome and is worth having.** It means
+> the feature stays out of the model instead of quietly adding variance.
+
+Two things this exercise turned up that are worth knowing independently:
+
+- **Accuracy is the wrong metric for this dataset.** The triple-barrier labels
+  are ~70% positive and the model's out-of-fold probabilities span 0.564–0.822
+  — it predicts "up" on 100% of samples and never crosses the 0.5 threshold.
+  Its "70.21% accuracy" *is* the 70.10% base rate. The ablation uses AUC, which
+  is rank-based and registers a better probability ordering even when every
+  prediction stays on one side of the threshold. (The live model already
+  refuses to trade this case — `isTradable()` requires accuracy to beat the
+  majority-class baseline by a margin — but a metric that reads identically for
+  a good model and a constant one can't answer an ablation.)
+- **News features are hour-scale by design.** They read only headlines strictly
+  *before* a bar opens. The naive join — bucket news by bar and attach it to
+  that bar — puts price-moving news and the move it caused in the same bucket,
+  so the model learns "big sentiment now = big move now", backtests brilliantly,
+  and does nothing live.
+
+### Why not a geopolitics scraper (FlightRadar, etc.)
+
+The idea comes up and the instinct is sound, but the specific version doesn't
+survive contact with the numbers. Military aircraft largely don't broadcast
+ADS-B, and FlightRadar24 filters most of what does; scraping it violates their
+terms in any case. The fatal problem is sample size: real geopolitical oil
+shocks happen perhaps five or six times a decade, so any strategy built on them
+is fitted to a handful of events. That is exactly what the confidence governor
+above exists to distrust. The tractable version of the same instinct is the
+event blackout below — knowing *when* things happen, which is verifiable —
+plus news sentiment held to the ablation bar.
+
+## Event blackouts (news, without pretending to predict it)
+
+`server/trading/events.ts`. The bot will not open a position in the minutes
+around a scheduled release. It makes **no prediction about what the release
+will do** — that is the part nobody does reliably. It only declines to be
+holding leverage through a print that routinely moves crude 3% in ninety
+seconds. Not being in the trade is an edge you can verify; forecasting the
+number is not.
+
+Only entries are gated. Anything already open is left alone, because closing
+into the same thin pre-release book is not obviously safer than holding with
+the stop already sitting at the venue.
+
+**Two sources of truth, deliberately separated:**
+
+| | Events | Goes stale? |
+|---|---|---|
+| **Rule-derived** | Nonfarm payrolls (1st Friday, 08:30 ET), EIA petroleum (Wed 10:30 ET, slipping to Thursday after a Monday federal holiday), EIA natural gas (Thu 10:30 ET), quarterly triple witching | Never — computed from standing published schedules, including the federal holiday calendar |
+| **Dated** | FOMC decisions, CPI prints, OPEC+ meetings | **Yes** — announced but not derivable, so they live in `server/data/eventCalendar.json` |
+
+**The dated file ships empty on purpose.** Seeding it with guessed dates would
+create blackout windows at the wrong times, which is worse than having none:
+the bot would size up straight into a release it believed had already passed.
+Until you paste the real dates in and push `validThrough` forward, the
+dashboard reports the calendar as stale rather than quietly showing a clear
+schedule. Sources are listed in the file's `note` field.
+
+A medium-severity event gets half the configured window. Broad-market events
+("all symbols") gate crypto too — a Fed decision moves BTC.
+
+Settings: **Event blackout** on/off, and the before/after windows (default
+30 min / 15 min).
+
 ## Risk controls (always on)
+
+### Confidence governor
+
+`server/trading/confidence.ts`. Position size already reacted to signal
+strength, volatility and Kelly, but nothing looked at the state of the account
+as a whole — a strategy can keep emitting strong signals while the book
+quietly bleeds. This scores six **measured** things (sample size, realised win
+rate, drawdown from peak, P&L against the day's open, regime fit, and
+proximity to a scheduled release), multiplies your `maxPositionPct` by the
+result, and stops opening positions below a 35% floor.
+
+**It only ever scales down.** Your configured limits are a ceiling. Scaling
+*up* on high confidence would require the score to be calibrated — for "90%"
+to genuinely mean nine times in ten — and nothing here demonstrates that. An
+overconfident multiplier applied to a negative expectancy is precisely how an
+account dies, so the asymmetry is deliberate.
+
+It also never shrinks below 25%: a governor that goes to zero can never
+recover, because it would stop generating the trades it needs as evidence.
+
+On a fresh account this means sizing starts around 40% of your maximum and
+earns its way up as trades accumulate.
 
 ### Venue-side stop-losses (protection that survives a crash)
 
@@ -637,5 +754,7 @@ the server resets paper balances and history.
 | POST | `/api/improve/run` | Run an improvement cycle now |
 | POST | `/api/improve/proposals/:id/apply\|reject` | Act on a proposal |
 | POST | `/api/improve/params/:id/reset` | Reset a strategy to defaults |
+| GET | `/api/confidence` | Confidence score, size multiplier, per-factor breakdown |
+| GET | `/api/events` | Upcoming scheduled releases, symbols on hold, calendar staleness |
 | GET | `/api/ml/status` | ML model accuracy + feature importances |
 | POST | `/api/ml/train` | Retrain the ML signal model now |
