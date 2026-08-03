@@ -214,6 +214,13 @@ export interface BotConfig {
    * the engine spent most ticks logging "order rate limit reached".
    */
   maxOrdersPerMinute: number;
+  /**
+   * Confidence governor: scale risk DOWN from the configured limits when
+   * measured conditions (win rate, drawdown, sample size) do not justify
+   * them, and pause new entries when they are poor. Never scales above the
+   * limits — see trading/confidence.ts for why that asymmetry is deliberate.
+   */
+  confidenceGovernor: boolean;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
@@ -281,6 +288,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   noEntriesBeforeCloseMinutes: 30,
   maxHoldingMinutes: 240,
   maxOrdersPerMinute: 3,
+  confidenceGovernor: true,
   mode: "paper",
   maxPositionPct: 0.25,
   dailyLossLimitPct: 0.05,
@@ -531,6 +539,7 @@ export const updateConfigSchema = z
     noEntriesBeforeCloseMinutes: z.number().int().min(1).max(240).optional(),
     maxHoldingMinutes: z.number().int().min(5).max(1440).optional(),
     maxOrdersPerMinute: z.number().int().min(1).max(60).optional(),
+    confidenceGovernor: z.boolean().optional(),
     mode: z.enum(TradingModes),
     maxPositionPct: z.number().min(0.01).max(1),
     dailyLossLimitPct: z.number().min(0.005).max(0.5),

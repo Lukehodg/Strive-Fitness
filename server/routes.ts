@@ -259,6 +259,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // -- Alerts -------------------------------------------------------------
 
+  // Current confidence reading and the factors behind it.
+  app.get("/api/confidence", (_req: Request, res: Response) => {
+    const c = engine.getConfidence();
+    if (!c) return res.json({ available: false, message: "No reading yet — start the engine." });
+    res.json({ available: true, enabled: storage.getConfig().confidenceGovernor, ...c });
+  });
+
   // Trading profiles: risk settings and strategy parameters as one set.
   app.get("/api/profiles", (_req: Request, res: Response) => {
     const c = storage.getConfig();

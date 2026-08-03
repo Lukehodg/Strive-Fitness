@@ -1,3 +1,15 @@
+export interface ConfidenceFactorInfo { name: string; score: number; detail: string }
+export interface ConfidenceResponse {
+  available: boolean;
+  enabled?: boolean;
+  score?: number;
+  factors?: ConfidenceFactorInfo[];
+  sizeMultiplier?: number;
+  allowEntries?: boolean;
+  summary?: string;
+  message?: string;
+}
+
 export interface UniversePresetInfo {
   id: string;
   name: string;
@@ -119,6 +131,7 @@ export const api = {
   positions: () => json<Position[]>("/api/positions"),
   universes: () => json<UniversesResponse>("/api/universes"),
   profiles: () => json<ProfilesResponse>("/api/profiles"),
+  confidence: () => json<ConfidenceResponse>("/api/confidence"),
   applyUniverse: (id: string) =>
     fetch(`/api/universes/${id}/apply`, { method: "POST" }).then((r) => r.json()),
   applyProfile: (id: string) =>

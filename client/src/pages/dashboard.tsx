@@ -54,6 +54,7 @@ export default function Dashboard() {
   const position = useQuery({ queryKey: ["/api/position"], queryFn: api.position, refetchInterval: REFRESH_MS });
   const positions = useQuery({ queryKey: ["/api/positions"], queryFn: api.positions, refetchInterval: REFRESH_MS });
   const cfg = useQuery({ queryKey: ["/api/config"], queryFn: api.config, refetchInterval: REFRESH_MS });
+  const confidence = useQuery({ queryKey: ["/api/confidence"], queryFn: api.confidence, refetchInterval: REFRESH_MS });
   const perf = useQuery({ queryKey: ["/api/performance"], queryFn: api.performance, refetchInterval: REFRESH_MS });
   const trades = useQuery({ queryKey: ["/api/trades"], queryFn: api.trades, refetchInterval: REFRESH_MS });
   const decisions = useQuery({ queryKey: ["/api/decisions"], queryFn: api.decisions, refetchInterval: REFRESH_MS });
@@ -147,6 +148,63 @@ export default function Dashboard() {
           }
         />
       </div>
+
+      {/* Confidence governor. A thing that quietly halves your position size
+          must say so, and say why — otherwise sizing looks arbitrary. */}
+      {confidence.data?.available && confidence.data.enabled && (
+        <Card className="term-panel mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <span className="term-label">Confidence governor</span>
+              {/* "Entries paused" is the state that changes what the bot does,
+                  so it must not be styled like the routine one. */}
+              <span className={`term-mono text-xs ${confidence.data.allowEntries ? "term-dim" : "term-down"}`}>
+                {confidence.data.allowEntries
+                  ? `sizing at ${((confidence.data.sizeMultiplier ?? 1) * 100).toFixed(0)}% of your maximum`
+                  : "new entries paused — open positions still run"}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <span
+                className={`text-2xl font-semibold term-mono ${
+                  !confidence.data.allowEntries
+                    ? "term-down"
+                    : (confidence.data.score ?? 0) > 0.7
+                      ? "term-up"
+                      : "term-value"
+                }`}
+              >
+                {((confidence.data.score ?? 0) * 100).toFixed(0)}%
+              </span>
+              <div className="flex-1 h-1.5 term-inset overflow-hidden">
+                <div
+                  className={`h-full ${
+                    !confidence.data.allowEntries
+                      ? "bg-[#ff5964]"
+                      : (confidence.data.score ?? 0) > 0.7
+                        ? "bg-[#21d07a]"
+                        : "bg-[#ffb01f]"
+                  }`}
+                  style={{ width: `${(confidence.data.score ?? 0) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+              {(confidence.data.factors ?? []).map((f) => (
+                <div key={f.name} className="flex items-baseline justify-between text-xs">
+                  <span className="term-dim">{f.name}</span>
+                  <span className="term-mono">
+                    <span className={f.score >= 0.7 ? "term-up" : f.score >= 0.4 ? "term-value" : "term-down"}>
+                      {(f.score * 100).toFixed(0)}%
+                    </span>
+                    <span className="term-dim ml-2">{f.detail}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* What we currently hold. With one symbol the stat tile was enough; with
           a universe you need to see which positions are open and how each is
@@ -918,6 +976,13 @@ function SettingsPanel() {
               <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
               <p className="text-xs text-[#5a656c] mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
             </Field>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Confidence governor</p>
+                <p className="text-xs term-dim">Scales risk down from your limits when realised results, drawdown or sample size don't justify them, and pauses new entries when they're poor. It never sizes above your limits.</p>
+              </div>
+              <Switch checked={form.confidenceGovernor} onCheckedChange={(v) => upd({ confidenceGovernor: v })} />
+            </div>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>
                 <p className="text-sm font-medium text-white">Adaptive sizing</p>

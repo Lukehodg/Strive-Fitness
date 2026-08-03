@@ -33,6 +33,7 @@ import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 import { positionSymbol } from "./assets";
 import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
+import { assessConfidence, type ConfidenceResult } from "./confidence";
 
 const CANDLE_COUNT = 200;
 /**
@@ -125,6 +126,12 @@ class TradingEngine {
   private lastRiskBlock = new Map<string, string>();
   /** Avoids repeating the broker-unreachable line on every tick. */
   private brokerUnreachableLogged = false;
+  /** Highest equity seen, for the drawdown term of the confidence score. */
+  private peakEquity = 0;
+  /** Latest confidence reading, surfaced via /api/confidence. */
+  private confidence: ConfidenceResult | null = null;
+  /** Last confidence band logged, so it reports changes not every tick. */
+  private lastConfidenceBand = -1;
 
   constructor() {
     this.applyConfigBroker(storage.getConfig());
@@ -426,6 +433,26 @@ class TradingEngine {
         );
       }
 
+      // Score conditions before deciding anything. This reads only realised
+      // results — it cannot be talked into optimism by a strong-looking signal.
+      this.peakEquity = Math.max(this.peakEquity, account.equity);
+      this.confidence = assessConfidence({
+        trades: storage.allTrades(),
+        equity: account.equity,
+        dayStartEquity: this.dayStartEquity,
+        peakEquity: this.peakEquity,
+        regimeFit: this.activeStrategy.meta.bestRegimes.includes(this.regime as MarketRegime),
+        mlEdge: null,
+      });
+      if (config.confidenceGovernor) {
+        // Log on band changes only; per-tick would drown the decision log.
+        const band = Math.round(this.confidence.score * 5);
+        if (band !== this.lastConfidenceBand) {
+          this.lastConfidenceBand = band;
+          storage.log("info", this.confidence.summary);
+        }
+      }
+
       // Strategy selection still runs on the primary symbol — it picks HOW to
       // trade, while the portfolio logic below picks WHAT.
       this.updateStrategy(config, candlesBySymbol[config.symbol] ?? candlesBySymbol[tradable[0]]);
@@ -497,6 +524,12 @@ class TradingEngine {
       // 2. ENTRIES. Rank every candidate that is signalling, strongest
       //    conviction first, so limited capital goes to the best opportunity
       //    rather than whichever symbol happens to be first alphabetically.
+      // Confidence below the floor: let open positions run their course, but
+      // stop adding new risk until the evidence improves.
+      if (config.confidenceGovernor && this.confidence && !this.confidence.allowEntries) {
+        return;
+      }
+
       const candidates: Array<{ symbol: string; strength: number; reason: string }> = [];
       for (const symbol of tradable) {
         if (openPositions.some((p) => p.symbol === symbol)) continue;
@@ -527,7 +560,10 @@ class TradingEngine {
             : 1; // unknown: assume fully correlated, the conservative reading
         }
 
-        const requested = fresh.equity * config.maxPositionPct * candidate.strength;
+        // The governor only ever scales DOWN from maxPositionPct.
+        const govern =
+          config.confidenceGovernor && this.confidence ? this.confidence.sizeMultiplier : 1;
+        const requested = fresh.equity * config.maxPositionPct * candidate.strength * govern;
         const verdict = vetPortfolioEntry(
           candidate.symbol,
           fresh.equity,
@@ -559,7 +595,10 @@ class TradingEngine {
         // one wins.
         const cappedStrength =
           fresh.equity * config.maxPositionPct > 0
-            ? Math.min(candidate.strength, verdict.maxNotional / (fresh.equity * config.maxPositionPct))
+            ? Math.min(
+                candidate.strength * govern,
+                verdict.maxNotional / (fresh.equity * config.maxPositionPct),
+              )
             : 0;
         if (cappedStrength <= 0) continue;
 
@@ -919,6 +958,11 @@ class TradingEngine {
   async getPosition(): Promise<Position | null> {
     const config = storage.getConfig();
     return this.broker.getPosition(config.symbol);
+  }
+
+  /** Latest confidence reading, or null before the first tick. */
+  getConfidence(): ConfidenceResult | null {
+    return this.confidence;
   }
 
   /**
