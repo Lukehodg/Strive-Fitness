@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { loadScreen } from "./screener";
-import { UNIVERSE_PRESETS, getPreset } from "./trading/universes";
+import { UNIVERSE_PRESETS, getPreset, TRADING_PROFILES, getProfile } from "./trading/universes";
 import { engine } from "./trading/engine";
 import {
   STRATEGY_LIST,
@@ -258,6 +258,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -- Alerts -------------------------------------------------------------
+
+  // Trading profiles: risk settings and strategy parameters as one set.
+  app.get("/api/profiles", (_req: Request, res: Response) => {
+    const c = storage.getConfig();
+    res.json({
+      profiles: TRADING_PROFILES.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        config: p.config,
+        params: p.params,
+      })),
+      active: c.dayTradingMode ? "day" : "swing",
+    });
+  });
+
+  app.post("/api/profiles/:id/apply", (req: Request, res: Response) => {
+    const profile = getProfile(req.params.id);
+    if (!profile) {
+      return res.status(404).json({
+        message: `Unknown profile. Options: ${TRADING_PROFILES.map((p) => p.id).join(", ")}`,
+      });
+    }
+    const updated = storage.setConfig(profile.config);
+    // Strategy parameters move WITH the risk settings. Tight day-trading stops
+    // against long swing lookbacks would stop out of every trend before it
+    // resolved, so applying half a profile is worse than applying neither.
+    const applied: Record<string, unknown> = {};
+    for (const [strategyId, params] of Object.entries(profile.params)) {
+      if (!getStrategy(strategyId)) continue;
+      applied[strategyId] = setActiveParams(strategyId, params);
+    }
+    storage.log("info", `Trading profile set to "${profile.name}"`);
+    res.json({ applied: profile.id, config: updated, params: applied });
+  });
 
   // Ready-made trading universes, and a one-call way to apply one.
   app.get("/api/universes", (_req: Request, res: Response) => {

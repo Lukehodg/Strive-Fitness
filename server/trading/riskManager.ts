@@ -29,6 +29,7 @@ export interface RiskDecision {
   reason: string;
 }
 
+/** Fallback ceiling when config does not specify one. */
 const MAX_ORDERS_PER_MINUTE = 3;
 
 /** Check whether the daily loss limit has been breached (kill-switch). */
@@ -47,7 +48,8 @@ export function isDailyLossBreached(ctx: {
  * risk), so this is only called for entries.
  */
 export function vetBuy(ctx: RiskContext, strength: number): RiskDecision {
-  if (ctx.ordersThisMinute >= MAX_ORDERS_PER_MINUTE) {
+  const orderCeiling = ctx.config.maxOrdersPerMinute ?? MAX_ORDERS_PER_MINUTE;
+  if (ctx.ordersThisMinute >= orderCeiling) {
     return { allowed: false, qty: 0, reason: "Order rate limit reached" };
   }
   if (isDailyLossBreached(ctx)) {

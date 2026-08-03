@@ -305,6 +305,58 @@ and its confidence **sizes the bets** that pass (the risk manager scales the
 position accordingly). The AI Lab shows its accuracy and what fraction of
 signals it approves.
 
+## Day trading vs swing trading
+
+Two profiles set risk settings **and** strategy parameters together:
+
+```bash
+curl localhost:5000/api/profiles                      # see both
+curl -X POST localhost:5000/api/profiles/day/apply    # switch
+```
+
+| | Swing (default) | Day trading |
+|---|---|---|
+| Overnight positions | allowed | **never** |
+| Stop / take-profit | 3% / 6% | 1% / 1.5% |
+| Max position | 25% | 10% |
+| Poll interval | 30s | 15s |
+| Orders/minute cap | 3 | 12 |
+| MA lengths | 10 / 30 | 5 / 20 |
+| Breakout lookback | 20 / 10 | 10 / 5 |
+
+Parameters move **with** the risk settings, deliberately: day-trading stops
+against swing-length lookbacks would stop out of every trend before it
+resolved, so applying half a profile is worse than applying neither.
+
+### How "never overnight" is enforced
+
+Two deadlines, because the instruments differ:
+
+- **Equities** are flattened `flatBeforeCloseMinutes` (15) before the bell,
+  using the venue's own clock, and no new position opens within
+  `noEntriesBeforeCloseMinutes` (30) of it — opening then just books a round
+  trip's costs for something the flatten rule closes minutes later.
+- **Crypto never closes**, so it is bounded by `maxHoldingMinutes` (240)
+  instead. Applying only the session rule would leave crypto held forever;
+  applying only the time cap would let a late equity entry straddle the bell.
+
+Both are **forced taker exits** — a maker order waiting for a better price
+defeats the purpose of a deadline.
+
+The order-rate ceiling is part of the profile because it is a runaway-loop
+guard, not a strategy setting. At the swing value of 3/min the engine spent
+most ticks logging "order rate limit reached" once day trading turned over
+more orders.
+
+> **Day trading equities under $25k is not viable.** The Pattern Day Trader
+> rule caps margin accounts under that at 3 day trades per 5 business days,
+> and this profile is designed to exceed that immediately. Crypto is exempt.
+
+> **More trades means more cost.** Fee drag already runs 1.5-3% of capital per
+> month at swing frequency. This profile trades considerably more, against an
+> edge that has not been demonstrated — every measurement so far says there
+> isn't one yet. Prove it on paper first.
+
 ## Multi-symbol trading (the AI picks what to trade)
 
 ### Universe presets

@@ -195,6 +195,25 @@ export interface BotConfig {
    * holding double BTC; this is what stops "diversification" that isn't.
    */
   maxCorrelatedExposurePct: number;
+  /**
+   * Day-trading mode: never carry a position overnight.
+   *
+   * Equities are flattened before the bell; 24/7 instruments are capped by
+   * holding time instead, since they have no close to flatten against.
+   */
+  dayTradingMode: boolean;
+  /** Exit every equity position this many minutes before the session close. */
+  flatBeforeCloseMinutes: number;
+  /** Stop opening new positions this many minutes before the close. */
+  noEntriesBeforeCloseMinutes: number;
+  /** Max minutes any position may be held (applies to 24/7 instruments). */
+  maxHoldingMinutes: number;
+  /**
+   * Order-rate ceiling, a runaway-loop guard rather than a strategy setting.
+   * Day trading legitimately needs a higher ceiling than swing trading; at 3
+   * the engine spent most ticks logging "order rate limit reached".
+   */
+  maxOrdersPerMinute: number;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
@@ -257,6 +276,11 @@ export const DEFAULT_CONFIG: BotConfig = {
   maxConcurrentPositions: 3,
   maxTotalExposurePct: 0.6,
   maxCorrelatedExposurePct: 0.35,
+  dayTradingMode: false,
+  flatBeforeCloseMinutes: 15,
+  noEntriesBeforeCloseMinutes: 30,
+  maxHoldingMinutes: 240,
+  maxOrdersPerMinute: 3,
   mode: "paper",
   maxPositionPct: 0.25,
   dailyLossLimitPct: 0.05,
@@ -502,6 +526,11 @@ export const updateConfigSchema = z
     maxConcurrentPositions: z.number().int().min(1).max(10).optional(),
     maxTotalExposurePct: z.number().min(0.05).max(1).optional(),
     maxCorrelatedExposurePct: z.number().min(0.05).max(1).optional(),
+    dayTradingMode: z.boolean().optional(),
+    flatBeforeCloseMinutes: z.number().int().min(1).max(120).optional(),
+    noEntriesBeforeCloseMinutes: z.number().int().min(1).max(240).optional(),
+    maxHoldingMinutes: z.number().int().min(5).max(1440).optional(),
+    maxOrdersPerMinute: z.number().int().min(1).max(60).optional(),
     mode: z.enum(TradingModes),
     maxPositionPct: z.number().min(0.01).max(1),
     dailyLossLimitPct: z.number().min(0.005).max(0.5),

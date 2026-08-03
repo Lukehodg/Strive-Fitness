@@ -273,6 +273,47 @@ class TradingEngine {
     return match ?? brokerSymbol;
   }
 
+  /**
+   * Why this position must be closed now under day-trading rules, or null.
+   *
+   * Two separate deadlines, because the instruments differ: equities have a
+   * session to be flat before, while crypto never closes and so is bounded by
+   * holding time instead. Applying only the session rule would leave crypto
+   * held indefinitely; applying only the time cap would let a late equity
+   * entry straddle the bell.
+   */
+  private async dayTradingExitReason(
+    config: BotConfig,
+    symbol: string,
+  ): Promise<string | null> {
+    if (!config.dayTradingMode) return null;
+
+    const closeAt = await this.broker.sessionCloseAt?.(symbol);
+    if (closeAt) {
+      const minutesLeft = (closeAt - Date.now()) / 60_000;
+      if (minutesLeft <= config.flatBeforeCloseMinutes) {
+        return `Day-trading flatten: ${minutesLeft.toFixed(0)}m to the close`;
+      }
+    }
+
+    const entry = this.openEntries.get(symbol);
+    if (entry) {
+      const heldMinutes = (Date.now() - entry.time) / 60_000;
+      if (heldMinutes >= config.maxHoldingMinutes) {
+        return `Max holding time reached (${heldMinutes.toFixed(0)}m)`;
+      }
+    }
+    return null;
+  }
+
+  /** True when it is too close to the bell to justify opening anything. */
+  private async tooLateToEnter(config: BotConfig, symbol: string): Promise<boolean> {
+    if (!config.dayTradingMode) return false;
+    const closeAt = await this.broker.sessionCloseAt?.(symbol);
+    if (!closeAt) return false;
+    return (closeAt - Date.now()) / 60_000 <= config.noEntriesBeforeCloseMinutes;
+  }
+
   /** Every symbol the engine may trade this tick, primary first, deduped. */
   private universeOf(config: BotConfig): string[] {
     return Array.from(new Set([config.symbol, ...(config.extraSymbols ?? [])])).filter(Boolean);
@@ -432,6 +473,15 @@ class TradingEngine {
         this.unwatchedLogged.delete(symbol);
         const price = bar.close;
 
+        // Day trading: be flat before the bell, and never hold longer than the
+        // configured cap. Both are FORCED taker exits — a maker order that
+        // waits for a better price defeats the point of a deadline.
+        const forced = await this.dayTradingExitReason(config, symbol);
+        if (forced) {
+          await this.handleSell(config, position, price, forced, candles, true, symbol);
+          continue;
+        }
+
         if (await this.checkProtectiveExit(config, position, price, candles, symbol)) continue;
 
         const signal = this.activeStrategy.evaluate(candles, true);
@@ -450,6 +500,9 @@ class TradingEngine {
       const candidates: Array<{ symbol: string; strength: number; reason: string }> = [];
       for (const symbol of tradable) {
         if (openPositions.some((p) => p.symbol === symbol)) continue;
+        // Opening near the bell just books a round trip's costs for a position
+        // the flatten rule will close minutes later.
+        if (await this.tooLateToEnter(config, symbol)) continue;
         const signal = this.activeStrategy.evaluate(candlesBySymbol[symbol], false);
         if (signal.action === "buy") {
           candidates.push({ symbol, strength: signal.strength, reason: signal.reason });

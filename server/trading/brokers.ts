@@ -66,6 +66,11 @@ export interface Broker {
    */
   isMarketOpen?(symbol: string): boolean | Promise<boolean>;
   /**
+   * When the current session ends, for day-trading flatten rules. Null for
+   * instruments that never close (crypto) or when the venue cannot say.
+   */
+  sessionCloseAt?(symbol: string): Promise<number | null>;
+  /**
    * Park a stop-loss AT THE VENUE so the position stays protected even if
    * this process dies. Engine-side stops only work while the engine runs;
    * a laptop closing overnight otherwise leaves a position completely
@@ -319,7 +324,7 @@ export class AlpacaBroker implements Broker {
   private lastMark = new Map<string, number>();
   /** Orders submitted to the venue that have not reached a terminal state. */
   private working = new Map<string, { req: OrderRequest; base: Order; isExit: boolean }>();
-  private clockCache: { open: boolean; expires: number } | null = null;
+  private clockCache: { open: boolean; nextClose: number | null; expires: number } | null = null;
   /** symbol -> venue order id of the resting protective stop. */
   private protectiveStops = new Map<string, string>();
 
@@ -594,6 +599,13 @@ export class AlpacaBroker implements Broker {
     this.lastMark.set(symbol, price);
   }
 
+  /** Session close for equities; null for crypto, which never closes. */
+  async sessionCloseAt(symbol: string): Promise<number | null> {
+    if (assetClassOf(symbol) === "crypto") return null;
+    await this.isMarketOpen(symbol); // refreshes the cached clock
+    return this.clockCache?.nextClose ?? null;
+  }
+
   /**
    * Place a resting stop-loss at the venue.
    *
@@ -698,7 +710,12 @@ export class AlpacaBroker implements Broker {
       if (!res.ok) return this.clockCache?.open ?? true;
       const c: any = await res.json();
       const open = Boolean(c?.is_open);
-      this.clockCache = { open, expires: now + 60_000 };
+      const nextClose = c?.next_close ? new Date(c.next_close).getTime() : null;
+      this.clockCache = {
+        open,
+        nextClose: Number.isFinite(nextClose) ? nextClose : null,
+        expires: now + 60_000,
+      };
       return open;
     } catch {
       // Network blip: fall back to the last known state rather than blocking
