@@ -52,14 +52,21 @@ export default function Dashboard() {
   const status = useQuery({ queryKey: ["/api/status"], queryFn: api.status, refetchInterval: REFRESH_MS });
   const equity = useQuery({ queryKey: ["/api/equity"], queryFn: api.equity, refetchInterval: REFRESH_MS });
   const position = useQuery({ queryKey: ["/api/position"], queryFn: api.position, refetchInterval: REFRESH_MS });
+  const positions = useQuery({ queryKey: ["/api/positions"], queryFn: api.positions, refetchInterval: REFRESH_MS });
+  const cfg = useQuery({ queryKey: ["/api/config"], queryFn: api.config, refetchInterval: REFRESH_MS });
   const perf = useQuery({ queryKey: ["/api/performance"], queryFn: api.performance, refetchInterval: REFRESH_MS });
   const trades = useQuery({ queryKey: ["/api/trades"], queryFn: api.trades, refetchInterval: REFRESH_MS });
   const decisions = useQuery({ queryKey: ["/api/decisions"], queryFn: api.decisions, refetchInterval: REFRESH_MS });
   const recommendation = useQuery({ queryKey: ["/api/recommendation"], queryFn: api.recommendation, refetchInterval: 30000 });
   const backtest = useQuery({ queryKey: ["/api/backtest"], queryFn: api.backtest, refetchInterval: 30000 });
 
+  const openPositions = positions.data ?? [];
+  const unrealPnl = openPositions.reduce((a, p) => a + p.unrealizedPnl, 0);
+  const costBasis = openPositions.reduce((a, p) => a + p.avgEntryPrice * p.qty, 0);
+  const unrealPct = costBasis > 0 ? unrealPnl / costBasis : 0;
+
   const invalidateAll = () =>
-    ["/api/status", "/api/equity", "/api/position", "/api/decisions", "/api/config"].forEach((k) =>
+    ["/api/status", "/api/equity", "/api/position", "/api/positions", "/api/decisions", "/api/config"].forEach((k) =>
       qc.invalidateQueries({ queryKey: [k] }),
     );
 
@@ -120,11 +127,17 @@ export default function Dashboard() {
           positive={(perf.data?.totalPnl ?? 0) >= 0}
         />
         <Stat label="Win rate" value={perf.data ? pct(perf.data.winRate) : "—"} sub={`${perf.data?.totalTrades ?? 0} trades`} />
+        {/* Counts EVERY open position. This read the primary symbol only, so it
+            showed "Flat" while several positions were open in other symbols. */}
         <Stat
-          label="Open position"
-          value={position.data ? `${position.data.qty.toFixed(5)}` : "Flat"}
-          sub={position.data ? `${pct(position.data.unrealizedPnl / (position.data.avgEntryPrice * position.data.qty))} unreal.` : s?.symbol}
-          positive={position.data ? position.data.unrealizedPnl >= 0 : undefined}
+          label="Open positions"
+          value={openPositions.length ? String(openPositions.length) : "Flat"}
+          sub={
+            openPositions.length
+              ? `${pct(unrealPct)} unreal. · ${openPositions.map((p) => p.symbol).slice(0, 3).join(", ")}${openPositions.length > 3 ? "…" : ""}`
+              : `watching ${1 + (cfg.data?.extraSymbols?.length ?? 0)} symbol${(cfg.data?.extraSymbols?.length ?? 0) ? "s" : ""}`
+          }
+          positive={openPositions.length ? unrealPnl >= 0 : undefined}
         />
       </div>
 
@@ -717,10 +730,20 @@ function SettingsPanel() {
   const config = useQuery({ queryKey: ["/api/config"], queryFn: api.config });
   const status = useQuery({ queryKey: ["/api/status"], queryFn: api.status });
   const [form, setForm] = useState<BotConfig | null>(null);
+  // Whether the user has edited the form since it was last synced.
+  const [dirty, setDirty] = useState(false);
 
+  // Re-sync from the server whenever config changes underneath us — but never
+  // over the top of unsaved edits.
+  //
+  // This only ran once (`!form`), so anything that changed config elsewhere —
+  // applying a trading profile or a universe — left these fields showing the
+  // OLD values. Pressing "Save settings" afterwards then wrote those stale
+  // values back, silently undoing the profile you had just applied: stop-loss
+  // back to 3%, max position back to 25%, symbol back to BTC/USD.
   useEffect(() => {
-    if (config.data && !form) setForm(config.data);
-  }, [config.data, form]);
+    if (config.data && !dirty) setForm(config.data);
+  }, [config.data, dirty]);
 
   const save = useMutation({
     mutationFn: (patch: Partial<BotConfig>) => api.updateConfig(patch),
@@ -731,6 +754,8 @@ function SettingsPanel() {
         return;
       }
       toast({ title: "Settings saved" });
+      // Saved state is the server's again, so let it drive the form.
+      setDirty(false);
       qc.invalidateQueries({ queryKey: ["/api/config"] });
       qc.invalidateQueries({ queryKey: ["/api/status"] });
     },
@@ -738,15 +763,23 @@ function SettingsPanel() {
 
   if (!form) return <Card className="bg-[#2A2A2A] border-gray-800"><Empty text="Loading settings…" /></Card>;
 
-  const upd = (patch: Partial<BotConfig>) => setForm({ ...form, ...patch });
+  const upd = (patch: Partial<BotConfig>) => {
+    setDirty(true);
+    setForm({ ...form, ...patch });
+  };
   const liveKeys = status.data?.liveKeysConfigured;
 
   return (
     <Card className="bg-[#2A2A2A] border-gray-800">
       <CardContent className="p-6 space-y-6">
+        <MarketAndStyle />
+
         <div className="grid md:grid-cols-2 gap-6">
-          <Field label="Symbol">
+          <Field label="Primary symbol">
             <Input value={form.symbol} onChange={(e) => upd({ symbol: e.target.value })} className="bg-[#1E1E1E] border-gray-700" />
+            <p className="text-xs text-gray-600 mt-1">
+              A slash means crypto (BTC/USD, 24/7); a bare ticker means a US stock (AAPL, market hours only).
+            </p>
           </Field>
           <Field label="Evaluation interval (seconds)">
             <Input type="number" value={form.intervalSeconds} onChange={(e) => upd({ intervalSeconds: Number(e.target.value) })} className="bg-[#1E1E1E] border-gray-700" />
@@ -860,6 +893,116 @@ function SettingsPanel() {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * What to trade, and how aggressively — the two choices that decide everything
+ * else. Both were API-only until now, so the dashboard could only ever drive a
+ * single crypto symbol.
+ */
+function MarketAndStyle() {
+  const qc = useQueryClient();
+  const universes = useQuery({ queryKey: ["/api/universes"], queryFn: api.universes });
+  const profiles = useQuery({ queryKey: ["/api/profiles"], queryFn: api.profiles });
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const refresh = () =>
+    ["/api/universes", "/api/profiles", "/api/config", "/api/status", "/api/positions"].forEach(
+      (k) => qc.invalidateQueries({ queryKey: [k] }),
+    );
+
+  const applyUniverse = async (id: string) => {
+    setBusy(id);
+    try {
+      await api.applyUniverse(id);
+      refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+  const applyProfile = async (id: string) => {
+    setBusy(id);
+    try {
+      await api.applyProfile(id);
+      refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const current = universes.data?.current;
+  const activeCount = current ? 1 + (current.extraSymbols?.length ?? 0) : 0;
+  const activeProfile = profiles.data?.active;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="font-medium text-white">What to trade</p>
+        <p className="text-sm text-gray-400">
+          Pick a market. The engine scans every symbol in it and holds only the best few —
+          a wider list buys more choice, not more risk.
+        </p>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {universes.data?.presets.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => applyUniverse(p.id)}
+            disabled={busy !== null}
+            className="text-left rounded-lg bg-[#1E1E1E] border border-gray-700 hover:border-gray-500 p-3 disabled:opacity-50"
+          >
+            <p className="text-sm font-medium text-white">{p.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{p.count} symbols</p>
+            <p className="text-xs text-gray-600 mt-1 line-clamp-3">{p.description}</p>
+          </button>
+        ))}
+      </div>
+      {current && (
+        <p className="text-xs text-gray-500">
+          Trading {activeCount} symbol{activeCount === 1 ? "" : "s"}:{" "}
+          <span className="text-gray-400">
+            {[current.symbol, ...(current.extraSymbols ?? [])].slice(0, 8).join(", ")}
+            {activeCount > 8 ? ` +${activeCount - 8} more` : ""}
+          </span>
+        </p>
+      )}
+
+      <div className="border-t border-gray-800 pt-4">
+        <p className="font-medium text-white">Trading style</p>
+        <p className="text-sm text-gray-400">
+          Sets risk limits and strategy lengths together — applying half of either would
+          stop out of trends before they resolve.
+        </p>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        {profiles.data?.profiles.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => applyProfile(p.id)}
+            disabled={busy !== null}
+            className={`text-left rounded-lg p-3 border disabled:opacity-50 ${
+              activeProfile === p.id
+                ? "bg-[#1E3A5F] border-blue-500"
+                : "bg-[#1E1E1E] border-gray-700 hover:border-gray-500"
+            }`}
+          >
+            <p className="text-sm font-medium text-white">
+              {p.name}
+              {activeProfile === p.id && <span className="text-blue-400 text-xs ml-2">active</span>}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">{p.description}</p>
+          </button>
+        ))}
+      </div>
+      {activeProfile === "day" && (
+        <p className="text-xs text-amber-500/90 bg-amber-500/10 rounded p-2">
+          Day trading US stocks needs $25,000+ in a margin account — under that, the Pattern
+          Day Trader rule caps you at 3 day trades per 5 business days and this profile will
+          exceed it immediately. Crypto is exempt.
+        </p>
+      )}
+    </div>
   );
 }
 

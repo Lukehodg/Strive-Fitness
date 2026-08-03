@@ -1,3 +1,25 @@
+export interface UniversePresetInfo {
+  id: string;
+  name: string;
+  description: string;
+  count: number;
+  symbols: string[];
+}
+export interface UniversesResponse {
+  presets: UniversePresetInfo[];
+  current: { symbol: string; extraSymbols: string[] };
+}
+export interface TradingProfileInfo {
+  id: string;
+  name: string;
+  description: string;
+  config: Record<string, unknown>;
+}
+export interface ProfilesResponse {
+  profiles: TradingProfileInfo[];
+  active: string;
+}
+
 // Thin typed wrappers over the trading API. Re-exports the shared domain types
 // so the UI and server never drift.
 
@@ -95,6 +117,12 @@ export const api = {
   equity: () => json<EquityPoint[]>("/api/equity?limit=500"),
   position: () => json<Position | null>("/api/position"),
   positions: () => json<Position[]>("/api/positions"),
+  universes: () => json<UniversesResponse>("/api/universes"),
+  profiles: () => json<ProfilesResponse>("/api/profiles"),
+  applyUniverse: (id: string) =>
+    fetch(`/api/universes/${id}/apply`, { method: "POST" }).then((r) => r.json()),
+  applyProfile: (id: string) =>
+    fetch(`/api/profiles/${id}/apply`, { method: "POST" }).then((r) => r.json()),
   trades: () => json<Trade[]>("/api/trades?limit=100"),
   performance: () => json<PerformanceStats>("/api/performance"),
   decisions: () => json<DecisionLogEntry[]>("/api/decisions?limit=100"),
