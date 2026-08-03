@@ -94,8 +94,8 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Auto-Trader</h1>
-          <p className="text-sm text-gray-400">Personal automated trading — AI strategy selection</p>
+          <h1 className="text-xl md:text-2xl font-bold text-white term-mono tracking-tight">AUTO&#8209;TRADER</h1>
+          <p className="term-label">Personal automated trading · AI strategy selection</p>
         </div>
         <div className="flex items-center gap-2">
           <ModeBadges status={s} />
@@ -118,7 +118,7 @@ export default function Dashboard() {
         <div className="mb-6 rounded-lg border border-red-800 bg-red-950/60 p-4 flex items-center justify-between">
           <div>
             <p className="font-semibold text-red-300">Trading halted — kill-switch tripped</p>
-            <p className="text-sm text-red-400/80">{s.haltReason}</p>
+            <p className="text-sm term-down/80">{s.haltReason}</p>
           </div>
           <Button variant="outline" onClick={() => resumeM.mutate()} disabled={resumeM.isPending}>
             Resume trading
@@ -152,11 +152,11 @@ export default function Dashboard() {
           a universe you need to see which positions are open and how each is
           doing, not just a count. */}
       {openPositions.length > 0 && (
-        <Card className="bg-[#2A2A2A] border-gray-800 mb-6">
+        <Card className="term-panel mb-6">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center justify-between term-rule">
               <span>Open positions</span>
-              <span className={`text-sm font-normal ${unrealPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <span className={`text-sm font-normal ${unrealPnl >= 0 ? "term-up" : "term-down"}`}>
                 {unrealPnl >= 0 ? "+" : ""}{money(unrealPnl)} unrealised
               </span>
             </CardTitle>
@@ -165,12 +165,12 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-gray-500 text-xs">
-                    <th className="text-left font-normal pb-2">Symbol</th>
-                    <th className="text-right font-normal pb-2">Quantity</th>
-                    <th className="text-right font-normal pb-2">Entry</th>
-                    <th className="text-right font-normal pb-2">Now</th>
-                    <th className="text-right font-normal pb-2">P&amp;L</th>
+                  <tr className="term-label">
+                    <th className="text-left font-normal pb-2 tracking-wider">Symbol</th>
+                    <th className="text-right font-normal pb-2 tracking-wider">Quantity</th>
+                    <th className="text-right font-normal pb-2 tracking-wider">Entry</th>
+                    <th className="text-right font-normal pb-2 tracking-wider">Now</th>
+                    <th className="text-right font-normal pb-2 tracking-wider">P&amp;L</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,14 +179,14 @@ export default function Dashboard() {
                     const ret = basis > 0 ? p.unrealizedPnl / basis : 0;
                     const up = p.unrealizedPnl >= 0;
                     return (
-                      <tr key={p.symbol} className="border-t border-gray-800">
-                        <td className="py-2 text-white font-medium">{p.symbol}</td>
-                        <td className="py-2 text-right text-gray-300">{p.qty.toFixed(6)}</td>
-                        <td className="py-2 text-right text-gray-300">{money(p.avgEntryPrice)}</td>
-                        <td className="py-2 text-right text-gray-300">{money(p.markPrice)}</td>
-                        <td className={`py-2 text-right ${up ? "text-emerald-400" : "text-red-400"}`}>
+                      <tr key={p.symbol} className="border-t border-[#1f262b]">
+                        <td className="py-2 term-mono font-semibold text-[#e6edf2]">{p.symbol}</td>
+                        <td className="py-2 text-right term-mono text-[#c3ccd2]">{p.qty.toFixed(6)}</td>
+                        <td className="py-2 text-right term-mono text-[#c3ccd2]">{money(p.avgEntryPrice)}</td>
+                        <td className="py-2 text-right term-mono term-value">{money(p.markPrice)}</td>
+                        <td className={`py-2 text-right term-mono ${up ? "term-up" : "term-down"}`}>
                           {up ? "+" : ""}{money(p.unrealizedPnl)}
-                          <span className="text-xs text-gray-500 ml-2">{pct(ret)}</span>
+                          <span className="text-xs term-dim ml-2">{pct(ret)}</span>
                         </td>
                       </tr>
                     );
@@ -199,11 +199,11 @@ export default function Dashboard() {
       )}
 
       {/* Equity chart */}
-      <Card className="bg-[#2A2A2A] border-gray-800 mb-6">
+      <Card className="term-panel mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center justify-between">
+          <CardTitle className="text-sm flex items-center justify-between term-rule">
             <span>Equity curve</span>
-            <span className="text-sm font-normal text-gray-400">
+            <span className="text-sm font-normal text-[#9aa6ad]">
               {/* Showing one symbol's price while trading a basket implies the
                   chart is about that symbol. Name the basket instead. */}
               {watching > 1
@@ -220,22 +220,22 @@ export default function Dashboard() {
             {equityData.length > 1 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={equityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3a3a3a" />
-                  <XAxis dataKey="t" tick={{ fill: "#888", fontSize: 11 }} minTickGap={40} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f262b" />
+                  <XAxis dataKey="t" tick={{ fill: "#6b777f", fontSize: 10, fontFamily: "ui-monospace, monospace" }} minTickGap={40} />
                   <YAxis
                     domain={["auto", "auto"]}
-                    tick={{ fill: "#888", fontSize: 11 }}
+                    tick={{ fill: "#6b777f", fontSize: 10, fontFamily: "ui-monospace, monospace" }}
                     width={78}
                     tickFormatter={(v) => equityTick(v, equitySpan)}
                   />
-                  <Tooltip contentStyle={{ background: "#1E1E1E", border: "1px solid #444", borderRadius: 8 }} formatter={(v: number) => money(v)} />
+                  <Tooltip contentStyle={{ background: "#0d0f11", border: "1px solid #2c363d", borderRadius: 8 }} formatter={(v: number) => money(v)} />
                   {/* Animation off: recharts draws the line behind a growing
                       clip-path and restarts it on every refetch, so at a 5s
                       refresh the curve blanked and redrew continuously. */}
                   <Line
                     type="monotone"
                     dataKey="equity"
-                    stroke="#10b981"
+                    stroke="#ffb01f"
                     strokeWidth={2}
                     dot={false}
                     isAnimationActive={false}
@@ -243,7 +243,7 @@ export default function Dashboard() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+              <div className="h-full flex items-center justify-center term-dim text-sm">
                 {s?.running ? "Collecting data… equity updates every tick." : "Press Start to begin trading."}
               </div>
             )}
@@ -252,23 +252,23 @@ export default function Dashboard() {
       </Card>
 
       {/* Active strategy / AI recommendation */}
-      <Card className="bg-[#2A2A2A] border-gray-800 mb-6">
+      <Card className="term-panel mb-6">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">AI strategy selection</CardTitle>
+          <CardTitle className="text-sm term-rule">AI strategy selection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-gray-400">Active:</span>
+            <span className="text-[#9aa6ad]">Active:</span>
             <Badge className="bg-indigo-600">{s?.activeStrategyName ?? "—"}</Badge>
-            <span className="text-gray-400">Regime:</span>
+            <span className="text-[#9aa6ad]">Regime:</span>
             <Badge variant="outline" className="capitalize">{(s?.regime ?? "unknown").replace("_", " ")}</Badge>
           </div>
           {recommendation.data && (
-            <p className="text-sm text-gray-400">
-              <span className="text-gray-500">Latest read:</span>{" "}
+            <p className="text-sm text-[#9aa6ad]">
+              <span className="term-dim">Latest read:</span>{" "}
               {recommendation.data.rationale}
               {cfg.data?.autoSelectStrategy === false && (
-                <span className="text-gray-600"> (auto-select is off, so this is advisory only)</span>
+                <span className="text-[#5a656c]"> (auto-select is off, so this is advisory only)</span>
               )}
             </p>
           )}
@@ -277,24 +277,24 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <Tabs defaultValue="activity">
-        <TabsList className="bg-[#2A2A2A]">
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="trades">Trades</TabsTrigger>
-          <TabsTrigger value="strategies">Strategies</TabsTrigger>
-          <TabsTrigger value="ailab">AI Lab</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsList className="term-panel rounded-none p-0 h-auto">
+          <TabsTrigger value="activity" className="rounded-none term-mono uppercase text-xs tracking-wider">Activity</TabsTrigger>
+          <TabsTrigger value="trades" className="rounded-none term-mono uppercase text-xs tracking-wider">Trades</TabsTrigger>
+          <TabsTrigger value="strategies" className="rounded-none term-mono uppercase text-xs tracking-wider">Strategies</TabsTrigger>
+          <TabsTrigger value="ailab" className="rounded-none term-mono uppercase text-xs tracking-wider">AI Lab</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-none term-mono uppercase text-xs tracking-wider">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="activity">
-          <Card className="bg-[#2A2A2A] border-gray-800">
+          <Card className="term-panel">
             <CardContent className="p-0 max-h-96 overflow-y-auto">
               {decisions.data?.length ? (
                 <ul className="divide-y divide-gray-800">
                   {decisions.data.map((d) => (
                     <li key={d.id} className="px-4 py-2 flex items-start gap-3 text-sm">
                       <KindBadge kind={d.kind} />
-                      <span className="flex-1 text-gray-300">{d.message}</span>
-                      <span className="text-xs text-gray-500 whitespace-nowrap">{new Date(d.time).toLocaleTimeString()}</span>
+                      <span className="flex-1 text-[#c3ccd2]">{d.message}</span>
+                      <span className="text-xs term-dim whitespace-nowrap term-mono">{new Date(d.time).toLocaleTimeString()}</span>
                     </li>
                   ))}
                 </ul>
@@ -306,11 +306,11 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="trades">
-          <Card className="bg-[#2A2A2A] border-gray-800">
+          <Card className="term-panel">
             <CardContent className="p-0 max-h-96 overflow-y-auto">
               {trades.data?.length ? (
                 <table className="w-full text-sm">
-                  <thead className="text-gray-500 text-left sticky top-0 bg-[#2A2A2A]">
+                  <thead className="term-dim text-left sticky top-0 term-panel">
                     <tr>
                       <th className="px-4 py-2 font-medium">Time</th>
                       <th className="px-4 py-2 font-medium">Strategy</th>
@@ -321,12 +321,12 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {trades.data.map((t) => (
-                      <tr key={t.id} className="border-t border-gray-800">
-                        <td className="px-4 py-2 text-gray-400">{new Date(t.exitTime).toLocaleTimeString()}</td>
-                        <td className="px-4 py-2 text-gray-300">{t.strategy}</td>
-                        <td className="px-4 py-2 text-right text-gray-300">{money(t.entryPrice)}</td>
-                        <td className="px-4 py-2 text-right text-gray-300">{money(t.exitPrice)}</td>
-                        <td className={`px-4 py-2 text-right font-medium ${t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      <tr key={t.id} className="border-t border-[#1f262b]">
+                        <td className="px-4 py-2 text-[#9aa6ad] term-mono">{new Date(t.exitTime).toLocaleTimeString()}</td>
+                        <td className="px-4 py-2 text-[#c3ccd2]">{t.strategy}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{money(t.entryPrice)}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{money(t.exitPrice)}</td>
+                        <td className={`px-4 py-2 text-right font-medium ${t.pnl >= 0 ? "term-up" : "term-down"}`}>
                           {t.pnl >= 0 ? "+" : ""}{money(t.pnl)} ({pct(t.returnPct)})
                         </td>
                       </tr>
@@ -341,11 +341,11 @@ export default function Dashboard() {
         </TabsContent>
 
         <TabsContent value="strategies">
-          <Card className="bg-[#2A2A2A] border-gray-800">
+          <Card className="term-panel">
             <CardContent className="p-0">
               {backtest.data?.results?.length ? (
                 <table className="w-full text-sm">
-                  <thead className="text-gray-500 text-left">
+                  <thead className="term-dim text-left">
                     <tr>
                       <th className="px-4 py-2 font-medium">Strategy</th>
                       <th className="px-4 py-2 font-medium text-right">Return</th>
@@ -359,22 +359,22 @@ export default function Dashboard() {
                   </thead>
                   <tbody>
                     {backtest.data.results.map((r) => (
-                      <tr key={r.strategyId} className="border-t border-gray-800">
+                      <tr key={r.strategyId} className="border-t border-[#1f262b]">
                         <td className="px-4 py-2 text-gray-200">
                           {r.strategyName}
                           {r.strategyId === s?.activeStrategyId && <Badge className="ml-2 bg-indigo-600">active</Badge>}
                         </td>
-                        <td className={`px-4 py-2 text-right ${r.returnPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>{pct(r.returnPct)}</td>
-                        <td className="px-4 py-2 text-right text-gray-300">{pct(r.stats.winRate)}</td>
-                        <td className="px-4 py-2 text-right text-gray-300">{pct(r.stats.maxDrawdown)}</td>
-                        <td className="px-4 py-2 text-right text-gray-300">{r.sharpe.toFixed(3)}</td>
-                        <td className={`px-4 py-2 text-right ${(r.deflatedSharpe ?? 0.5) > 0.7 ? "text-emerald-400" : "text-gray-400"}`}>
+                        <td className={`px-4 py-2 text-right ${r.returnPct >= 0 ? "term-up" : "term-down"}`}>{pct(r.returnPct)}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{pct(r.stats.winRate)}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{pct(r.stats.maxDrawdown)}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{r.sharpe.toFixed(3)}</td>
+                        <td className={`px-4 py-2 text-right ${(r.deflatedSharpe ?? 0.5) > 0.7 ? "term-up" : "text-[#9aa6ad]"}`}>
                           {r.deflatedSharpe !== undefined ? `${(r.deflatedSharpe * 100).toFixed(0)}%` : "—"}
                         </td>
-                        <td className="px-4 py-2 text-right text-gray-400">
+                        <td className="px-4 py-2 text-right text-[#9aa6ad]">
                           {r.minTrackRecordBars != null ? `${r.minTrackRecordBars.toLocaleString()} bars` : "—"}
                         </td>
-                        <td className="px-4 py-2 text-right text-gray-300">{r.stats.totalTrades}</td>
+                        <td className="px-4 py-2 text-right text-[#c3ccd2]">{r.stats.totalTrades}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -382,7 +382,7 @@ export default function Dashboard() {
               ) : (
                 <Empty text="Backtest running…" />
               )}
-              <p className="px-4 py-3 text-xs text-gray-500">
+              <p className="px-4 py-3 text-xs term-dim">
                 Backtested on the latest {backtest.data?.candleCount ?? 0} candles of {backtest.data?.symbol}. Past performance never guarantees future results.
               </p>
             </CardContent>
@@ -398,7 +398,7 @@ export default function Dashboard() {
         </TabsContent>
       </Tabs>
 
-      <p className="text-center text-xs text-gray-600 mt-8">
+      <p className="text-center text-xs text-[#5a656c] mt-8">
         {s?.feedSource === "alpaca"
           ? "Live market data via Alpaca."
           : "Running on synthetic market data (demo). Add Alpaca API keys for real market data."}
@@ -415,7 +415,7 @@ function ModeBadges({ status }: { status?: { mode: string; feedSource: string; l
       <Badge className={status.mode === "live" ? "bg-red-600" : "bg-blue-600"}>
         {status.mode === "live" ? "LIVE" : "PAPER"}
       </Badge>
-      <Badge variant="outline" className={status.running ? "text-emerald-400 border-emerald-800" : "text-gray-400"}>
+      <Badge variant="outline" className={status.running ? "term-up border-emerald-800" : "text-[#9aa6ad]"}>
         {status.running ? "● running" : "○ stopped"}
       </Badge>
     </div>
@@ -424,11 +424,11 @@ function ModeBadges({ status }: { status?: { mode: string; feedSource: string; l
 
 function Stat({ label, value, sub, positive }: { label: string; value: string; sub?: string; positive?: boolean }) {
   return (
-    <Card className="bg-[#2A2A2A] border-gray-800">
+    <Card className="term-panel">
       <CardContent className="p-4">
-        <p className="text-xs text-gray-400 mb-1">{label}</p>
-        <p className={`text-xl font-bold ${positive === undefined ? "text-white" : positive ? "text-emerald-400" : "text-red-400"}`}>{value}</p>
-        {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
+        <p className="term-label mb-1.5">{label}</p>
+        <p className={`text-2xl font-semibold term-mono ${positive === undefined ? "term-value" : positive ? "term-up" : "term-down"}`}>{value}</p>
+        {sub && <p className="text-xs term-dim mt-1 term-mono">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -436,7 +436,7 @@ function Stat({ label, value, sub, positive }: { label: string; value: string; s
 
 function KindBadge({ kind }: { kind: string }) {
   const map: Record<string, string> = {
-    order: "bg-emerald-700",
+    order: "bg-[#0f3d2a] text-[#21d07a] border border-[#1c6b48]",
     risk_block: "bg-amber-700",
     strategy_switch: "bg-indigo-700",
     halt: "bg-red-700",
@@ -448,7 +448,7 @@ function KindBadge({ kind }: { kind: string }) {
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="p-8 text-center text-gray-500 text-sm">{text}</div>;
+  return <div className="p-8 text-center term-dim text-sm">{text}</div>;
 }
 
 function AlertsBanner() {
@@ -470,7 +470,7 @@ function AlertsBanner() {
       ? "border-red-800 bg-red-950/60"
       : worst === "warning"
         ? "border-amber-800 bg-amber-950/50"
-        : "border-gray-700 bg-[#2A2A2A]";
+        : "border-[#2c363d] term-panel";
   return (
     <div className={`mb-6 rounded-lg border p-4 ${styles}`}>
       <div className="flex items-start justify-between gap-4">
@@ -478,21 +478,21 @@ function AlertsBanner() {
           <p className="font-semibold text-white">
             {unacked.length} alert{unacked.length > 1 ? "s" : ""}
             {!alerts.data?.telegramConfigured && (
-              <span className="ml-2 text-xs font-normal text-gray-500">
+              <span className="ml-2 text-xs font-normal term-dim">
                 (set TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID for phone pushes)
               </span>
             )}
           </p>
           <ul className="text-sm space-y-0.5">
             {unacked.slice(0, 4).map((a) => (
-              <li key={a.id} className="text-gray-300 truncate">
-                <span className={a.level === "critical" ? "text-red-400" : a.level === "warning" ? "text-amber-400" : "text-gray-400"}>
+              <li key={a.id} className="text-[#c3ccd2] truncate">
+                <span className={a.level === "critical" ? "term-down" : a.level === "warning" ? "text-amber-400" : "text-[#9aa6ad]"}>
                   [{a.level}]
                 </span>{" "}
                 <span className="font-medium">{a.title}</span> — {a.message}
               </li>
             ))}
-            {unacked.length > 4 && <li className="text-gray-500">…and {unacked.length - 4} more</li>}
+            {unacked.length > 4 && <li className="term-dim">…and {unacked.length - 4} more</li>}
           </ul>
         </div>
         <Button variant="outline" className="shrink-0" onClick={() => ack.mutate()} disabled={ack.isPending}>
@@ -521,7 +521,7 @@ function MlModelCard() {
   const maxWeight = s?.featureImportances.reduce((m, f) => Math.max(m, Math.abs(f.weight)), 0) || 1;
 
   return (
-    <Card className="bg-[#2A2A2A] border-gray-800">
+    <Card className="term-panel">
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           ML Signal Model
@@ -535,7 +535,7 @@ function MlModelCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[#9aa6ad]">
           A logistic-regression model that learns from market features to predict the probability of a price rise. It generates the buy/sell signals directly. To use it, pick <span className="text-gray-200">ML Signal Model</span> as your strategy (or leave AI auto-select on).
         </p>
 
@@ -544,7 +544,7 @@ function MlModelCard() {
             <Badge className={s.dataInfo.source === "real" ? "bg-emerald-700" : "bg-gray-700"}>
               {s.dataInfo.source === "real" ? "trained on real market data" : `trained on ${s.dataInfo.source} data`}
             </Badge>
-            <span className="text-gray-500">
+            <span className="term-dim">
               {s.dataInfo.bars.toLocaleString()} {s.dataInfo.interval} candles
               {s.dataInfo.from && s.dataInfo.to
                 ? ` · ${new Date(s.dataInfo.from).toLocaleDateString()} → ${new Date(s.dataInfo.to).toLocaleDateString()}`
@@ -555,7 +555,7 @@ function MlModelCard() {
         )}
         {s?.dataInfo?.source !== "real" && (
           <p className="text-xs text-amber-500/80">
-            Currently trained on the runtime feed. Run <code className="bg-[#1E1E1E] px-1 rounded">npm run train</code> to train on years of real market history and save a mature model.
+            Currently trained on the runtime feed. Run <code className="term-inset px-1 rounded">npm run train</code> to train on years of real market history and save a mature model.
           </p>
         )}
 
@@ -569,48 +569,48 @@ function MlModelCard() {
             </div>
 
             {s.meta ? (
-              <div className="rounded-lg bg-[#1E1E1E] p-3 text-xs text-gray-400">
+              <div className="rounded-lg term-inset p-3 text-xs text-[#9aa6ad]">
                 <span className="text-gray-200 font-medium">Meta-labeling on:</span>{" "}
                 a second model predicts whether each signal is <em>correct</em> — it vetoes weak signals and sizes the bets that pass.
                 Accuracy {(s.meta.validationAccuracy * 100).toFixed(1)}% on {s.meta.samples} signals · approves {(s.meta.coverage * 100).toFixed(0)}% of signals.
               </div>
             ) : (
-              <p className="text-xs text-gray-600">Meta-labeling: not enough signal history to fit the bet-sizing model yet.</p>
+              <p className="text-xs text-[#5a656c]">Meta-labeling: not enough signal history to fit the bet-sizing model yet.</p>
             )}
 
             <div>
-              <p className="text-xs text-gray-400 mb-2">What the model learned (feature weights)</p>
+              <p className="text-xs text-[#9aa6ad] mb-2">What the model learned (feature weights)</p>
               <div className="space-y-1.5">
                 {s.featureImportances.map((f) => (
                   <div key={f.name} className="flex items-center gap-2 text-xs">
-                    <span className="w-28 text-gray-400 truncate">{f.name}</span>
-                    <div className="flex-1 h-2 bg-[#1E1E1E] rounded relative overflow-hidden">
+                    <span className="w-28 text-[#9aa6ad] truncate">{f.name}</span>
+                    <div className="flex-1 h-2 term-inset rounded relative overflow-hidden">
                       <div
                         className={`absolute top-0 h-full ${f.weight >= 0 ? "bg-emerald-600 left-1/2" : "bg-red-600 right-1/2"}`}
                         style={{ width: `${(Math.abs(f.weight) / maxWeight) * 50}%` }}
                       />
                       <div className="absolute left-1/2 top-0 h-full w-px bg-gray-700" />
                     </div>
-                    <span className={`w-12 text-right ${f.weight >= 0 ? "text-emerald-400" : "text-red-400"}`}>{f.weight.toFixed(2)}</span>
+                    <span className={`w-12 text-right ${f.weight >= 0 ? "term-up" : "term-down"}`}>{f.weight.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-gray-600 mt-1">Green = higher value pushes toward "buy"; red = toward "sell".</p>
+              <p className="text-xs text-[#5a656c] mt-1">Green = higher value pushes toward "buy"; red = toward "sell".</p>
             </div>
           </>
         ) : (
-          <p className="text-sm text-gray-500">Not trained yet — press Retrain (needs enough market history).</p>
+          <p className="text-sm term-dim">Not trained yet — press Retrain (needs enough market history).</p>
         )}
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs term-dim">
             {s?.trainedAt ? `Last trained ${timeAgo(s.trainedAt)}` : ""}
           </span>
           <Button onClick={() => train.mutate()} disabled={train.isPending} className="bg-indigo-600 hover:bg-indigo-700">
             {train.isPending ? "Training…" : "Retrain now"}
           </Button>
         </div>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-[#5a656c]">
           The model refuses to trade unless its purged out-of-sample accuracy beats both {((s?.tradableFloor ?? 0.52) * 100).toFixed(0)}% and the majority-class baseline — so it can't be fooled by a one-sided market. On real markets, expect the edge to be small; signal prediction is genuinely hard, which is why this gate exists.
         </p>
       </CardContent>
@@ -620,10 +620,10 @@ function MlModelCard() {
 
 function MlStat({ label, value, sub, positive }: { label: string; value: string; sub?: string; positive?: boolean }) {
   return (
-    <div className="rounded-lg bg-[#1E1E1E] p-3">
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className={`text-lg font-bold ${positive === undefined ? "text-white" : positive ? "text-emerald-400" : "text-amber-400"}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-600 mt-0.5">{sub}</p>}
+    <div className="rounded-lg term-inset p-3">
+      <p className="text-xs text-[#9aa6ad]">{label}</p>
+      <p className={`text-lg font-bold ${positive === undefined ? "text-white" : positive ? "term-up" : "text-amber-400"}`}>{value}</p>
+      {sub && <p className="text-xs text-[#5a656c] mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -660,7 +660,7 @@ function AiLab() {
     <div className="space-y-4">
       <MlModelCard />
 
-      <Card className="bg-[#2A2A2A] border-gray-800">
+      <Card className="term-panel">
         <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -669,7 +669,7 @@ function AiLab() {
                 {data?.aiAvailable ? "AI analyst on" : "optimizer only"}
               </Badge>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-[#9aa6ad]">
               {data?.aiAvailable
                 ? "Claude reviews the code and trades; the optimizer tunes parameters (walk-forward validated)."
                 : "Deterministic optimizer active. Set ANTHROPIC_API_KEY to enable the Claude code/trade analyst."}
@@ -683,14 +683,14 @@ function AiLab() {
       </Card>
 
       {data?.lastDiagnosis && (
-        <Card className="bg-[#2A2A2A] border-gray-800">
-          <CardHeader className="pb-2"><CardTitle className="text-base">AI diagnosis</CardTitle></CardHeader>
-          <CardContent><p className="text-sm text-gray-300 whitespace-pre-wrap">{data.lastDiagnosis}</p></CardContent>
+        <Card className="term-panel">
+          <CardHeader className="pb-2"><CardTitle className="text-sm term-rule">AI diagnosis</CardTitle></CardHeader>
+          <CardContent><p className="text-sm text-[#c3ccd2] whitespace-pre-wrap">{data.lastDiagnosis}</p></CardContent>
         </Card>
       )}
 
-      <Card className="bg-[#2A2A2A] border-gray-800">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Proposals ({pending.length} pending)</CardTitle></CardHeader>
+      <Card className="term-panel">
+        <CardHeader className="pb-2"><CardTitle className="text-sm term-rule">Proposals ({pending.length} pending)</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {pending.length === 0 && <Empty text="No pending proposals. Run an analysis to look for improvements." />}
           {pending.map((p) => (
@@ -699,24 +699,24 @@ function AiLab() {
         </CardContent>
       </Card>
 
-      <Card className="bg-[#2A2A2A] border-gray-800">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Live strategy parameters</CardTitle></CardHeader>
+      <Card className="term-panel">
+        <CardHeader className="pb-2"><CardTitle className="text-sm term-rule">Live strategy parameters</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {params.data?.map((s) => (
-            <div key={s.strategyId} className="border-t border-gray-800 pt-3 first:border-0 first:pt-0">
+            <div key={s.strategyId} className="border-t border-[#1f262b] pt-3 first:border-0 first:pt-0">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-200">{s.name}</span>
                 <Button variant="outline" className="h-7 text-xs" onClick={() => reset.mutate(s.strategyId)} disabled={reset.isPending}>Reset to default</Button>
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#9aa6ad]">
                 {s.params.map((spec) => {
                   const cur = s.current[spec.key];
                   const def = s.defaults[spec.key];
                   const changed = Math.abs((cur ?? 0) - (def ?? 0)) > 1e-9;
                   return (
                     <span key={spec.key}>
-                      {spec.label}: <span className={changed ? "text-indigo-400 font-medium" : "text-gray-300"}>{Number.isInteger(cur) ? cur : cur?.toFixed(2)}</span>
-                      {changed && <span className="text-gray-600"> (was {Number.isInteger(def) ? def : def?.toFixed(2)})</span>}
+                      {spec.label}: <span className={changed ? "text-indigo-400 font-medium" : "text-[#c3ccd2]"}>{Number.isInteger(cur) ? cur : cur?.toFixed(2)}</span>
+                      {changed && <span className="text-[#5a656c]"> (was {Number.isInteger(def) ? def : def?.toFixed(2)})</span>}
                     </span>
                   );
                 })}
@@ -727,22 +727,22 @@ function AiLab() {
       </Card>
 
       {history.length > 0 && (
-        <Card className="bg-[#2A2A2A] border-gray-800">
-          <CardHeader className="pb-2"><CardTitle className="text-base">History</CardTitle></CardHeader>
+        <Card className="term-panel">
+          <CardHeader className="pb-2"><CardTitle className="text-sm term-rule">History</CardTitle></CardHeader>
           <CardContent className="p-0 max-h-64 overflow-y-auto">
             <ul className="divide-y divide-gray-800">
               {history.map((p) => (
                 <li key={p.id} className="px-4 py-2 flex items-center gap-3 text-sm">
                   <ProposalStatusBadge status={p.status} />
-                  <span className="flex-1 text-gray-300">{p.title}</span>
-                  <span className="text-xs text-gray-500">{new Date(p.createdAt).toLocaleString()}</span>
+                  <span className="flex-1 text-[#c3ccd2]">{p.title}</span>
+                  <span className="text-xs term-dim">{new Date(p.createdAt).toLocaleString()}</span>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
       )}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs term-dim">
         Parameter tweaks are validated out-of-sample before they're trusted, and auto-apply only per your autonomy setting (Settings). Code-level suggestions are always review-only — the AI proposes, you decide.
       </p>
     </div>
@@ -751,30 +751,30 @@ function AiLab() {
 
 function ProposalCard({ p, onApply, onReject, busy }: { p: ImprovementProposal; onApply: () => void; onReject: () => void; busy: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-[#1E1E1E] p-3">
+    <div className="rounded-lg border border-[#1f262b] term-inset p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Badge className={p.kind === "param" ? "bg-emerald-700" : "bg-amber-700"}>{p.kind === "param" ? "parameters" : "code idea"}</Badge>
           <span className="text-sm font-medium text-white">{p.title}</span>
         </div>
-        <span className="text-xs text-gray-500">{p.source === "ai" ? "Claude" : "optimizer"}</span>
+        <span className="text-xs term-dim">{p.source === "ai" ? "Claude" : "optimizer"}</span>
       </div>
-      <p className="text-sm text-gray-400 mt-2">{p.rationale}</p>
+      <p className="text-sm text-[#9aa6ad] mt-2">{p.rationale}</p>
 
       {p.kind === "param" && p.proposedParams && p.currentParams && (
-        <div className="mt-2 text-xs text-gray-300 flex flex-wrap gap-x-4 gap-y-1">
+        <div className="mt-2 text-xs text-[#c3ccd2] flex flex-wrap gap-x-4 gap-y-1">
           {Object.keys(p.proposedParams).map((k) => (
-            <span key={k}>{k}: <span className="text-gray-500">{fmtNum(p.currentParams![k])}</span> → <span className="text-indigo-400 font-medium">{fmtNum(p.proposedParams![k])}</span></span>
+            <span key={k}>{k}: <span className="term-dim">{fmtNum(p.currentParams![k])}</span> → <span className="text-indigo-400 font-medium">{fmtNum(p.proposedParams![k])}</span></span>
           ))}
         </div>
       )}
       {p.validation && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs term-dim">
           Out-of-sample: {pct(p.validation.outOfSampleReturn)} vs current {pct(p.validation.baselineOutOfSampleReturn)}
-          {" · "}<span className="text-emerald-400">+{pct(p.validation.improvement)} edge</span> over {p.validation.outOfSampleTrades} trades
+          {" · "}<span className="term-up">+{pct(p.validation.improvement)} edge</span> over {p.validation.outOfSampleTrades} trades
           {p.validation.pbo !== undefined && (
             <>
-              {" · "}overfit prob (PBO) <span className={p.validation.pbo <= 0.05 ? "text-emerald-400" : "text-red-400"}>{(p.validation.pbo * 100).toFixed(1)}%</span>
+              {" · "}overfit prob (PBO) <span className={p.validation.pbo <= 0.05 ? "term-up" : "term-down"}>{(p.validation.pbo * 100).toFixed(1)}%</span>
             </>
           )}
           {p.validation.deflatedSharpe !== undefined && (
@@ -861,7 +861,7 @@ function SettingsPanel() {
     },
   });
 
-  if (!form) return <Card className="bg-[#2A2A2A] border-gray-800"><Empty text="Loading settings…" /></Card>;
+  if (!form) return <Card className="term-panel"><Empty text="Loading settings…" /></Card>;
 
   const upd = (patch: Partial<BotConfig>) => {
     setDirty(true);
@@ -870,19 +870,19 @@ function SettingsPanel() {
   const liveKeys = status.data?.liveKeysConfigured;
 
   return (
-    <Card className="bg-[#2A2A2A] border-gray-800">
+    <Card className="term-panel">
       <CardContent className="p-6 space-y-6">
         <MarketAndStyle />
 
         <div className="grid md:grid-cols-2 gap-6">
           <Field label="Primary symbol">
-            <Input value={form.symbol} onChange={(e) => upd({ symbol: e.target.value })} className="bg-[#1E1E1E] border-gray-700" />
-            <p className="text-xs text-gray-600 mt-1">
+            <Input value={form.symbol} onChange={(e) => upd({ symbol: e.target.value })} className="term-inset" />
+            <p className="text-xs text-[#5a656c] mt-1">
               A slash means crypto (BTC/USD, 24/7); a bare ticker means a US stock (AAPL, market hours only).
             </p>
           </Field>
           <Field label="Evaluation interval (seconds)">
-            <Input type="number" value={form.intervalSeconds} onChange={(e) => upd({ intervalSeconds: Number(e.target.value) })} className="bg-[#1E1E1E] border-gray-700" />
+            <Input type="number" value={form.intervalSeconds} onChange={(e) => upd({ intervalSeconds: Number(e.target.value) })} className="term-inset" />
           </Field>
           <Field label={`Max position size (${(form.maxPositionPct * 100).toFixed(0)}% of equity)`}>
             <Input type="range" min={0.05} max={1} step={0.05} value={form.maxPositionPct} onChange={(e) => upd({ maxPositionPct: Number(e.target.value) })} />
@@ -898,48 +898,48 @@ function SettingsPanel() {
           </Field>
         </div>
 
-        <div className="border-t border-gray-800 pt-4 space-y-4">
+        <div className="border-t border-[#1f262b] pt-4 space-y-4">
           <div>
             <p className="font-medium text-white">Execution &amp; sizing</p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-[#9aa6ad]">
               How orders fill and how much to risk per trade — the highest-certainty way to raise net returns, since it doesn't depend on predicting anything.
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-6">
             <Field label={`Maker-first limit offset (${(form.limitOrderOffsetPct * 100).toFixed(2)}%, 0 = market orders)`}>
               <Input type="range" min={0} max={0.002} step={0.0001} value={form.limitOrderOffsetPct} onChange={(e) => upd({ limitOrderOffsetPct: Number(e.target.value) })} />
-              <p className="text-xs text-gray-600 mt-1">Posts a resting order for a lower fee (0.02% vs 0.10%) and no slippage; falls back to a market fill on exits so nothing is ever stuck. Stop-losses always fill immediately regardless.</p>
+              <p className="text-xs text-[#5a656c] mt-1">Posts a resting order for a lower fee (0.02% vs 0.10%) and no slippage; falls back to a market fill on exits so nothing is ever stuck. Stop-losses always fill immediately regardless.</p>
             </Field>
             <Field label={`Kelly fraction (${(form.kellyFraction * 100).toFixed(0)}% of full Kelly)`}>
               <Input type="range" min={0.1} max={1} step={0.05} value={form.kellyFraction} onChange={(e) => upd({ kellyFraction: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
-              <p className="text-xs text-gray-600 mt-1">Lower = more conservative sizing from a strategy's own track record. Only active once a strategy has 10+ trades.</p>
+              <p className="text-xs text-[#5a656c] mt-1">Lower = more conservative sizing from a strategy's own track record. Only active once a strategy has 10+ trades.</p>
             </Field>
             <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(2)}% per bar)`}>
               <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
-              <p className="text-xs text-gray-600 mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
+              <p className="text-xs text-[#5a656c] mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
             </Field>
-            <div className="flex items-center justify-between rounded-lg bg-[#1E1E1E] p-3">
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>
                 <p className="text-sm font-medium text-white">Adaptive sizing</p>
-                <p className="text-xs text-gray-500">Volatility targeting + fractional Kelly. Both are bounded — they can only move sizing within your max position size above, never past it.</p>
+                <p className="text-xs term-dim">Volatility targeting + fractional Kelly. Both are bounded — they can only move sizing within your max position size above, never past it.</p>
               </div>
               <Switch checked={form.adaptiveSizing} onCheckedChange={(v) => upd({ adaptiveSizing: v })} />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-gray-800 pt-4">
+        <div className="flex items-center justify-between border-t border-[#1f262b] pt-4">
           <div>
             <p className="font-medium text-white">Let AI pick the strategy</p>
-            <p className="text-sm text-gray-400">Automatically selects the best-fit strategy for current conditions.</p>
+            <p className="text-sm text-[#9aa6ad]">Automatically selects the best-fit strategy for current conditions.</p>
           </div>
           <Switch checked={form.autoSelectStrategy} onCheckedChange={(v) => upd({ autoSelectStrategy: v })} />
         </div>
 
-        <div className="flex items-center justify-between border-t border-gray-800 pt-4">
+        <div className="flex items-center justify-between border-t border-[#1f262b] pt-4">
           <div>
             <p className="font-medium text-white">Live trading (real money)</p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-[#9aa6ad]">
               {liveKeys ? "Alpaca keys detected. Enabling uses your real account." : "Requires ALPACA_KEY_ID / ALPACA_SECRET_KEY. Paper only until then."}
             </p>
           </div>
@@ -950,17 +950,17 @@ function SettingsPanel() {
           />
         </div>
 
-        <div className="border-t border-gray-800 pt-4 space-y-4">
+        <div className="border-t border-[#1f262b] pt-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-white">Self-improvement engine</p>
-              <p className="text-sm text-gray-400">Periodically re-optimizes strategies and reviews the code.</p>
+              <p className="text-sm text-[#9aa6ad]">Periodically re-optimizes strategies and reviews the code.</p>
             </div>
             <Switch checked={form.improveEnabled} onCheckedChange={(v) => upd({ improveEnabled: v })} />
           </div>
 
           <div>
-            <Label className="text-gray-300">Autonomy — how much it may change on its own</Label>
+            <Label className="text-[#c3ccd2]">Autonomy — how much it may change on its own</Label>
             <div className="mt-2 grid sm:grid-cols-3 gap-2">
               {([
                 { v: "propose_only", label: "Propose only", desc: "Nothing changes without your Apply." },
@@ -972,19 +972,19 @@ function SettingsPanel() {
                   type="button"
                   onClick={() => upd({ autonomy: o.v })}
                   className={`text-left rounded-lg border p-3 transition-colors ${
-                    form.autonomy === o.v ? "border-indigo-500 bg-indigo-950/40" : "border-gray-700 bg-[#1E1E1E] hover:border-gray-600"
+                    form.autonomy === o.v ? "border-indigo-500 bg-indigo-950/40" : "border-[#2c363d] term-inset hover:border-gray-600"
                   }`}
                 >
                   <p className="text-sm font-medium text-white">{o.label}</p>
-                  <p className="text-xs text-gray-400 mt-1">{o.desc}</p>
+                  <p className="text-xs text-[#9aa6ad] mt-1">{o.desc}</p>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">Code-level changes are always review-only, whatever this is set to.</p>
+            <p className="text-xs term-dim mt-2">Code-level changes are always review-only, whatever this is set to.</p>
           </div>
 
           <Field label="Improvement cycle interval (minutes)">
-            <Input type="number" value={form.improveIntervalMinutes} onChange={(e) => upd({ improveIntervalMinutes: Number(e.target.value) })} className="bg-[#1E1E1E] border-gray-700 max-w-40" />
+            <Input type="number" value={form.improveIntervalMinutes} onChange={(e) => upd({ improveIntervalMinutes: Number(e.target.value) })} className="term-inset max-w-40" />
           </Field>
         </div>
 
@@ -1039,7 +1039,7 @@ function MarketAndStyle() {
     <div className="space-y-5">
       <div>
         <p className="font-medium text-white">What to trade</p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[#9aa6ad]">
           Pick a market. The engine scans every symbol in it and holds only the best few —
           a wider list buys more choice, not more risk.
         </p>
@@ -1050,27 +1050,27 @@ function MarketAndStyle() {
             key={p.id}
             onClick={() => applyUniverse(p.id)}
             disabled={busy !== null}
-            className="text-left rounded-lg bg-[#1E1E1E] border border-gray-700 hover:border-gray-500 p-3 disabled:opacity-50"
+            className="text-left rounded-lg term-inset border border-[#2c363d] hover:border-gray-500 p-3 disabled:opacity-50"
           >
             <p className="text-sm font-medium text-white">{p.name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{p.count} symbols</p>
-            <p className="text-xs text-gray-600 mt-1 line-clamp-3">{p.description}</p>
+            <p className="text-xs term-dim mt-0.5">{p.count} symbols</p>
+            <p className="text-xs text-[#5a656c] mt-1 line-clamp-3">{p.description}</p>
           </button>
         ))}
       </div>
       {current && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs term-dim">
           Trading {activeCount} symbol{activeCount === 1 ? "" : "s"}:{" "}
-          <span className="text-gray-400">
+          <span className="text-[#9aa6ad]">
             {[current.symbol, ...(current.extraSymbols ?? [])].slice(0, 8).join(", ")}
             {activeCount > 8 ? ` +${activeCount - 8} more` : ""}
           </span>
         </p>
       )}
 
-      <div className="border-t border-gray-800 pt-4">
+      <div className="border-t border-[#1f262b] pt-4">
         <p className="font-medium text-white">Trading style</p>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[#9aa6ad]">
           Sets risk limits and strategy lengths together — applying half of either would
           stop out of trends before they resolve.
         </p>
@@ -1084,14 +1084,14 @@ function MarketAndStyle() {
             className={`text-left rounded-lg p-3 border disabled:opacity-50 ${
               activeProfile === p.id
                 ? "bg-[#1E3A5F] border-blue-500"
-                : "bg-[#1E1E1E] border-gray-700 hover:border-gray-500"
+                : "term-inset hover:border-gray-500"
             }`}
           >
             <p className="text-sm font-medium text-white">
               {p.name}
               {activeProfile === p.id && <span className="text-blue-400 text-xs ml-2">active</span>}
             </p>
-            <p className="text-xs text-gray-600 mt-1">{p.description}</p>
+            <p className="text-xs text-[#5a656c] mt-1">{p.description}</p>
           </button>
         ))}
       </div>
@@ -1109,7 +1109,7 @@ function MarketAndStyle() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-gray-300">{label}</Label>
+      <Label className="text-[#c3ccd2]">{label}</Label>
       {children}
     </div>
   );

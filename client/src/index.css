@@ -4,11 +4,80 @@
 @tailwind utilities;
 
 :root {
-  --radius: 0.6rem;
+  /* Terminal look: square corners, not rounded cards. */
+  --radius: 2px;
+
+  /* Palette. Near-black ground with amber as the primary data colour and
+     cyan for labels — the classic terminal split, which keeps numbers
+     legible against dense text without relying on weight alone. */
+  --term-bg: #070809;
+  --term-panel: #0d0f11;
+  --term-panel-2: #121517;
+  --term-line: #1f262b;
+  --term-line-bright: #2c363d;
+  --term-amber: #ffb01f;
+  --term-cyan: #4fd2e8;
+  --term-text: #d7dee3;
+  --term-dim: #6b777f;
+  --term-up: #21d07a;
+  --term-down: #ff5964;
 }
 
 body {
-  @apply bg-[#1E1E1E] min-h-screen;
+  background: var(--term-bg);
+  color: var(--term-text);
+  min-height: 100vh;
+  /* Tabular figures stop numbers jittering as they tick. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Terminal primitives ------------------------------------------------ */
+
+/* Data font. Everything numeric is monospaced so columns line up and digits
+   keep a fixed width while values update. */
+.term-mono {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.term-panel {
+  background: var(--term-panel);
+  border: 1px solid var(--term-line);
+  border-radius: 2px;
+}
+
+.term-inset {
+  background: var(--term-panel-2);
+  border: 1px solid var(--term-line);
+  border-radius: 2px;
+}
+
+/* Section and column headings: small, uppercase, letter-spaced, cyan. */
+.term-label {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.68rem;
+  color: var(--term-cyan);
+}
+
+.term-dim {
+  color: var(--term-dim);
+}
+
+.term-value {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--term-amber);
+}
+
+.term-up { color: var(--term-up); }
+.term-down { color: var(--term-down); }
+
+/* Thin accent strip down the left of a panel header. */
+.term-rule {
+  border-left: 2px solid var(--term-amber);
+  padding-left: 0.5rem;
 }
 
 .glass-card {
