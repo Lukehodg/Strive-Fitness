@@ -239,6 +239,13 @@ export interface BotConfig {
    */
   makerOnlyEntries: boolean;
   /**
+   * Require demonstrated positive expectancy before LIVE trading.
+   *
+   * Paper mode is never gated — the evidence can only come from taking the
+   * trades. See trading/expectancy.ts.
+   */
+  requireProvenEdge: boolean;
+  /**
    * Portfolio-level volatility budget. Per-symbol sizing gives each position
    * the intended risk; this caps what they add up to once correlation is
    * counted. Three correlated positions each sized to 0.4% vol make a ~1.2%
@@ -361,6 +368,10 @@ export const DEFAULT_CONFIG: BotConfig = {
   maxOrdersPerMinute: 3,
   confidenceGovernor: true,
   makerOnlyEntries: false,
+  // ON by default. Every measurement in this project says the strategies lose
+  // and that not trading beats all of them; defaulting this off would mean
+  // shipping a system that knowingly ignores its own evidence.
+  requireProvenEdge: true,
   portfolioVolTarget: true,
   // 0.06% per bar, measured rather than guessed. The first value here was
   // 0.8%, reasoned from the 0.4% per-POSITION default without checking what
@@ -638,6 +649,7 @@ export const updateConfigSchema = z
     maxOrdersPerMinute: z.number().int().min(1).max(60).optional(),
     confidenceGovernor: z.boolean().optional(),
     makerOnlyEntries: z.boolean().optional(),
+    requireProvenEdge: z.boolean().optional(),
     portfolioVolTarget: z.boolean().optional(),
     // Floor was 0.001, which is ABOVE the ~0.0009 a fully-invested correlated
     // book can even reach on 1-minute bars — the setting's entire legal range

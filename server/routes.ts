@@ -296,6 +296,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ available: true, enabled: storage.getConfig().confidenceGovernor, ...c });
   });
 
+  // Has the active strategy proven an edge good enough for real money?
+  app.get("/api/expectancy", (_req: Request, res: Response) => {
+    const config = storage.getConfig();
+    const v = engine.getExpectancy();
+    res.json({
+      enabled: config.requireProvenEdge,
+      mode: config.mode,
+      // Paper is never gated; say so rather than showing a block that isn't one.
+      gatesLiveOnly: true,
+      available: v !== null,
+      ...(v ?? {}),
+    });
+  });
+
   // Execution costs in force, and what they mean for the configured targets.
   app.get("/api/costs", (_req: Request, res: Response) => {
     const config = storage.getConfig();

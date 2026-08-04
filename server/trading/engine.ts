@@ -39,6 +39,7 @@ import {
 import { assessConfidence, type ConfidenceResult } from "./confidence";
 import { checkBlackout, nextBroadEvent } from "./events";
 import { setCostOverrides } from "./costs";
+import { assessExpectancy } from "./expectancy";
 
 const CANDLE_COUNT = 200;
 /**
@@ -137,6 +138,8 @@ class TradingEngine {
   private confidence: ConfidenceResult | null = null;
   /** Last confidence band logged, so it reports changes not every tick. */
   private lastConfidenceBand = -1;
+  /** Latest proof-of-expectancy reading, surfaced via /api/expectancy. */
+  private lastExpectancy: ReturnType<typeof assessExpectancy> | null = null;
 
   constructor() {
     this.applyConfigBroker(storage.getConfig());
@@ -568,6 +571,31 @@ class TradingEngine {
       // stop adding new risk until the evidence improves.
       if (config.confidenceGovernor && this.confidence && !this.confidence.allowEntries) {
         return;
+      }
+
+      // PROOF-OF-EXPECTANCY GATE. Live money only. Paper is never blocked,
+      // because the evidence this asks for can only be gathered by trading.
+      if (config.requireProvenEdge && config.mode === "live") {
+        const verdict = assessExpectancy(
+          storage.allTrades(),
+          this.activeStrategy.meta.id,
+          config.symbol,
+        );
+        this.lastExpectancy = verdict;
+        if (!verdict.proven) {
+          this.noteBlock(
+            this.activeStrategy.meta.id,
+            `LIVE entries blocked — ${this.activeStrategy.meta.name} has not proven an edge: ${verdict.reason}`,
+          );
+          return;
+        }
+      } else if (config.requireProvenEdge) {
+        // Still measured in paper so the dashboard can show how far off it is.
+        this.lastExpectancy = assessExpectancy(
+          storage.allTrades(),
+          this.activeStrategy.meta.id,
+          config.symbol,
+        );
       }
 
       const candidates: Array<{ symbol: string; strength: number; reason: string }> = [];
@@ -1181,6 +1209,11 @@ class TradingEngine {
   /** Latest confidence reading, or null before the first tick. */
   getConfidence(): ConfidenceResult | null {
     return this.confidence;
+  }
+
+  /** Latest proof-of-expectancy reading, or null before the first tick. */
+  getExpectancy(): ReturnType<typeof assessExpectancy> | null {
+    return this.lastExpectancy;
   }
 
   /**

@@ -45,27 +45,72 @@ function normal(rand: () => number): number {
 /**
  * `count` price series sharing a common factor, so their pairwise correlation
  * is approximately `rho`:  r_i = sqrt(rho)*f + sqrt(1-rho)*e_i
+ *
+ * The innovations are GARCH-modulated Student-t, matching the main feed's
+ * process (marketData.ts) rather than the plain Gaussian this used at first.
+ *
+ * That original version was a second instance of the same mistake the main
+ * generator had: constant volatility and thin tails. It went unnoticed longer
+ * because this file has its OWN generator, so fixing the shared one left this
+ * untouched — the numbers came back byte-identical after the rebuild, which is
+ * what gave it away. A local copy of a defect outlives the fix to the original.
+ *
+ * The common factor carries its own volatility clustering, so correlated names
+ * get violent together, which is exactly when diversification fails and
+ * therefore exactly what this file exists to measure.
  */
 function correlatedPaths(count: number, rho: number, seed: number): Candle[][] {
   const rand = mulberry32(seed);
-  const vol = 0.004;
-  const factor = Array.from({ length: BARS }, () => normal(rand));
+  const baseVol = 0.004;
   const a = Math.sqrt(rho);
   const b = Math.sqrt(1 - rho);
+
+  // Shared GARCH(1,1) volatility path for the common factor.
+  const ALPHA = 0.06;
+  const BETA = 0.9;
+  const OMEGA = baseVol * baseVol * (1 - ALPHA - BETA);
+  const factor: number[] = [];
+  const factorVol: number[] = [];
+  let variance = baseVol * baseVol;
+  let last = 0;
+  for (let t = 0; t < BARS; t++) {
+    variance = Math.min(OMEGA + ALPHA * last * last + BETA * variance, (baseVol * 8) ** 2);
+    const vol = Math.sqrt(variance);
+    const shock = vol * studentT(rand);
+    factor.push(shock / baseVol); // standardized, so `a`/`b` weights still hold
+    factorVol.push(vol);
+    last = shock;
+  }
 
   return Array.from({ length: count }, () => {
     let price = 30_000;
     const candles: Candle[] = [];
     for (let t = 0; t < BARS; t++) {
-      const r = (a * factor[t] + b * normal(rand)) * vol;
+      // Idiosyncratic part shares the factor's volatility level, so a stressed
+      // market is stressed for every name at once.
+      const idio = studentT(rand);
+      const r = (a * factor[t] + b * idio) * factorVol[t];
       const open = price;
-      price = price * (1 + r);
-      const high = Math.max(open, price) * (1 + Math.abs(normal(rand)) * vol * 0.3);
-      const low = Math.min(open, price) * (1 - Math.abs(normal(rand)) * vol * 0.3);
+      price = Math.max(1, price * (1 + r));
+      const wick = Math.abs(normal(rand)) * factorVol[t] * 0.5;
+      const high = Math.max(open, price) * (1 + wick);
+      const low = Math.min(open, price) * (1 - wick);
       candles.push({ time: t * 60_000, open, high, low, close: price, volume: 1000 });
     }
     return candles;
   });
+}
+
+/** Student-t(6) standardized to unit variance — fat tails, unchanged scale. */
+function studentT(rand: () => number): number {
+  const norm = () => normal(rand);
+  const df = 6;
+  let chi = 0;
+  for (let i = 0; i < df; i++) {
+    const z = norm();
+    chi += z * z;
+  }
+  return norm() / Math.sqrt(chi / df) / Math.sqrt(df / (df - 2));
 }
 
 const sizing: BacktestSizing = {

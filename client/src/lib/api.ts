@@ -10,6 +10,18 @@ export interface ConfidenceResponse {
   message?: string;
 }
 
+export interface ExpectancyResponse {
+  enabled: boolean;
+  mode: string;
+  gatesLiveOnly: boolean;
+  available: boolean;
+  proven?: boolean;
+  trades?: number;
+  meanReturn?: number;
+  t?: number;
+  reason?: string;
+}
+
 export interface CostsResponse {
   rates: Array<{
     assetClass: string;
@@ -169,6 +181,7 @@ export const api = {
   confidence: () => json<ConfidenceResponse>("/api/confidence"),
   events: () => json<EventsResponse>("/api/events"),
   costs: () => json<CostsResponse>("/api/costs"),
+  expectancy: () => json<ExpectancyResponse>("/api/expectancy"),
   applyUniverse: (id: string) =>
     fetch(`/api/universes/${id}/apply`, { method: "POST" }).then((r) => r.json()),
   applyProfile: (id: string) =>

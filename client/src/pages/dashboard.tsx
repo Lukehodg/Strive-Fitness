@@ -65,6 +65,7 @@ export default function Dashboard() {
   const cfg = useQuery({ queryKey: ["/api/config"], queryFn: api.config, refetchInterval: REFRESH_MS });
   const confidence = useQuery({ queryKey: ["/api/confidence"], queryFn: api.confidence, refetchInterval: REFRESH_MS });
   const events = useQuery({ queryKey: ["/api/events"], queryFn: api.events, refetchInterval: REFRESH_MS });
+  const expectancy = useQuery({ queryKey: ["/api/expectancy"], queryFn: api.expectancy, refetchInterval: REFRESH_MS });
   const perf = useQuery({ queryKey: ["/api/performance"], queryFn: api.performance, refetchInterval: REFRESH_MS });
   const trades = useQuery({ queryKey: ["/api/trades"], queryFn: api.trades, refetchInterval: REFRESH_MS });
   const decisions = useQuery({ queryKey: ["/api/decisions"], queryFn: api.decisions, refetchInterval: REFRESH_MS });
@@ -257,6 +258,29 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Proof-of-expectancy. The single most important thing this app can
+          tell you: whether the strategy has earned the right to real money. */}
+      {expectancy.data?.enabled && expectancy.data.available && (
+        <Card className={`term-panel mb-6 ${expectancy.data.proven ? "" : "border-l-2 border-[#ffb01f]"}`}>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+              <span className="term-label">Proof of edge</span>
+              <span className={`term-mono text-xs ${expectancy.data.proven ? "term-up" : "term-value"}`}>
+                {expectancy.data.proven ? "cleared for live" : "not proven — live entries blocked"}
+              </span>
+            </div>
+            <p className="text-xs term-dim">{expectancy.data.reason}</p>
+            {!expectancy.data.proven && (
+              <p className="text-xs term-dim mt-2">
+                Paper trading is never blocked — the evidence can only come from taking
+                the trades. This gate applies to <span className="term-value">live</span> mode only.
+                {expectancy.data.mode !== "live" && " You are in paper mode, so nothing is being stopped right now."}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1136,6 +1160,13 @@ function SettingsPanel() {
                     onChange={(e) => upd({ cryptoMakerFee: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
                 </Field>
               </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Require proven edge (live only)</p>
+                <p className="text-xs term-dim">Refuses to open LIVE positions until the active strategy shows a positive mean return per trade over at least 30 trades, significantly above zero. Paper is never blocked. Every measurement in this project says these strategies lose money — this is what stops that reaching your account.</p>
+              </div>
+              <Switch checked={form.requireProvenEdge} onCheckedChange={(v) => upd({ requireProvenEdge: v })} />
             </div>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>

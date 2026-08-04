@@ -1,28 +1,43 @@
-// Out-of-sample strategy selection — A MEASURED FAILURE, NOT IN USE.
+// Out-of-sample strategy selection — NOT IN USE, and the reason has changed.
 //
 // ============================================================================
-// THIS IS NOT WIRED INTO THE ENGINE. It is kept as the record of an experiment
-// that did not work, because the negative result is more useful than the code.
+// THIS IS NOT WIRED INTO THE ENGINE, but it is no longer because it failed.
+// It was written off as a failure on measurements that turned out to be an
+// artifact of the price generator, and re-measuring reversed the verdict.
 //
 // The hypothesis: score strategies on consistency across sub-periods instead of
 // on one total, and selection would generalise better. Measured against the
 // existing selector over 20 independent price paths (trading/selectionEval.ts
 // and selectionSweep.ts), ranked on 10 and confirmed on 10 unseen:
 //
-//   - As first written it was far WORSE: 35.20% vs 67.92%, t=-4.90. It also
-//     switched 8 times per run against the incumbent's 2.4 — more jittery, the
-//     exact opposite of the intent. Cause: 3 folds over ~600 bars leaves only a
-//     handful of trades per fold, so the dispersion term was measuring noise
-//     and paying switching costs to act on it.
-//   - Tuned as far as it would go, it drew level and no further: +0.39pp,
-//     t=0.11. Within noise.
-//   - The sweep showed the scoring changes barely mattered at all. What
-//     dominated was SWITCH_MARGIN — how often the engine switches — which is a
-//     property of the OLD selector. That finding was acted on instead; see
-//     aiSelector.SWITCH_MARGIN.
+// ON THE OLD GENERATOR it looked decisively bad: 35.20% vs 67.92% (t=-4.90),
+// switching 8 times a run against the incumbent's 2.4. Tuned as far as it
+// would go it drew level and no further (+0.39pp, t=0.11).
 //
-// The lesson worth keeping: the problem was never how strategies were scored.
-// It was how often the engine acted on small differences between them.
+// ON A REALISTIC PRICE PROCESS IT WINS. The old generator had +0.12 lag-1
+// return autocorrelation, which rewards chasing whichever strategy most
+// recently worked — precisely what the incumbent in-sample selector does. Once
+// that free momentum was removed (see marketData.ts), the same comparison over
+// the same 12 paths gives:
+//
+//     OOS (held-out folds)   -10.05%
+//     CURRENT (in-sample)    -14.17%
+//     OOS vs CURRENT         +4.12pp   t=2.68   BETTER (clears |t| > 2.2)
+//
+// A complete reversal, and it makes sense: scoring by consistency across
+// sub-periods beats chasing the recent winner exactly when recent winners stop
+// persisting, which is the realistic case.
+//
+// IT IS STILL NOT WIRED IN, for a reason that has nothing to do with the
+// comparison above. On the same paths, the best available policy is the ML
+// model, which declines to trade at all, at 0.00%. Both selectors lose about
+// 10-14% to doing nothing. Swapping a losing selector for a less-losing one is
+// not an improvement worth shipping; the honest response is the no-trade gate
+// in riskManager.ts, not a better way to pick among strategies that do not work.
+//
+// The lesson worth keeping is no longer "scoring did not matter". It is that a
+// measurement is only as good as the data generator under it, and a negative
+// result deserves the same scepticism as a positive one.
 // ============================================================================
 //
 // WHAT WAS WRONG WITH THE OLD ONE. aiSelector.selectStrategy() backtests every

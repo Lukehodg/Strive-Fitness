@@ -104,6 +104,49 @@ Passing does **not** make it a market. It only means results are not an
 artifact of a qualitatively wrong price process. Real data remains the only
 way to answer the question properly.
 
+## The no-trade gate
+
+`server/trading/expectancy.ts`. **The engine refuses to open LIVE positions
+until the active strategy has proven a positive edge on its own realised
+trades.**
+
+This exists because every measurement in the project points one way:
+
+| policy | return |
+|---|---|
+| **ML Signal Model** | **0.00%** — declines to trade |
+| OOS selection | −10.05% |
+| best technical strategy | −12.89% |
+| in-sample selection | −14.17% |
+
+The ML model gets that right for a specific reason: `isTradable()` refuses
+unless it beats its majority-class baseline. Nothing equivalent guarded the
+technical strategies, so a rule with **demonstrated negative expectancy would
+happily trade a live account.**
+
+The bar is deliberately low and is a floor, not a target. It asks only for a
+positive mean return per trade, over ≥30 trades, significantly above zero
+(t > 1.7), net of the costs actually charged. A rule that cannot clear "better
+than nothing on its own recent record" has no business sizing real money.
+
+**Paper is never gated** — the evidence can only come from taking the trades,
+and blocking paper would make the gate unsatisfiable. The dashboard shows the
+reading either way, so you can see how far off it is.
+
+## What re-measuring everything on the corrected generator changed
+
+Every conclusion in this repo was re-run after the price generator was fixed.
+Three survived, two reversed, one turned out to have its own copy of the bug:
+
+| finding | verdict |
+|---|---|
+| Cost model was wrong (crypto undercharged, equities overcharged) | **Holds** — and is sharper. At old costs strategies were roughly break-even; corrected costs are what tip them into clear losses. |
+| Diversification: effective N ≈ 1.15 at ρ=0.85, don't add symbols | **Holds** — and `diversificationEval` had its *own* Gaussian generator, so the fix to the shared one left it untouched. A local copy of a defect outlives the fix to the original. |
+| News ablation harness detects planted edges, not noise | **Holds** |
+| Widening the day-trading target was worth +0.65pp | **Retracted** — the whole grid spans 0.10pp and every width loses. |
+| `SWITCH_MARGIN` 12 is an evidence-backed optimum | **Retracted** — ordering reverses, all differences inside the noise. Kept on the cost argument alone. |
+| OOS selection is "a measured failure" | **Reversed** — it is now significantly *better* than the incumbent (+4.12pp, t=2.68). Still not wired in, because both lose to not trading. |
+
 ## Running it on your own PC
 
 Clone the repo, then **double-click `run-windows.bat`**. It checks Node, installs
