@@ -20,6 +20,8 @@ export interface RiskContext {
   volMultiplier?: number;
   /** Fractional-Kelly multiplier from the strategy's own track record (1 = no adjustment). */
   kellyMultiplier?: number;
+  /** Portfolio-level ceiling on this position's value. See sizing.ts. */
+  maxNotional?: number;
 }
 
 export interface RiskDecision {
@@ -70,6 +72,7 @@ export function vetBuy(ctx: RiskContext, strength: number): RiskDecision {
     strength,
     volMultiplier: ctx.volMultiplier,
     kellyMultiplier: ctx.kellyMultiplier,
+    maxNotional: ctx.maxNotional,
   });
   if (sized.qty <= 0 || ctx.price <= 0) {
     return { allowed: false, qty: 0, reason: "Position too small to open" };

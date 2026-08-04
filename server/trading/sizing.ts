@@ -96,6 +96,17 @@ export interface SizingInputs {
   volMultiplier?: number;
   /** From computeKellyMultiplier; 1 = no adjustment. */
   kellyMultiplier?: number;
+  /**
+   * Absolute ceiling on the resulting position value, from the PORTFOLIO
+   * limits (concurrency, total/correlated exposure, volatility budget).
+   *
+   * This must be applied AFTER the multipliers, not folded into `strength`
+   * before them. The engine used to do the latter — dividing the allowed
+   * notional back into a conviction — and vol x Kelly then re-inflated it,
+   * ordering up to 2.5x the portfolio ceiling. A cap that its own inputs can
+   * multiply their way past is not a cap.
+   */
+  maxNotional?: number;
 }
 
 export interface SizingResult {
@@ -114,7 +125,12 @@ export function sizePosition(inputs: SizingInputs): SizingResult {
   const kelly = inputs.kellyMultiplier ?? 1;
   const adjustedStrength = Math.min(1, Math.max(0, inputs.strength * vol * kelly));
   const targetNotional = inputs.equity * inputs.maxPositionPct * adjustedStrength;
-  const affordable = Math.min(targetNotional, inputs.cash * 0.98);
+  // Portfolio ceiling last, so nothing downstream of it can undo it.
+  const capped =
+    inputs.maxNotional !== undefined && Number.isFinite(inputs.maxNotional)
+      ? Math.min(targetNotional, Math.max(0, inputs.maxNotional))
+      : targetNotional;
+  const affordable = Math.min(capped, inputs.cash * 0.98);
   const qty = inputs.price > 0 && affordable > 0 ? affordable / inputs.price : 0;
   return { qty, adjustedStrength };
 }

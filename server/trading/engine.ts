@@ -28,7 +28,7 @@ import {
 } from "./brokers";
 import { createMarketFeed, type MarketFeed } from "./marketData";
 import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
-import { selectStrategy } from "./aiSelector";
+import { selectStrategy, detectRegime } from "./aiSelector";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 import { positionSymbol } from "./assets";
@@ -394,7 +394,7 @@ class TradingEngine {
       // that had already closed when the order was placed cannot legitimately
       // fill it (that would be lookahead).
       for (const settled of (await this.broker.resolvePending?.(barsBySymbol)) ?? []) {
-        this.applyResolvedOrder(config, settled);
+        await this.applyResolvedOrder(config, settled);
       }
 
       this.rolloverDayIfNeeded();
@@ -497,6 +497,19 @@ class TradingEngine {
         : universe;
 
       const openPositions: OpenExposure[] = [];
+      /**
+       * Symbols closed during THIS tick.
+       *
+       * The exit paths below `continue` without pushing to openPositions —
+       * correctly, since the position is gone — but the entries loop uses
+       * openPositions as its "already holding" guard. So a symbol whose stop
+       * just fired was invisible to that guard and could be re-bought on the
+       * very same bar that stopped it out, at the same price, paying a round
+       * trip to re-establish the position the stop had just closed. Measured
+       * with rsi_reversion active: 73% of stop-loss bars also emitted a fresh
+       * BUY on that bar.
+       */
+      const exitedThisTick = new Set<string>();
       for (const symbol of discovery) {
         const position = await this.broker.getPosition(symbol);
         if (!position || position.qty <= 0) continue;
@@ -528,14 +541,19 @@ class TradingEngine {
         const forced = await this.dayTradingExitReason(config, symbol);
         if (forced) {
           await this.handleSell(config, position, price, forced, candles, true, symbol);
+          exitedThisTick.add(symbol);
           continue;
         }
 
-        if (await this.checkProtectiveExit(config, position, price, candles, symbol)) continue;
+        if (await this.checkProtectiveExit(config, position, price, candles, symbol)) {
+          exitedThisTick.add(symbol);
+          continue;
+        }
 
         const signal = this.activeStrategy.evaluate(candles, true);
         if (signal.action === "sell") {
           await this.handleSell(config, position, price, signal.reason, candles, false, symbol);
+          exitedThisTick.add(symbol);
           continue;
         }
         openPositions.push({ symbol, notional: position.qty * price });
@@ -555,6 +573,12 @@ class TradingEngine {
       const candidates: Array<{ symbol: string; strength: number; reason: string }> = [];
       for (const symbol of tradable) {
         if (openPositions.some((p) => p.symbol === symbol)) continue;
+        // Just exited this tick. Re-entering on the bar that stopped us out
+        // is not a new decision, it is the same one paid for twice.
+        if (exitedThisTick.has(symbol)) {
+          this.noteBlock(symbol, "Exited this bar — no immediate re-entry");
+          continue;
+        }
         // Opening near the bell just books a round trip's costs for a position
         // the flatten rule will close minutes later.
         if (await this.tooLateToEnter(config, symbol)) continue;
@@ -649,36 +673,41 @@ class TradingEngine {
         }
         this.lastRiskBlock.delete(candidate.symbol);
 
-        // Translate the portfolio ceiling back into a conviction the
-        // per-trade sizing understands, so both limits apply and the tighter
-        // one wins.
-        const cappedStrength =
-          fresh.equity * config.maxPositionPct > 0
-            ? Math.min(
-                candidate.strength * govern,
-                verdict.maxNotional / (fresh.equity * config.maxPositionPct),
-              )
-            : 0;
-        if (cappedStrength <= 0) continue;
+        // Pass the portfolio ceiling through as a NOTIONAL cap rather than
+        // folding it into conviction. Dividing it back into a strength (the
+        // previous approach) let volatility targeting and Kelly multiply it
+        // straight back out: a candidate trimmed to $1,000 was ordered at
+        // $2,500. The cap now applies after those multipliers, in
+        // sizePosition, so the tighter limit genuinely wins.
+        const convictionNow = candidate.strength * govern;
+        if (convictionNow <= 0 || verdict.maxNotional <= 0) continue;
 
         const before = await this.broker.getPosition(candidate.symbol);
-        await this.handleBuy(
+        const placed = await this.handleBuy(
           config,
           fresh,
           price,
-          cappedStrength,
+          convictionNow,
           candidate.reason,
           candlesBySymbol[candidate.symbol],
           candidate.symbol,
+          verdict.maxNotional,
         );
+        // Nothing was submitted (halted, rate-limited, rejected): no capital
+        // was committed, so none may be booked against the limits.
+        if (!placed || placed.status === "rejected") continue;
+
         const after = await this.broker.getPosition(candidate.symbol);
         const filledNow = after && (!before || after.qty > before.qty);
-        // A resting limit order has not filled yet, but it has committed the
-        // capital — count it against the limits so the next candidate in this
-        // same tick cannot spend the same money twice.
+        // A resting limit order has not filled yet, but it HAS committed the
+        // capital — count it so the next candidate in this same tick cannot
+        // spend the same money twice. Size it from the order actually placed
+        // rather than the ceiling it was allowed.
         openPositions.push({
           symbol: candidate.symbol,
-          notional: filledNow ? after!.qty * price : verdict.maxNotional,
+          notional: filledNow
+            ? after!.qty * price
+            : Math.min(placed.qty * placed.price, verdict.maxNotional),
         });
       }
     } catch (err) {
@@ -693,12 +722,20 @@ class TradingEngine {
   }
 
   private updateStrategy(config: BotConfig, candles: Candle[]): void {
+    // Classify the regime EVERY tick, whichever branch runs below.
+    //
+    // It used to be set only inside the auto-select branch, so pinning a
+    // strategy left this.regime at "unknown" forever — which is not a real
+    // regime, so the confidence governor's regime-fit factor scored a
+    // permanent 0.6 and the dashboard reported "unknown" indefinitely. The
+    // regime is a property of the MARKET, not of how the strategy was chosen.
+    this.regime = detectRegime(candles);
+
     if (config.autoSelectStrategy) {
       const now = Date.now();
       if (now - this.lastSelectionAt >= RESELECT_INTERVAL_MS) {
         this.lastSelectionAt = now;
         const result = selectStrategy(candles, this.activeStrategy.meta.id);
-        this.regime = result.regime;
         if (result.chosen.meta.id !== this.activeStrategy.meta.id) {
           storage.log(
             "strategy_switch",
@@ -753,10 +790,18 @@ class TradingEngine {
     reason: string,
     candles: Candle[],
     symbol: string,
-  ): Promise<void> {
+    /** Portfolio-level ceiling on this position's value. */
+    maxNotional?: number,
+    // Returns the order actually placed, or null when nothing was submitted.
+    // The caller needs that: it books the candidate's notional against the
+    // portfolio limits for the rest of the tick, and doing so for an order the
+    // risk manager REJECTED spends budget that was never committed. Three
+    // rate-limited candidates could otherwise fill the ledger and block a
+    // legitimate fourth.
+  ): Promise<Order | null> {
     if (this.halted) {
       storage.log("risk_block", `Buy blocked — ${this.haltReason}`);
-      return;
+      return null;
     }
 
     // Volatility targeting + fractional Kelly, when the user has opted in.
@@ -779,11 +824,12 @@ class TradingEngine {
       ordersThisMinute: this.ordersThisMinute,
       volMultiplier,
       kellyMultiplier,
+      maxNotional,
     };
     const decision = vetBuy(ctx, strength);
     if (!decision.allowed) {
       storage.log("risk_block", `Buy blocked — ${decision.reason}`, this.activeStrategy.meta.id);
-      return;
+      return null;
     }
 
     const bar = candles[candles.length - 1];
@@ -800,7 +846,8 @@ class TradingEngine {
       price,
     );
     this.ordersThisMinute++;
-    this.applyResolvedOrder(config, order, decision.reason);
+    await this.applyResolvedOrder(config, order, decision.reason);
+    return order;
   }
 
   /**
@@ -808,7 +855,7 @@ class TradingEngine {
    * immediately (market/stop) and — a tick later, via `resolvePending` — for
    * limit orders that had to rest until a bar elapsed against them.
    */
-  private applyResolvedOrder(config: BotConfig, order: Order, sizingNote?: string): void {
+  private async applyResolvedOrder(config: BotConfig, order: Order, sizingNote?: string): Promise<void> {
     if (order.status === "pending") {
       storage.log(
         "info",
@@ -855,11 +902,11 @@ class TradingEngine {
       storage.log("info", `Sell rejected — ${order.message}`);
       return;
     }
-    this.recordSellFill(config, order);
+    await this.recordSellFill(config, order);
   }
 
   /** Turn a filled exit into a completed Trade in the log. */
-  private recordSellFill(config: BotConfig, order: Order): void {
+  private async recordSellFill(config: BotConfig, order: Order): Promise<void> {
     const entry = this.openEntries.get(order.symbol);
     if (!entry) {
       // No entry record for this symbol: booking a trade would invent a P&L.
@@ -888,7 +935,24 @@ class TradingEngine {
       reason,
     };
     storage.addTrade(trade);
-    this.openEntries.delete(order.symbol);
+
+    // Only forget the entry once the position is genuinely flat. Alpaca
+    // reports a PARTIAL fill as status "filled" carrying just the executed
+    // quantity, so deleting unconditionally orphaned the remainder: its next
+    // exit found no entry, booked pnl = 0, and fed that fiction straight into
+    // the Kelly multiplier and the confidence governor, both of which read the
+    // trade history.
+    const remaining = await this.broker.getPosition(order.symbol);
+    if (!remaining || remaining.qty <= 1e-9) {
+      this.openEntries.delete(order.symbol);
+    } else {
+      storage.log(
+        "info",
+        `Partial exit of ${order.symbol}: ${remaining.qty.toFixed(6)} still open, ` +
+          `entry price retained for the remainder`,
+      );
+    }
+
     storage.log(
       "order",
       `SELL ${order.qty.toFixed(6)} ${order.symbol} @ ${order.price.toFixed(2)}` +
@@ -969,7 +1033,7 @@ class TradingEngine {
       price,
     );
     this.ordersThisMinute++;
-    this.applyResolvedOrder(config, order);
+    await this.applyResolvedOrder(config, order);
   }
 
   // -- Housekeeping -------------------------------------------------------

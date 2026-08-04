@@ -312,7 +312,22 @@ export interface BotConfig {
    * can only move sizing within maxPositionPct, never past it.
    */
   adaptiveSizing: boolean;
-  /** Per-bar target volatility used by volatility targeting when adaptiveSizing is on. */
+  /**
+   * Per-bar target volatility used by volatility targeting when adaptiveSizing
+   * is on.
+   *
+   * CALIBRATE TO YOUR BAR INTERVAL — this is per-bar, like
+   * portfolioVolTargetPct, and the same mistake was made here. It was 0.4%
+   * against a realised ~0.15% on the 1-minute bars the engine uses, so
+   * computeVolatilityMultiplier sat pinned at its 2.0 clamp for every symbol
+   * (measured: 2.000 for BTC, ETH and SOL alike). Vol targeting could only
+   * ever size UP, never down — the exact opposite of its purpose — and since
+   * sizePosition clamps strength x vol x kelly to 1, any conviction above 0.5
+   * became full size, erasing conviction scaling entirely.
+   *
+   * Set it near the volatility you actually observe, so the multiplier sits
+   * around 1 and can move both ways.
+   */
   volTargetPct: number;
   /** Kelly fraction (0.5 = half-Kelly) used when adaptiveSizing is on. */
   kellyFraction: number;
@@ -375,7 +390,10 @@ export const DEFAULT_CONFIG: BotConfig = {
   improveIntervalMinutes: 60,
   limitOrderOffsetPct: 0.0006,
   adaptiveSizing: true,
-  volTargetPct: 0.004,
+  // 0.15%/bar: the realised per-bar volatility of liquid crypto on 1-minute
+  // bars, measured rather than assumed. See the field docs above for why the
+  // previous 0.4% made this control inert in one direction.
+  volTargetPct: 0.0015,
   kellyFraction: 0.5,
 };
 
@@ -641,7 +659,7 @@ export const updateConfigSchema = z
     improveIntervalMinutes: z.number().int().min(5).max(1440),
     limitOrderOffsetPct: z.number().min(0).max(0.02),
     adaptiveSizing: z.boolean(),
-    volTargetPct: z.number().min(0.0005).max(0.05),
+    volTargetPct: z.number().min(0.0002).max(0.05),
     kellyFraction: z.number().min(0.1).max(1),
   })
   .partial();

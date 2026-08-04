@@ -52,6 +52,16 @@ export function roundQtyFor(
   symbol: string,
   qty: number,
   wantLimit: boolean,
+  /**
+   * True when this order CLOSES a position.
+   *
+   * Exits must never be rounded down. Flooring 2.7 shares to a 2-share limit
+   * order left 0.7 shares open while the engine recorded a full exit — and the
+   * venue-side stop had already been cancelled in preparation for that exit,
+   * so the remainder sat unprotected and unaccounted for. Giving up the maker
+   * fee on the occasional fractional exit is the cheaper mistake by far.
+   */
+  isExit = false,
 ): { qty: number; canUseLimit: boolean } {
   if (assetClassOf(symbol) === "crypto") {
     return { qty: Math.floor(qty * 1e9) / 1e9, canUseLimit: wantLimit };
@@ -61,6 +71,11 @@ export function roundQtyFor(
     return { qty: Math.floor(qty * 1e6) / 1e6, canUseLimit: false };
   }
   const whole = Math.floor(qty);
+  // An exit whose size is not a whole number of shares crosses as a market
+  // order for the FULL quantity rather than resting a truncated limit.
+  if (isExit && Math.abs(qty - whole) > 1e-9) {
+    return { qty: Math.floor(qty * 1e6) / 1e6, canUseLimit: false };
+  }
   if (whole >= 1) return { qty: whole, canUseLimit: true };
   // Less than a full share: fractional, which forces a market order.
   return { qty: Math.floor(qty * 1e6) / 1e6, canUseLimit: false };

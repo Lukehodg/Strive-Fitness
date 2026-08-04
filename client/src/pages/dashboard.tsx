@@ -1044,8 +1044,8 @@ function SettingsPanel() {
               <Input type="range" min={0.1} max={1} step={0.05} value={form.kellyFraction} onChange={(e) => upd({ kellyFraction: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
               <p className="text-xs text-[#5a656c] mt-1">Lower = more conservative sizing from a strategy's own track record. Only active once a strategy has 10+ trades.</p>
             </Field>
-            <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(2)}% per bar)`}>
-              <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
+            <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(3)}% per bar)`}>
+              <Input type="range" min={0.0002} max={0.006} step={0.0001} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
               <p className="text-xs text-[#5a656c] mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
             </Field>
             {/* Execution costs. Shown, not hidden, because a wrong number here

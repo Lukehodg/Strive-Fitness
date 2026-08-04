@@ -371,7 +371,7 @@ export class AlpacaBroker implements Broker {
     const wantLimit = !(req.forceTaker ?? false) && offsetRaw > 0;
     // Equities reject FRACTIONAL limit orders, so a sub-share position has to
     // cross as a market order. roundQtyFor tells us which we actually get.
-    const rounded = roundQtyFor(req.symbol, req.qty, wantLimit);
+    const rounded = roundQtyFor(req.symbol, req.qty, wantLimit, req.side === "sell");
     const qty = rounded.qty;
     const base: Order = {
       id: "unsubmitted",

@@ -172,6 +172,22 @@ function ruleEventsForYear(y: number): MarketEvent[] {
   const out: MarketEvent[] = [];
   const holidays = federalHolidays(y);
   const isHoliday = (m: number, d: number) => holidays.has(`${m}-${d}`);
+  /**
+   * Holiday test that normalises an out-of-range day into the correct
+   * month — and year, so a Wednesday in early January looks back into the
+   * previous December rather than off the end of the calendar.
+   */
+  const holidayCache = new Map<number, Set<string>>([[y, holidays]]);
+  const isHolidayOn = (year: number, month: number, day: number): boolean => {
+    const dt = new Date(Date.UTC(year, month - 1, day));
+    const yy = dt.getUTCFullYear();
+    let set = holidayCache.get(yy);
+    if (!set) {
+      set = federalHolidays(yy);
+      holidayCache.set(yy, set);
+    }
+    return set.has(`${dt.getUTCMonth() + 1}-${dt.getUTCDate()}`);
+  };
 
   {
     for (let m = 1; m <= 12; m++) {
@@ -205,7 +221,14 @@ function ruleEventsForYear(y: number): MarketEvent[] {
 
         // EIA Weekly Petroleum Status Report: Wednesday 10:30 ET, pushed to
         // Thursday when the Monday of that week was a federal holiday.
-        if (dow === 3 && !isHoliday(m, d - 2)) {
+        //
+        // The Monday lookup must cross month boundaries. isHoliday(m, d - 2)
+        // indexed day 0 or -1 for a Wednesday falling on the 1st or 2nd, which
+        // is never a holiday key, so the delay was silently missed whenever the
+        // week straddled a month end. Verified against Memorial Day 2021
+        // (Monday 31 May): the old code emitted a Wednesday 2 June release; the
+        // actual report was Thursday 3 June.
+        if (dow === 3 && !isHolidayOn(y, m, d - 2)) {
           out.push({
             kind: "eia_petroleum",
             title: "EIA weekly petroleum status",
@@ -215,7 +238,7 @@ function ruleEventsForYear(y: number): MarketEvent[] {
             source: "rule",
           });
         }
-        if (dow === 4 && d >= 3 && isHoliday(m, d - 3)) {
+        if (dow === 4 && isHolidayOn(y, m, d - 3)) {
           out.push({
             kind: "eia_petroleum",
             title: "EIA weekly petroleum status (holiday delay)",

@@ -79,6 +79,27 @@ check("a Friday-observed holiday does not move the report",
   julyWeek.every((e) => wall(e.at).startsWith("Wed")),
   julyWeek.map((e) => wall(e.at)).join(", "));
 
+// --- the month-boundary case the original checks missed ----------------------
+// Memorial Day 2021 fell on Monday 31 May, so that week's report slipped to
+// Thursday 3 June. The Monday lookup used to be isHoliday(m, d - 2), which for
+// Wednesday 2 June indexed "6-0" — never a holiday key — so the delay was
+// silently dropped whenever the week straddled a month end.
+const y2021 = ruleEvents(Date.UTC(2021, 4, 25), Date.UTC(2021, 5, 8))
+  .filter((e) => e.kind === "eia_petroleum");
+const walls2021 = y2021.map((e) => wall(e.at));
+check("Memorial Day 2021 (Mon 31 May) delays the report across the month boundary",
+  walls2021.some((w) => w.startsWith("Thu") && w.includes("06/03")) &&
+  !walls2021.some((w) => w.includes("06/02")),
+  walls2021.join(", ") || "none");
+
+// New Year's Day always lands in the previous year for an early-January
+// Wednesday, exercising the year rollover too.
+const jan2026 = ruleEvents(Date.UTC(2025, 11, 29), Date.UTC(2026, 0, 9))
+  .filter((e) => e.kind === "eia_petroleum");
+check("an early-January week resolves holidays without falling off the calendar",
+  jan2026.every((e) => Number.isFinite(e.at)),
+  jan2026.map((e) => wall(e.at)).join(", "));
+
 const witching = year.filter((e) => e.kind === "triple_witching");
 check("4 triple witchings a year, all Friday", witching.length === 4 &&
   witching.every((e) => wall(e.at).startsWith("Fri")), `${witching.length}`);
