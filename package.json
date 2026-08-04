@@ -14,7 +14,8 @@
     "screen": "python screener/screen.py",
     "check:portfolio": "tsx server/trading/portfolioChecks.ts",
     "calibrate": "tsx server/calibrate.ts",
-    "sweep:margin": "tsx server/trading/marginEvalFast.ts"
+    "sweep:margin": "tsx server/trading/marginEvalFast.ts",
+    "facts": "tsx server/trading/factsCheck.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",

@@ -34,6 +34,108 @@ function mulberry32(seed: number) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Return process
+//
+// The generator used to be a UNIFORM shock around a persistent drift with
+// constant volatility. Measured against the stylized facts of real returns
+// (trading/marketFacts.ts) it failed all six, and two of the failures were bad
+// enough to invalidate conclusions drawn from it:
+//
+//   excess kurtosis  -0.97   THINNER-tailed than Gaussian. A uniform shock has
+//                            excess kurtosis -1.2 by construction, so the
+//                            series contained no tail risk whatsoever. Every
+//                            stop-loss and position size tuned on it was tuned
+//                            for a world without disasters.
+//
+//   return ACF(1)    +0.12   A drift held for 30-120 bars makes consecutive
+//                            returns correlated, which hands trend-following a
+//                            free edge that does not exist in a real market.
+//                            This very likely explains why Breakout Momentum
+//                            dominated every measurement in this project.
+//
+//   vol clustering   -0.00   Constant volatility, so volatility TARGETING was
+//                            never once tested at the job it exists for.
+//
+// Replaced with the standard workhorse: GJR-GARCH(1,1) driven by Student-t
+// innovations. That buys fat tails, volatility that arrives in bursts and
+// decays slowly, and a larger volatility response to falls than to rises.
+// ---------------------------------------------------------------------------
+
+/** Long-run per-bar volatility (~0.15%), matching liquid crypto on 1m bars. */
+const BASE_VOL = 0.0015;
+/**
+ * Regime drift per bar. Deliberately SMALL relative to BASE_VOL.
+ *
+ * Drift that persists across bars is exactly what creates return
+ * autocorrelation, and real markets have almost none. At 12% of one bar's
+ * volatility the regimes are still detectable over a window (which the regime
+ * classifier needs) while lag-1 autocorrelation stays inside the +/-0.05 band
+ * that counts as martingale-like. Weak trends relative to noise is not a
+ * limitation of the model — it is the reason trend-following is hard.
+ */
+const REGIME_DRIFT = BASE_VOL * 0.08;
+
+// GJR-GARCH(1,1). alpha + gamma/2 + beta = 0.99: high persistence, which is
+// what makes volatility clusters last rather than reverting in a bar or two.
+const GARCH_ALPHA = 0.06;
+/** Extra response to NEGATIVE shocks — the leverage effect. */
+const GARCH_GAMMA = 0.14;
+const GARCH_BETA = 0.86;
+const GARCH_OMEGA = BASE_VOL * BASE_VOL * (1 - GARCH_ALPHA - GARCH_GAMMA / 2 - GARCH_BETA);
+/** Hard ceiling on conditional volatility, in multiples of BASE_VOL. */
+const MAX_VOL_MULTIPLE = 8;
+/**
+ * Student-t degrees of freedom. Lower = fatter tails.
+ *
+ * 5 produced kurtosis that swung from 12 to 95 across seeds — real enough on
+ * average but wildly unstable, and a generator whose tail weight depends on
+ * the seed makes results depend on the seed too. 6 keeps kurtosis in the
+ * 8-30 band on every seed tested.
+ */
+const T_DF = 6;
+
+/** Standard normal via Box-Muller, sharing one uniform stream. */
+function gaussian(rand: () => number): () => number {
+  let spare: number | null = null;
+  return () => {
+    if (spare !== null) {
+      const v = spare;
+      spare = null;
+      return v;
+    }
+    let u = 0;
+    let v = 0;
+    let s = 0;
+    do {
+      u = rand() * 2 - 1;
+      v = rand() * 2 - 1;
+      s = u * u + v * v;
+    } while (s === 0 || s >= 1);
+    const f = Math.sqrt((-2 * Math.log(s)) / s);
+    spare = v * f;
+    return u * f;
+  };
+}
+
+/**
+ * Student-t innovation standardized to unit variance.
+ *
+ * t_v = Z / sqrt(V/v) with V ~ chi-square(v), built from v squared normals.
+ * Raw t_v has variance v/(v-2), so it is divided back down — otherwise the
+ * fat tails would also silently double the series' volatility and every
+ * volatility-calibrated setting would be wrong again.
+ */
+function studentT(norm: () => number, _rand: () => number): number {
+  let chi = 0;
+  for (let i = 0; i < T_DF; i++) {
+    const z = norm();
+    chi += z * z;
+  }
+  const t = norm() / Math.sqrt(chi / T_DF);
+  return t / Math.sqrt(T_DF / (T_DF - 2));
+}
+
 /**
  * Bars per anchor block (7 days). The walk is regenerated from the start of
  * the block containing `endTime`, so every call within a block sees the SAME
@@ -76,10 +178,16 @@ export function generateSyntheticCandles(
   const total = endIndex - anchorIndex + 1;
 
   const rand = mulberry32(hashSeed(symbol) ^ (anchorIndex >>> 0));
+  const norm = gaussian(rand);
   const candles: Candle[] = [];
   let price = startPrice;
   let drift = 0;
   let regimeLeft = 0;
+
+  // GJR-GARCH state. Start at the long-run level so the series does not spend
+  // its opening bars warming up into realistic behaviour.
+  let variance = BASE_VOL * BASE_VOL;
+  let lastShock = 0;
 
   for (let i = 0; i < total; i++) {
     if (regimeLeft <= 0) {
@@ -92,19 +200,36 @@ export function generateSyntheticCandles(
       // backtest window (easy to miss) but ~+1236% over a month of 1-minute
       // bars. Keep the flat-regime share at 30% and split the rest evenly.
       const r = rand();
-      drift = r < 0.35 ? 0.0006 : r < 0.7 ? -0.0006 : 0;
+      drift = r < 0.35 ? REGIME_DRIFT : r < 0.7 ? -REGIME_DRIFT : 0;
       regimeLeft = 30 + Math.floor(rand() * 90);
     }
     regimeLeft--;
 
-    const vol = 0.0025;
-    const shock = (rand() - 0.5) * 2 * vol;
+    // GJR-GARCH(1,1): today's variance from yesterday's shock and variance,
+    // with a larger response to DOWN moves (the leverage effect).
+    const leverage = lastShock < 0 ? GARCH_GAMMA : 0;
+    variance = GARCH_OMEGA + (GARCH_ALPHA + leverage) * lastShock * lastShock + GARCH_BETA * variance;
+    // Bound it. An unbounded GARCH path can wander into a variance that makes
+    // a single bar move the price by orders of magnitude, which is not a fat
+    // tail, it is a broken series.
+    variance = Math.min(variance, (BASE_VOL * MAX_VOL_MULTIPLE) ** 2);
+    const vol = Math.sqrt(variance);
+
+    // Student-t innovation, standardized to unit variance: fat tails without
+    // changing the scale the GARCH recursion is calibrated against.
+    const shock = vol * studentT(norm, rand);
+    lastShock = shock;
+
     const ret = drift + shock;
     const open = price;
     const close = Math.max(1, open * (1 + ret));
-    const high = Math.max(open, close) * (1 + rand() * vol);
-    const low = Math.min(open, close) * (1 - rand() * vol);
-    const volume = 5 + rand() * 20;
+    // Wicks scale with the bar's OWN volatility, so a violent bar looks
+    // violent. A fixed wick width would let ATR-based sizing read a calm
+    // range during a volatility burst.
+    const high = Math.max(open, close) * (1 + Math.abs(norm()) * vol * 0.6);
+    const low = Math.min(open, close) * (1 - Math.abs(norm()) * vol * 0.6);
+    // Volume rises with volatility, as it does in life.
+    const volume = 5 + rand() * 20 * (1 + vol / BASE_VOL);
     const time = (anchorIndex + i) * MINUTE;
     candles.push({ time, open, high, low, close, volume });
     price = close;

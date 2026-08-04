@@ -78,12 +78,27 @@ export function detectRegime(candles: Candle[]): MarketRegime {
  * (t=-1.08, no longer distinguishable from noise). So most of what looked like
  * bad strategy CHOICE was really churn.
  *
- * Honesty about strength: the differences between margins are directionally
- * consistent across both halves but none individually clears significance
- * (best t=1.83 vs 2.26 needed). 12 was chosen over 20 as the conservative end
- * of a 12-20 plateau that performs about the same; do not read 12 as precisely
- * optimal. What IS well supported is that 4 was the worst value tested, on
- * both halves.
+ * THAT EVIDENCE DID NOT REPLICATE, and the reason matters more than the
+ * setting. The price generator those runs used had lag-1 return
+ * autocorrelation of +0.12, which hands trend-following a free edge no real
+ * market provides — see marketData.ts. After the generator was rebuilt to
+ * satisfy the empirical stylized facts (npm run facts), the same sweep gives:
+ *
+ *     margin    validate    switches
+ *        4      -15.75%       4.1
+ *        8      -16.53%       1.8
+ *       12      -17.70%       1.1
+ *       20      -17.97%       0.6
+ *
+ * Every setting loses money, the ordering has reversed, and every difference
+ * is inside the noise (|t| <= 1.67). The earlier "+10.86pp at margin 20" was
+ * measuring an artifact.
+ *
+ * 12 IS KEPT ANYWAY, on the argument rather than the discredited measurement:
+ * each switch pays a round trip, round trips cost 0.60% on crypto, and nothing
+ * in either generator showed switching earning that back. Fewer switches is
+ * the cheaper default when the benefit is unproven. It is no longer presented
+ * as an evidence-backed optimum, because it is not one.
  */
 export const SWITCH_MARGIN = 12;
 

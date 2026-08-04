@@ -12,10 +12,10 @@ the venue, and measures whether any of it works.
 > return "no".
 >
 > **Nothing in this repository has demonstrated a trading edge.** Every
-> performance figure below comes from a synthetic price generator, not a
-> market. The AI strategy selection — the thing the name implies is valuable —
-> was measured at **14 percentage points behind simply holding one strategy**
-> before it was fixed, and is now roughly level. Level, not ahead.
+> performance figure comes from a synthetic price generator, not a market —
+> and when that generator was corrected to behave like real returns, **every
+> strategy lost money and the best available outcome was not trading at all.**
+> See [the most important finding](#the-most-important-finding-in-this-repository).
 >
 > ⚠️ **Trading involves real financial risk.** This defaults to **paper
 > trading** on purpose. Automated strategies that look great on historical
@@ -44,6 +44,65 @@ npm run dev
 Open <http://localhost:5000> and press **Start**. With no API keys the platform
 runs on **synthetic market data** and a **simulated broker**, so you can watch
 the whole system work end-to-end with zero setup and zero risk.
+
+## The most important finding in this repository
+
+**Every performance number produced before this section was an artifact of the
+price generator, not a property of trading.**
+
+`npm run facts` scores the synthetic feed against the empirical stylized facts
+of asset returns (Cont 2001). The original generator — a uniform shock around a
+persistent drift, at constant volatility — **failed all six**, and two failures
+were serious enough to invalidate conclusions:
+
+| fact | old generator | why it matters |
+|---|---|---|
+| Excess kurtosis | **−0.97** | *Thinner*-tailed than Gaussian. Zero tail risk, so every stop and position size was tuned for a world without disasters. |
+| Return autocorrelation (lag 1) | **+0.12** | Handed trend-following a **free edge no real market provides**. |
+| Volatility clustering | **−0.00** | Constant volatility, so volatility *targeting* was never once tested at the job it exists for. |
+
+That +0.12 is the whole story of this project's earlier results. A drift held
+for 30–120 bars makes consecutive returns correlated, and a moving-average
+crossover exists precisely to harvest that. "Breakout Momentum wins every
+measurement" was never a finding about trading.
+
+The generator is now **GJR-GARCH(1,1) with Student-t innovations** — fat tails,
+volatility arriving in slow-decaying bursts, larger response to falls than
+rises, and near-zero return autocorrelation. It passes all six facts on every
+seed tested.
+
+### What that did to the conclusions
+
+The switch-margin sweep, same code, same seeds, only the price process changed:
+
+| `SWITCH_MARGIN` | old generator | corrected generator |
+|---|---|---|
+| 4 | 83.90% | **−15.75%** |
+| 12 | 92.61% | **−17.70%** |
+| 20 | 94.76% | **−17.97%** |
+| best available fixed strategy | 98.01% | **0.00%** (the model that declines to trade) |
+
+Read that last row carefully. Once the manufactured trend edge is removed and
+real costs are applied, **every strategy here loses money, and the best
+available outcome is not trading at all.**
+
+The earlier "+10.86pp at margin 20" result does not replicate: the ordering
+reverses and every difference falls inside the noise. `SWITCH_MARGIN` stays at
+12 on the *argument* — each switch pays a 0.60% round trip and nothing has
+shown switching earning that back — not on the discredited measurement.
+
+> This is what the measurement machinery is for. It was built to be capable of
+> returning "no", and when pointed at a corrected price process, it did.
+
+Gate anything you take from the synthetic feed:
+
+```bash
+npm run facts       # 18 checks across 3 seeds; non-zero exit if any fail
+```
+
+Passing does **not** make it a market. It only means results are not an
+artifact of a qualitatively wrong price process. Real data remains the only
+way to answer the question properly.
 
 ## Running it on your own PC
 
@@ -162,6 +221,12 @@ Pinning one strategy (`autoSelectStrategy: false`) is a defensible default.
 Auto-selection scores every strategy by backtesting it on the *same* recent
 window it is about to trade forward from. That is **in-sample selection**, and
 over a few hundred bars the score differences are largely noise.
+
+> ⚠️ **The tables in this section were produced on the OLD price generator**,
+> which had +0.12 return autocorrelation and no fat tails. They are kept as the
+> record of how the reasoning went, not as evidence. See
+> [the most important finding](#the-most-important-finding-in-this-repository)
+> for what happened when the generator was corrected.
 
 Measured over 8 independent simulated months, auto-selection finished roughly
 **5-6 percentage points behind simply holding the best single strategy** — and
