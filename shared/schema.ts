@@ -621,7 +621,13 @@ export interface MetaModelStatus {
 export const updateConfigSchema = z
   .object({
     symbol: z.string().min(3).max(20),
-    extraSymbols: z.array(z.string().min(1).max(20)).max(20).optional(),
+    // Cap sized to the largest shipped universe preset, not guessed. The
+    // "everything" preset is 40 symbols (39 extras), so a cap of 20 meant it
+    // could be APPLIED — the apply route wrote straight to storage, bypassing
+    // this schema — but never SAVED: the next "Save settings" rejected the very
+    // config the app had just set. 63 leaves headroom for a user-built list
+    // while still bounding per-tick work.
+    extraSymbols: z.array(z.string().min(1).max(20)).max(63).optional(),
     maxConcurrentPositions: z.number().int().min(1).max(10).optional(),
     maxTotalExposurePct: z.number().min(0.05).max(1).optional(),
     maxCorrelatedExposurePct: z.number().min(0.05).max(1).optional(),

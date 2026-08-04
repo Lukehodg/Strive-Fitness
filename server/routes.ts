@@ -199,6 +199,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(engine.getStatus());
   });
 
+  /**
+   * Sell everything at market and stand down. The panic button.
+   *
+   * POST rather than GET, and it stops the engine as part of the operation —
+   * liquidating while the loop is still running would just let the next tick
+   * buy back in.
+   */
+  app.post("/api/control/liquidate", async (req: Request, res: Response) => {
+    const reason =
+      typeof req.body?.reason === "string" && req.body.reason.trim()
+        ? req.body.reason.trim().slice(0, 200)
+        : "Manual liquidation";
+    try {
+      const result = await engine.liquidateAll(reason);
+      // 207 when some legs failed: the caller MUST NOT read this as "flat".
+      res.status(result.failed.length ? 207 : 200).json({
+        ...result,
+        status: engine.getStatus(),
+      });
+    } catch (err) {
+      res.status(500).json({ message: (err as Error).message });
+    }
+  });
+
   // Manual kill-switch clear after a daily-loss halt.
   app.post("/api/control/resume", (_req: Request, res: Response) => {
     engine.resume();
@@ -387,6 +411,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     const [primary, ...rest] = preset.symbols;
+    // Validate through the SAME schema the PATCH path uses. Writing straight
+    // to storage let a preset install a config that /api/config would then
+    // refuse to save — the two write paths for one field must not diverge.
+    const parsed = updateConfigSchema
+      .partial()
+      .safeParse({ symbol: primary, extraSymbols: rest });
+    if (!parsed.success) {
+      return res.status(500).json({
+        message: `Preset "${preset.id}" is not a valid configuration: ${parsed.error.message}`,
+      });
+    }
     const updated = storage.setConfig({ symbol: primary, extraSymbols: rest });
     storage.log("info", `Universe set to "${preset.name}" (${preset.symbols.length} symbols)`);
     res.json({

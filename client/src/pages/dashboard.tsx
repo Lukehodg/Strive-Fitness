@@ -56,6 +56,7 @@ function formatCountdown(minutes: number) {
 
 export default function Dashboard() {
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const status = useQuery({ queryKey: ["/api/status"], queryFn: api.status, refetchInterval: REFRESH_MS });
   const equity = useQuery({ queryKey: ["/api/equity"], queryFn: api.equity, refetchInterval: REFRESH_MS });
@@ -91,6 +92,28 @@ export default function Dashboard() {
   const startM = useMutation({ mutationFn: api.start, onSuccess: invalidateAll });
   const stopM = useMutation({ mutationFn: api.stop, onSuccess: invalidateAll });
   const resumeM = useMutation({ mutationFn: api.resume, onSuccess: invalidateAll });
+  // Cash out. Two-step by design: this sells everything at market and cannot
+  // be undone, so a stray click must not be able to trigger it.
+  const [confirmCashOut, setConfirmCashOut] = useState(false);
+  const liquidateM = useMutation({
+    mutationFn: api.liquidate,
+    onSuccess: async (res) => {
+      invalidateAll();
+      setConfirmCashOut(false);
+      const body = await (res as Response).json().catch(() => null);
+      if (!body) return;
+      const failed = body.failed?.length ?? 0;
+      toast({
+        title: failed ? "Liquidation INCOMPLETE" : "Liquidated to cash",
+        description: failed
+          ? `Sold ${body.sold?.length ?? 0}, failed on ${failed}: ${body.failed.map((f: { symbol: string }) => f.symbol).join(", ")}. You are still holding those.`
+          : `Sold ${body.sold?.length ?? 0} position(s). Engine stopped.`,
+        variant: failed ? "destructive" : undefined,
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Liquidation failed", description: e.message, variant: "destructive" }),
+  });
 
   const s = status.data;
   const equityData = (equity.data ?? []).map((p) => ({
@@ -116,6 +139,29 @@ export default function Dashboard() {
           ) : (
             <Button onClick={() => startM.mutate()} disabled={startM.isPending} className="bg-emerald-600 hover:bg-emerald-700">
               Start
+            </Button>
+          )}
+          {confirmCashOut ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={() => liquidateM.mutate()}
+                disabled={liquidateM.isPending}
+                title="Sell every open position at market and stop the engine"
+              >
+                {liquidateM.isPending ? "Selling…" : "Confirm — sell everything"}
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmCashOut(false)} disabled={liquidateM.isPending}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmCashOut(true)}
+              title="Sell every open position at market and stop the engine"
+            >
+              Cash out
             </Button>
           )}
         </div>

@@ -188,6 +188,7 @@ export const api = {
   start: () => apiRequest("POST", "/api/control/start"),
   stop: () => apiRequest("POST", "/api/control/stop"),
   resume: () => apiRequest("POST", "/api/control/resume"),
+  liquidate: () => apiRequest("POST", "/api/control/liquidate", { reason: "Manual liquidation from dashboard" }),
   updateConfig: (patch: UpdateConfigInput) =>
     apiRequest("PATCH", "/api/config", patch),
   runImprove: () => apiRequest("POST", "/api/improve/run"),

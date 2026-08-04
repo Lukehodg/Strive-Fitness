@@ -1084,6 +1084,100 @@ class TradingEngine {
     return this.broker.getPosition(config.symbol);
   }
 
+  /**
+   * PANIC BUTTON. Sell everything at market and stand down.
+   *
+   * Deliberately not a strategy decision — no signals, no maker orders, no
+   * risk-manager veto. When someone reaches for this they want to be flat,
+   * and every "clever" behaviour is a way to still be holding something
+   * afterwards:
+   *
+   *  - FORCE TAKER on every leg. A resting limit that never fills leaves you
+   *    in the position you asked to be out of. Paying the spread is the point.
+   *  - STOPS THE ENGINE FIRST, so the next tick cannot re-enter what this just
+   *    closed. Doing it the other way round races the tick loop.
+   *  - IGNORES THE KILL-SWITCH. `halted` blocks new entries; exits must never
+   *    be blocked, least of all here.
+   *  - CANCELS VENUE STOPS before selling, so a stop cannot fire afterwards
+   *    against a position that no longer exists.
+   *  - WALKS THE BROKER'S OWN POSITION LIST, not the configured universe, so
+   *    something held outside the current universe still gets sold.
+   *
+   * Reports what it managed to sell and what it did not, per symbol. A partial
+   * failure that reported success would be the worst possible outcome here.
+   */
+  async liquidateAll(reason = "Manual liquidation"): Promise<{
+    stoppedEngine: boolean;
+    sold: Array<{ symbol: string; qty: number; price: number }>;
+    failed: Array<{ symbol: string; message: string }>;
+  }> {
+    // Stop first: a tick running concurrently could re-enter behind us.
+    const wasRunning = this.running;
+    if (wasRunning) this.stop();
+
+    const config = storage.getConfig();
+    const positions = await this.getPositions();
+    const sold: Array<{ symbol: string; qty: number; price: number }> = [];
+    const failed: Array<{ symbol: string; message: string }> = [];
+
+    storage.log(
+      "info",
+      `Liquidating ${positions.length} position${positions.length === 1 ? "" : "s"} — ${reason}`,
+    );
+
+    for (const position of positions) {
+      if (!position || position.qty <= 0) continue;
+      const symbol = position.symbol;
+      try {
+        if (this.broker.hasProtectiveStop?.(symbol)) {
+          await this.broker.cancelProtectiveStop?.(symbol);
+        }
+        // Mark at the last trade price; fall back to the position's own mark
+        // when the feed is unavailable, because being unable to fetch a candle
+        // must not prevent an exit.
+        let price = position.markPrice;
+        try {
+          price = await this.feed.getPrice(symbol);
+        } catch {
+          /* keep the position's mark */
+        }
+        if (!(price > 0)) price = position.avgEntryPrice;
+
+        const order = await this.broker.submitOrder(
+          {
+            symbol,
+            side: "sell",
+            qty: position.qty,
+            reason,
+            limitOffsetPct: 0,
+            forceTaker: true,
+          },
+          price,
+        );
+        if (order.status === "filled") {
+          await this.applyResolvedOrder(config, order);
+          sold.push({ symbol, qty: order.qty, price: order.price });
+        } else {
+          failed.push({ symbol, message: order.message ?? `order ${order.status}` });
+        }
+      } catch (err) {
+        failed.push({ symbol, message: (err as Error).message });
+      }
+    }
+
+    const summary =
+      `Liquidation complete — sold ${sold.length}` +
+      (failed.length ? `, FAILED on ${failed.length}: ${failed.map((f) => f.symbol).join(", ")}` : "");
+    storage.log(failed.length ? "risk_block" : "info", summary);
+    sendAlert(
+      failed.length ? "warning" : "info",
+      failed.length ? "Liquidation incomplete" : "Liquidated to cash",
+      summary,
+    );
+
+    return { stoppedEngine: wasRunning, sold, failed };
+  }
+
   /** Latest confidence reading, or null before the first tick. */
   getConfidence(): ConfidenceResult | null {
     return this.confidence;
