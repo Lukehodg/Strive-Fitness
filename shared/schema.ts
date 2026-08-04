@@ -245,7 +245,17 @@ export interface BotConfig {
    * book, not a 0.4% one. See trading/portfolioVol.ts.
    */
   portfolioVolTarget: boolean;
-  /** Target per-bar standard deviation of TOTAL account equity. */
+  /**
+   * Target per-bar standard deviation of TOTAL account equity.
+   *
+   * CALIBRATE THIS TO YOUR BAR INTERVAL. It is a PER-BAR figure, so it scales
+   * with roughly sqrt(interval): on the 1-minute bars the engine uses, liquid
+   * crypto runs ~0.15% per bar, and a fully-invested perfectly-correlated book
+   * at maxTotalExposurePct=0.6 therefore tops out near 0.09%. A budget above
+   * that can never bind — the feature would be inert while appearing enabled,
+   * which is the worst of both. Move to hourly bars and the same book is ~8x
+   * more volatile per bar, so this needs raising with it.
+   */
   portfolioVolTargetPct: number;
   /**
    * Observed fee rates, as fractions (0.0025 = 0.25%). Null uses the built-in
@@ -337,10 +347,14 @@ export const DEFAULT_CONFIG: BotConfig = {
   confidenceGovernor: true,
   makerOnlyEntries: false,
   portfolioVolTarget: true,
-  // 0.8% per bar. Deliberately above the 0.4% per-POSITION default: a book of
-  // several positions should be allowed more absolute risk than any one of
-  // them, just not the unbounded sum that per-symbol sizing implies.
-  portfolioVolTargetPct: 0.008,
+  // 0.06% per bar, measured rather than guessed. The first value here was
+  // 0.8%, reasoned from the 0.4% per-POSITION default without checking what
+  // per-bar equity vol actually IS: on 1-minute bars a fully-invested,
+  // perfectly-correlated crypto book reaches only ~0.09%, so the budget sat
+  // ~9x above anything achievable and never once bound. 0.06% starts
+  // constraining a correlated book at roughly 40% total exposure, which is
+  // where the risk it exists to catch actually begins.
+  portfolioVolTargetPct: 0.0006,
   cryptoTakerFee: null,
   cryptoMakerFee: null,
   equityTakerFee: null,
@@ -601,7 +615,10 @@ export const updateConfigSchema = z
     confidenceGovernor: z.boolean().optional(),
     makerOnlyEntries: z.boolean().optional(),
     portfolioVolTarget: z.boolean().optional(),
-    portfolioVolTargetPct: z.number().min(0.001).max(0.1).optional(),
+    // Floor was 0.001, which is ABOVE the ~0.0009 a fully-invested correlated
+    // book can even reach on 1-minute bars — the setting's entire legal range
+    // was in the inert zone.
+    portfolioVolTargetPct: z.number().min(0.0001).max(0.05).optional(),
     // Capped at 1% a side: anything higher is a typo, and a typo here silently
     // rewrites every backtest.
     cryptoTakerFee: z.number().min(0).max(0.01).nullable().optional(),

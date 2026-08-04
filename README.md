@@ -377,6 +377,28 @@ engine into leverage right before volatility returns.
 Held-vs-held correlations are unmeasured and assumed to be 1 — overstating risk
 rather than understating it, the only safe direction.
 
+**The first version of this shipped inert, and only running it found that.**
+The default budget was 0.8% per bar, reasoned from the 0.4% *per-position*
+default without checking what per-bar *equity* volatility actually is. Measured:
+liquid crypto runs ~0.15% per bar on the 1-minute bars the engine uses, so a
+fully-invested, perfectly-correlated book tops out near 0.09%. The budget sat
+~9x above anything reachable and never once bound — and the schema's minimum
+of 0.1% was *itself* above that ceiling, so the setting's entire legal range
+was in the inert zone. Default is now 0.06% with a floor of 0.01%.
+
+> ⚠️ This is a **per-bar** figure, so it scales with roughly √(interval). On
+> hourly bars the same book is ~8x more volatile per bar and the budget needs
+> raising to match. Recalibrate if you change the bar interval.
+
+Verified live: the engine logs `risk_block | ETH/USD: book vol 0.06% already at
+the 0.06% budget` and repeats it across symbols as the book fills. The
+*partial-scaling* branch (multiplier strictly between 0 and 1) is covered by
+unit checks — including that the solve lands the book exactly on budget at
+three correlation levels — but is rarely the branch taken in practice: with
+equal-sized, near-perfectly-correlated positions the book steps *over* the
+budget in one position's worth of volatility, so it is usually already at the
+limit rather than just under it.
+
 ## More symbols? Measured, and the answer is no (for now)
 
 The √N diversification argument holds only for **independent** bets.

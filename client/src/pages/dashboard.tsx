@@ -1105,8 +1105,8 @@ function SettingsPanel() {
               </div>
               <Switch checked={form.portfolioVolTarget} onCheckedChange={(v) => upd({ portfolioVolTarget: v })} />
             </div>
-            <Field label={`Portfolio vol budget ${(form.portfolioVolTargetPct * 100).toFixed(2)}% per bar`}>
-              <Input type="range" min={0.001} max={0.03} step={0.001} value={form.portfolioVolTargetPct}
+            <Field label={`Portfolio vol budget ${(form.portfolioVolTargetPct * 100).toFixed(3)}% per bar`}>
+              <Input type="range" min={0.0001} max={0.003} step={0.0001} value={form.portfolioVolTargetPct}
                 onChange={(e) => upd({ portfolioVolTargetPct: Number(e.target.value) })}
                 disabled={!form.portfolioVolTarget} />
             </Field>
