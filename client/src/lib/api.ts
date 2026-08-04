@@ -10,6 +10,22 @@ export interface ConfidenceResponse {
   message?: string;
 }
 
+export interface CostsResponse {
+  rates: Array<{
+    assetClass: string;
+    rates: { takerFee: number; makerFee: number; takerSlippage: number };
+    overridden: boolean;
+  }>;
+  takeProfitPct: number;
+  byAsset: Array<{
+    symbol: string;
+    takerRoundTrip: number;
+    makerRoundTrip: number;
+    takerShareOfTarget: number;
+    makerShareOfTarget: number;
+  }>;
+}
+
 export interface UpcomingEvent {
   kind: string;
   title: string;
@@ -152,6 +168,7 @@ export const api = {
   profiles: () => json<ProfilesResponse>("/api/profiles"),
   confidence: () => json<ConfidenceResponse>("/api/confidence"),
   events: () => json<EventsResponse>("/api/events"),
+  costs: () => json<CostsResponse>("/api/costs"),
   applyUniverse: (id: string) =>
     fetch(`/api/universes/${id}/apply`, { method: "POST" }).then((r) => r.json()),
   applyProfile: (id: string) =>

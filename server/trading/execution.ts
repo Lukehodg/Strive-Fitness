@@ -17,10 +17,16 @@
 // "finding better signals" — it's simply not overpaying for execution.
 
 import type { Candle } from "@shared/schema";
+import { ratesFor } from "./costs";
 
-export const TAKER_FEE_RATE = 0.001; // 0.10% — typical retail taker fee
-export const TAKER_SLIPPAGE_RATE = 0.0005; // 0.05% assumed adverse fill
-export const MAKER_FEE_RATE = 0.0002; // 0.02% — typical maker fee/rebate tier
+// Rates now come from costs.ts, per asset class and overridable from config —
+// crypto and equities do not cost the same thing, and the flat constants that
+// used to live here were wrong for both. These aliases remain only so callers
+// that have no symbol to hand (and legacy call sites) still compile; anything
+// that knows its symbol should pass it, because that is the whole point.
+export const TAKER_FEE_RATE = 0.0025;
+export const TAKER_SLIPPAGE_RATE = 0.0005;
+export const MAKER_FEE_RATE = 0.0015;
 // Maker fills execute at their own posted price — no additional slippage.
 
 export interface FillResult {
@@ -80,22 +86,41 @@ export function attemptFill(
   restingBar: Pick<Candle, "high" | "low"> | null,
   forceTaker: boolean,
   isExit: boolean,
+  /**
+   * Symbol, so the right asset class's costs apply. Crypto pays a real fee;
+   * Alpaca equities pay none and cost only the spread. Charging both the same
+   * flat rate — which is what this did before — misprices every backtest.
+   */
+  symbol = "BTC/USD",
+  /**
+   * Maker-only: an entry that cannot rest is SKIPPED rather than crossed.
+   * Exits ignore this — an exit that never happens is a risk-management
+   * failure, not a saving.
+   */
+  makerOnly = false,
 ): FillResult {
+  const rates = ratesFor(symbol);
+
   if (!forceTaker && offsetPct > 0 && restingBar) {
     const limitPrice = limitPriceFor(side, referencePrice, offsetPct);
     const touched =
       side === "buy" ? restingBar.low <= limitPrice : restingBar.high >= limitPrice;
     if (touched) {
-      return { filled: true, price: limitPrice, feeRate: MAKER_FEE_RATE, fillType: "maker" };
+      return { filled: true, price: limitPrice, feeRate: rates.makerFee, fillType: "maker" };
     }
     if (!isExit) return NOT_FILLED; // entry: no urgency, just skip this tick
     // exit: fall through to a guaranteed taker fill below
   }
-  const slip = side === "buy" ? 1 + TAKER_SLIPPAGE_RATE : 1 - TAKER_SLIPPAGE_RATE;
+
+  // Maker-only entries never cross. This is the one place a "cheaper" choice
+  // is safe, because declining to enter costs nothing but the opportunity.
+  if (makerOnly && !isExit && !forceTaker) return NOT_FILLED;
+
+  const slip = side === "buy" ? 1 + rates.takerSlippage : 1 - rates.takerSlippage;
   return {
     filled: true,
     price: referencePrice * slip,
-    feeRate: TAKER_FEE_RATE,
+    feeRate: rates.takerFee,
     fillType: "taker",
   };
 }

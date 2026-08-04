@@ -4,12 +4,10 @@
 
 import { randomUUID } from "crypto";
 import type { Order, OrderRequest, Position } from "@shared/schema";
+import { ratesFor } from "./costs";
 import { assetClassOf, positionSymbol, roundQtyFor, timeInForce } from "./assets";
 import {
   limitPriceFor,
-  MAKER_FEE_RATE,
-  TAKER_FEE_RATE,
-  TAKER_SLIPPAGE_RATE,
 } from "./execution";
 
 export interface AccountSnapshot {
@@ -145,7 +143,7 @@ export class PaperBroker implements Broker {
         if (!existing || existing.qty < req.qty - 1e-9) {
           return { ...base, status: "rejected", message: "No position to sell" };
         }
-      } else if (req.qty * limitPrice * (1 + MAKER_FEE_RATE) > this.cash + 1e-9) {
+      } else if (req.qty * limitPrice * (1 + ratesFor(req.symbol).makerFee) > this.cash + 1e-9) {
         return { ...base, status: "rejected", message: "Insufficient cash" };
       }
       const pending: Order = { ...base, status: "pending", price: limitPrice };
@@ -153,8 +151,22 @@ export class PaperBroker implements Broker {
       return pending;
     }
 
+    // Maker-only entry that cannot rest (offset 0). Skipping costs nothing but
+    // the opportunity; crossing costs the spread on every single entry.
+    if (req.makerOnly && !isExit && !(req.forceTaker ?? false)) {
+      return { ...base, status: "rejected", message: "Maker-only: would have to cross, skipped" };
+    }
+
     // Market / forced-taker order: fills immediately at the reference price.
-    return this.settle(base, req, markPrice * (req.side === "buy" ? 1 + TAKER_SLIPPAGE_RATE : 1 - TAKER_SLIPPAGE_RATE), TAKER_FEE_RATE, "taker", markPrice);
+    const rates = ratesFor(req.symbol);
+    return this.settle(
+      base,
+      req,
+      markPrice * (req.side === "buy" ? 1 + rates.takerSlippage : 1 - rates.takerSlippage),
+      rates.takerFee,
+      "taker",
+      markPrice,
+    );
   }
 
   /**
@@ -181,10 +193,11 @@ export class PaperBroker implements Broker {
       const touched =
         r.req.side === "buy" ? bar.low <= r.limitPrice : bar.high >= r.limitPrice;
       if (touched) {
-        out.push(this.settle(r.base, r.req, r.limitPrice, MAKER_FEE_RATE, "maker", markPrice));
+        out.push(this.settle(r.base, r.req, r.limitPrice, ratesFor(r.req.symbol).makerFee, "maker", markPrice));
       } else if (r.isExit) {
-        const takerPrice = markPrice * (1 - TAKER_SLIPPAGE_RATE);
-        out.push(this.settle(r.base, r.req, takerPrice, TAKER_FEE_RATE, "taker", markPrice));
+        const exitRates = ratesFor(r.req.symbol);
+        const takerPrice = markPrice * (1 - exitRates.takerSlippage);
+        out.push(this.settle(r.base, r.req, takerPrice, exitRates.takerFee, "taker", markPrice));
       } else {
         out.push({
           ...r.base,
@@ -387,6 +400,20 @@ export class AlpacaBroker implements Broker {
     // plus spread on every trade while backtests priced ~88% of fills as
     // makers — a systematic overstatement of live returns.
     const useLimit = rounded.canUseLimit;
+
+    // Maker-only entry that CANNOT be a limit order. This is the live-only
+    // leak: an equity order for under one share is fractional, Alpaca rejects
+    // fractional limits, so roundQtyFor silently downgrades it to a market
+    // order. On a small account every equity position is sub-share, so entries
+    // crossed the spread every time no matter how limitOffsetPct was set.
+    if (req.makerOnly && !useLimit && req.side === "buy" && !(req.forceTaker ?? false)) {
+      return {
+        ...base,
+        status: "rejected",
+        message: "Maker-only: fractional order cannot rest as a limit, skipped",
+      };
+    }
+
     const limitPrice = useLimit ? limitPriceFor(req.side, markPrice, offsetRaw) : 0;
 
     const body: Record<string, unknown> = {

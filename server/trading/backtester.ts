@@ -49,6 +49,13 @@ export interface BacktestSizing {
   kellyFraction: number;
   /** Maker-first limit order offset; 0 disables (pure market fills). */
   limitOrderOffsetPct: number;
+  /**
+   * Symbol being tested, so the right asset class's costs apply. Crypto pays a
+   * real fee; Alpaca equities pay none and cost only the spread.
+   */
+  symbol?: string;
+  /** Skip entries that cannot rest, rather than crossing the spread. */
+  makerOnlyEntries?: boolean;
 }
 
 export function backtestStrategy(
@@ -90,7 +97,7 @@ export function backtestStrategy(
       }
       if (forcedExit) {
         if (sizing) {
-          const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, forceTaker, true);
+          const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, forceTaker, true, sizing.symbol);
           cash += open.qty * fill.price * (1 - fill.feeRate);
           trades.push(closeTrade(strategy, open, bar, forcedExit, fill.price));
         } else {
@@ -105,7 +112,7 @@ export function backtestStrategy(
 
     if (!open && signal.action === "buy") {
       if (sizing) {
-        const fill = attemptFill("buy", price, sizing.limitOrderOffsetPct, restingBar, false, false);
+        const fill = attemptFill("buy", price, sizing.limitOrderOffsetPct, restingBar, false, false, sizing.symbol, sizing.makerOnlyEntries);
         if (fill.filled) {
           const vol = sizing.adaptive
             ? computeVolatilityMultiplier(window, sizing.volTargetPct, VOL_LOOKBACK)
@@ -139,7 +146,7 @@ export function backtestStrategy(
       }
     } else if (open && signal.action === "sell") {
       if (sizing) {
-        const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, false, true);
+        const fill = attemptFill("sell", price, sizing.limitOrderOffsetPct, restingBar, false, true, sizing.symbol);
         cash += open.qty * fill.price * (1 - fill.feeRate);
         trades.push(closeTrade(strategy, open, bar, signal.reason, fill.price));
       } else {
@@ -157,7 +164,7 @@ export function backtestStrategy(
   if (open) {
     const last = candles[candles.length - 1];
     if (sizing) {
-      const fill = attemptFill("sell", last.close, sizing.limitOrderOffsetPct, last, true, true);
+      const fill = attemptFill("sell", last.close, sizing.limitOrderOffsetPct, last, true, true, sizing.symbol);
       cash += open.qty * fill.price * (1 - fill.feeRate);
       trades.push(closeTrade(strategy, open, last, "End of backtest", fill.price));
     } else {

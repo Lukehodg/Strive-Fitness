@@ -46,6 +46,16 @@ export interface OrderRequest {
   limitOffsetPct?: number;
   /** Never delay this order for a better price (e.g. a stop-loss). */
   forceTaker?: boolean;
+  /**
+   * Maker-only entry: if the order cannot rest as a limit, reject it rather
+   * than crossing the spread. Never applied to exits.
+   *
+   * This is not redundant with limitOffsetPct. An equity order for less than
+   * one share CANNOT be a limit order at Alpaca and silently becomes a market
+   * order — so on a small account, where every equity position is fractional,
+   * entries cross the spread every time however the offset is configured.
+   */
+  makerOnly?: boolean;
   /** Current bar's high/low, used to simulate whether a resting order fills. */
   bar?: { high: number; low: number };
 }
@@ -222,6 +232,31 @@ export interface BotConfig {
    */
   confidenceGovernor: boolean;
   /**
+   * Maker-only entries: if a resting limit order doesn't fill, SKIP the entry
+   * rather than crossing the spread. Exits are unaffected. Cuts entry cost by
+   * the taker/maker spread at the price of missing some entries — see
+   * trading/makerEval.ts for the measured trade-off.
+   */
+  makerOnlyEntries: boolean;
+  /**
+   * Portfolio-level volatility budget. Per-symbol sizing gives each position
+   * the intended risk; this caps what they add up to once correlation is
+   * counted. Three correlated positions each sized to 0.4% vol make a ~1.2%
+   * book, not a 0.4% one. See trading/portfolioVol.ts.
+   */
+  portfolioVolTarget: boolean;
+  /** Target per-bar standard deviation of TOTAL account equity. */
+  portfolioVolTargetPct: number;
+  /**
+   * Observed fee rates, as fractions (0.0025 = 0.25%). Null uses the built-in
+   * default for the asset class. Set these to what your statements actually
+   * show — a wrong cost model is the fastest way to manufacture a fake edge.
+   */
+  cryptoTakerFee?: number | null;
+  cryptoMakerFee?: number | null;
+  equityTakerFee?: number | null;
+  equityMakerFee?: number | null;
+  /**
    * Event blackout: don't open new positions around scheduled releases
    * (payrolls, EIA inventories, FOMC). This makes no prediction about what a
    * release will do — it only declines to be holding leverage through one.
@@ -300,6 +335,16 @@ export const DEFAULT_CONFIG: BotConfig = {
   maxHoldingMinutes: 240,
   maxOrdersPerMinute: 3,
   confidenceGovernor: true,
+  makerOnlyEntries: false,
+  portfolioVolTarget: true,
+  // 0.8% per bar. Deliberately above the 0.4% per-POSITION default: a book of
+  // several positions should be allowed more absolute risk than any one of
+  // them, just not the unbounded sum that per-symbol sizing implies.
+  portfolioVolTargetPct: 0.008,
+  cryptoTakerFee: null,
+  cryptoMakerFee: null,
+  equityTakerFee: null,
+  equityMakerFee: null,
   eventBlackout: true,
   eventBlackoutBeforeMinutes: 30,
   eventBlackoutAfterMinutes: 15,
@@ -554,6 +599,15 @@ export const updateConfigSchema = z
     maxHoldingMinutes: z.number().int().min(5).max(1440).optional(),
     maxOrdersPerMinute: z.number().int().min(1).max(60).optional(),
     confidenceGovernor: z.boolean().optional(),
+    makerOnlyEntries: z.boolean().optional(),
+    portfolioVolTarget: z.boolean().optional(),
+    portfolioVolTargetPct: z.number().min(0.001).max(0.1).optional(),
+    // Capped at 1% a side: anything higher is a typo, and a typo here silently
+    // rewrites every backtest.
+    cryptoTakerFee: z.number().min(0).max(0.01).nullable().optional(),
+    cryptoMakerFee: z.number().min(0).max(0.01).nullable().optional(),
+    equityTakerFee: z.number().min(0).max(0.01).nullable().optional(),
+    equityMakerFee: z.number().min(0).max(0.01).nullable().optional(),
     eventBlackout: z.boolean().optional(),
     eventBlackoutBeforeMinutes: z.number().int().min(0).max(240).optional(),
     eventBlackoutAfterMinutes: z.number().int().min(0).max(240).optional(),

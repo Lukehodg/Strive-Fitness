@@ -33,8 +33,12 @@ import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 import { positionSymbol } from "./assets";
 import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
+import {
+  volatilityOf, volTargetMultiplier, correlationLookup, type RiskLeg,
+} from "./portfolioVol";
 import { assessConfidence, type ConfidenceResult } from "./confidence";
 import { checkBlackout, nextBroadEvent } from "./events";
+import { setCostOverrides } from "./costs";
 
 const CANDLE_COUNT = 200;
 /**
@@ -440,6 +444,11 @@ class TradingEngine {
         );
       }
 
+      // Cost rates are user-overridable, so push them into the cost model
+      // before anything prices a fill. Cheap, and skipping it would leave the
+      // paper broker charging defaults while backtests used the overrides.
+      setCostOverrides(config);
+
       // Score conditions before deciding anything. This reads only realised
       // results — it cannot be talked into optimism by a strong-looking signal.
       this.peakEquity = Math.max(this.peakEquity, account.equity);
@@ -589,7 +598,39 @@ class TradingEngine {
         // The governor only ever scales DOWN from maxPositionPct.
         const govern =
           config.confidenceGovernor && this.confidence ? this.confidence.sizeMultiplier : 1;
-        const requested = fresh.equity * config.maxPositionPct * candidate.strength * govern;
+        let requested = fresh.equity * config.maxPositionPct * candidate.strength * govern;
+
+        // Portfolio-level volatility budget. Per-symbol sizing gives each
+        // position the intended risk; only this looks at what they add up to
+        // once correlation is accounted for. Also one-directional — it can
+        // shrink a candidate, never enlarge one.
+        if (config.portfolioVolTarget && fresh.equity > 0) {
+          const held: RiskLeg[] = openPositions.map((p) => ({
+            symbol: p.symbol,
+            weight: p.notional / fresh.equity,
+            vol: candlesBySymbol[p.symbol]
+              ? volatilityOf(returnsOf(candlesBySymbol[p.symbol]))
+              : 0,
+          }));
+          const volResult = volTargetMultiplier(
+            held,
+            {
+              symbol: candidate.symbol,
+              weight: requested / fresh.equity,
+              vol: volatilityOf(candidateReturns),
+            },
+            config.portfolioVolTargetPct,
+            correlationLookup(candidate.symbol, correlations),
+          );
+          if (volResult.multiplier <= 0) {
+            this.noteBlock(candidate.symbol, volResult.reason);
+            continue;
+          }
+          if (volResult.multiplier < 1) {
+            this.noteBlock(candidate.symbol, volResult.reason);
+          }
+          requested *= volResult.multiplier;
+        }
         const verdict = vetPortfolioEntry(
           candidate.symbol,
           fresh.equity,
@@ -753,6 +794,7 @@ class TradingEngine {
         qty: decision.qty,
         reason,
         limitOffsetPct: config.limitOrderOffsetPct,
+        makerOnly: config.makerOnlyEntries,
         bar: { high: bar.high, low: bar.low },
       },
       price,

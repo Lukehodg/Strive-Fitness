@@ -958,6 +958,7 @@ function SettingsPanel() {
   const { toast } = useToast();
   const config = useQuery({ queryKey: ["/api/config"], queryFn: api.config });
   const status = useQuery({ queryKey: ["/api/status"], queryFn: api.status });
+  const costs = useQuery({ queryKey: ["/api/costs"], queryFn: api.costs });
   const [form, setForm] = useState<BotConfig | null>(null);
   // Whether the user has edited the form since it was last synced.
   const [dirty, setDirty] = useState(false);
@@ -1046,6 +1047,68 @@ function SettingsPanel() {
             <Field label={`Volatility target (${(form.volTargetPct * 100).toFixed(2)}% per bar)`}>
               <Input type="range" min={0.0005} max={0.02} step={0.0005} value={form.volTargetPct} onChange={(e) => upd({ volTargetPct: Number(e.target.value) })} disabled={!form.adaptiveSizing} />
               <p className="text-xs text-[#5a656c] mt-1">Size shrinks when the market is choppier than this, and can size up (toward the max above) when it's calmer — keeping risk, not notional exposure, roughly constant.</p>
+            </Field>
+            {/* Execution costs. Shown, not hidden, because a wrong number here
+                silently invalidates every backtest in the app. */}
+            <div className="rounded-lg term-inset p-3">
+              <p className="text-sm font-medium text-white">Execution costs</p>
+              <p className="text-xs term-dim mb-2">
+                Set these to what your statements actually show. Defaults are Alpaca's
+                entry crypto tier (0.25% taker / 0.15% maker) and commission-free equities.
+                Leave blank to use them.
+              </p>
+              {costs.data && (
+                <div className="mb-3 space-y-1">
+                  {costs.data.byAsset.map((a) => (
+                    <div key={a.symbol} className="flex items-baseline justify-between text-xs term-mono">
+                      <span className="term-dim">{a.symbol} round trip</span>
+                      <span>
+                        <span className="term-value">{(a.takerRoundTrip * 100).toFixed(3)}%</span>
+                        <span className="term-dim"> taker / </span>
+                        <span className="term-up">{(a.makerRoundTrip * 100).toFixed(3)}%</span>
+                        <span className="term-dim"> maker — eats </span>
+                        <span className={a.takerShareOfTarget > 0.25 ? "term-down" : "term-dim"}>
+                          {(a.takerShareOfTarget * 100).toFixed(0)}%
+                        </span>
+                        <span className="term-dim"> of your target</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Crypto taker %">
+                  <Input type="number" step={0.01} min={0} max={1}
+                    value={form.cryptoTakerFee != null ? form.cryptoTakerFee * 100 : ""}
+                    placeholder="0.25"
+                    onChange={(e) => upd({ cryptoTakerFee: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
+                </Field>
+                <Field label="Crypto maker %">
+                  <Input type="number" step={0.01} min={0} max={1}
+                    value={form.cryptoMakerFee != null ? form.cryptoMakerFee * 100 : ""}
+                    placeholder="0.15"
+                    onChange={(e) => upd({ cryptoMakerFee: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
+                </Field>
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Maker-only entries</p>
+                <p className="text-xs term-dim">Skip an entry that would have to cross the spread rather than paying for it. Exits are never affected. Mainly matters live on equities: an order under one share can't be a limit at Alpaca, so on a small account those entries cross every time.</p>
+              </div>
+              <Switch checked={form.makerOnlyEntries} onCheckedChange={(v) => upd({ makerOnlyEntries: v })} />
+            </div>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Portfolio volatility budget</p>
+                <p className="text-xs term-dim">Caps the risk of the BOOK, not just each trade. Three correlated positions each sized to 0.4% vol make a ~1.2% book — this is what notices. Only ever shrinks a position.</p>
+              </div>
+              <Switch checked={form.portfolioVolTarget} onCheckedChange={(v) => upd({ portfolioVolTarget: v })} />
+            </div>
+            <Field label={`Portfolio vol budget ${(form.portfolioVolTargetPct * 100).toFixed(2)}% per bar`}>
+              <Input type="range" min={0.001} max={0.03} step={0.001} value={form.portfolioVolTargetPct}
+                onChange={(e) => upd({ portfolioVolTargetPct: Number(e.target.value) })}
+                disabled={!form.portfolioVolTarget} />
             </Field>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>

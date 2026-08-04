@@ -17,6 +17,7 @@ import { createMarketFeed } from "./trading/marketData";
 import {
   eventsBetween, checkBlackout, isCalendarStale, calendarValidThrough,
 } from "./trading/events";
+import { currentRates, roundTripCost, setCostOverrides } from "./trading/costs";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
 import {
@@ -136,6 +137,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       volTargetPct: config.volTargetPct,
       kellyFraction: config.kellyFraction,
       limitOrderOffsetPct: config.limitOrderOffsetPct,
+      symbol,
+      makerOnlyEntries: config.makerOnlyEntries,
     };
     const results = STRATEGY_LIST.map((s) =>
       backtestStrategy(
@@ -267,6 +270,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const c = engine.getConfidence();
     if (!c) return res.json({ available: false, message: "No reading yet — start the engine." });
     res.json({ available: true, enabled: storage.getConfig().confidenceGovernor, ...c });
+  });
+
+  // Execution costs in force, and what they mean for the configured targets.
+  app.get("/api/costs", (_req: Request, res: Response) => {
+    const config = storage.getConfig();
+    setCostOverrides(config);
+    const target = config.takeProfitPct;
+    res.json({
+      rates: currentRates(),
+      // The number that decides whether a configuration can work at all: a
+      // profit target only a small multiple of round-trip cost is arithmetic,
+      // not trading.
+      takeProfitPct: target,
+      byAsset: ["BTC/USD", "AAPL"].map((symbol) => ({
+        symbol,
+        takerRoundTrip: roundTripCost(symbol, false),
+        makerRoundTrip: roundTripCost(symbol, true),
+        takerShareOfTarget: target > 0 ? roundTripCost(symbol, false) / target : 0,
+        makerShareOfTarget: target > 0 ? roundTripCost(symbol, true) / target : 0,
+      })),
+    });
   });
 
   // Upcoming scheduled releases, and which held/watched symbols they gate.

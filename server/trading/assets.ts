@@ -66,13 +66,9 @@ export function roundQtyFor(
   return { qty: Math.floor(qty * 1e6) / 1e6, canUseLimit: false };
 }
 
-/**
- * Equities are commission-free on Alpaca, so the crypto fee schedule
- * (0.10% taker / 0.02% maker) overstates their cost badly. Spread and
- * slippage still apply and are the real cost of crossing on a stock.
- */
-export function feeRatesFor(symbol: string): { taker: number; maker: number } {
-  return assetClassOf(symbol) === "crypto"
-    ? { taker: 0.001, maker: 0.0002 }
-    : { taker: 0, maker: 0 };
-}
+// Fee rates used to live here, in a feeRatesFor() that NOTHING EVER CALLED —
+// it looked like the cost model while the real one was a set of flat constants
+// in execution.ts that charged crypto and equities the same. Moved to costs.ts
+// as a single source of truth, applied per asset class and overridable from
+// config. Left as a note because a plausible-looking dead cost model is a
+// genuinely dangerous thing to leave lying around.

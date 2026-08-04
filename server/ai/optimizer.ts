@@ -25,13 +25,17 @@ import { probabilityOfBacktestOverfitting } from "./cscv";
 
 /** Build a realistic-sizing config from the user's live risk settings, so the
  *  optimizer's accept/reject decisions reflect what live trading would do. */
-function sizingFromConfig(config: BotConfig): BacktestSizing {
+function sizingFromConfig(config: BotConfig, symbol = config.symbol): BacktestSizing {
   return {
     maxPositionPct: config.maxPositionPct,
     adaptive: config.adaptiveSizing,
     volTargetPct: config.volTargetPct,
     kellyFraction: config.kellyFraction,
     limitOrderOffsetPct: config.limitOrderOffsetPct,
+    // Cost model is per asset class, so the backtest must know what it is
+    // pricing — crypto fees on an equity backtest overstates its cost 5x.
+    symbol,
+    makerOnlyEntries: config.makerOnlyEntries,
   };
 }
 

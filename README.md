@@ -300,6 +300,106 @@ above exists to distrust. The tractable version of the same instinct is the
 event blackout below — knowing *when* things happen, which is verifiable —
 plus news sentiment held to the ablation bar.
 
+## Execution costs — the term that dominates at small size
+
+`server/trading/costs.ts` is now the ONE source of truth for what a trade
+costs. There used to be two, and they disagreed: flat constants in
+`execution.ts` charging crypto and equities the same rate, plus a per-asset
+`feeRatesFor()` in `assets.ts` that **nothing ever called**. The model was
+wrong in both directions at once.
+
+| | old model | corrected | error |
+|---|---|---|---|
+| crypto taker round trip | 0.300% | **0.600%** | +0.300pp |
+| crypto maker round trip | 0.040% | **0.300%** | +0.260pp |
+| equity taker round trip | 0.240% | **0.040%** | −0.200pp |
+
+Crypto was undercharged (0.10%/side modelled vs Alpaca's ~0.25% entry tier);
+equities were charged a commission Alpaca doesn't levy. Re-pricing the same
+strategies on the same bars:
+
+| strategy | old cost | corrected | delta |
+|---|---|---|---|
+| Breakout Momentum (swing) | 14.93% | 11.49% | **−3.44pp** |
+| Breakout Momentum (day) | 15.37% | 9.65% | **−5.72pp** |
+
+The error scales with turnover, so the day profile lost most — which is the
+point. **Calibrate these against your own fills**: every rate is overridable in
+Settings, and the dashboard shows what's in force plus what share of your
+profit target it eats. Getting this wrong in the optimistic direction
+manufactures an edge that isn't there.
+
+```bash
+npx tsx server/trading/costEval.ts        # the tables above
+npx tsx server/trading/turnoverEval.ts    # how wide a target needs to be
+```
+
+### The day profile was fighting its own costs
+
+At a 1.5% take-profit target and a 0.60% round trip, **40% of the gross target
+went to execution before being right about anything.** Sweeping the target on
+8 train + 8 unseen paths was monotonic — every widening step raised returns AND
+cut trade count:
+
+| stop / target | cost as % of target | validate | trades |
+|---|---|---|---|
+| 1.0% / 1.5% (old) | 40% | 3.76% | 147 |
+| 2.0% / 4.0% (**new**) | 15% | 4.41% | 96 |
+| 3.0% / 6.0% | 10% | 4.53% | 88 |
+
+The day profile is now 2.0%/4.0% with a 360-minute holding cap. Deliberately
+**not** the winning 3.0%/6.0%: the backtester doesn't model `maxHoldingMinutes`,
+so the sweep never had to hit its target inside a session and couldn't penalise
+a target that wouldn't arrive in time.
+
+### Maker-only entries
+
+`limitOrderOffsetPct > 0` (the default) already makes both brokers cancel an
+unfilled entry rather than crossing, so in backtests maker-only changes
+**nothing — measured at exactly 0.00pp.** Where it bites is live equities: an
+order for under one share cannot be a limit order at Alpaca, so `roundQtyFor`
+silently downgrades it to a market order. **On a small account every equity
+position is sub-share**, so those entries crossed the spread every time
+regardless of the offset. The `makerOnlyEntries` setting skips them instead.
+
+## Portfolio volatility budget
+
+`server/trading/portfolioVol.ts`. Per-symbol vol targeting gives each position
+the intended risk; nothing was looking at what they add up to. Three positions
+each sized to 0.4% vol at 0.9 correlation make a **1.16% book** — nearly triple
+the risk every individual sizing decision believed it was taking.
+
+This solves the quadratic for the largest candidate weight that keeps total
+portfolio vol inside its budget, exactly. Like the confidence governor it only
+ever scales **down**: vol targeting that scales up lets a quiet market talk the
+engine into leverage right before volatility returns.
+
+Held-vs-held correlations are unmeasured and assumed to be 1 — overstating risk
+rather than understating it, the only safe direction.
+
+## More symbols? Measured, and the answer is no (for now)
+
+The √N diversification argument holds only for **independent** bets.
+`npx tsx server/trading/diversificationEval.ts` measures what actually happens
+at realistic correlation:
+
+| N positions | effective N at ρ=0.85 |
+|---|---|
+| 1 | 1.00 |
+| 3 | 1.11 |
+| 8 | **1.15** |
+
+**Eight correlated crypto positions carry the risk-reduction of barely more
+than one.** Raising `maxConcurrentPositions` buys turnover and fees, not
+diversification — so it stays at 3.
+
+The sharper finding: across every correlation level, adding symbols made
+Sharpe **worse**, monotonically. Averaging N return streams cuts volatility by
+~√N while leaving the mean unchanged, so Sharpe scales by √N — *including when
+the mean is negative*. **Diversification amplifies whatever edge you have,
+sign included.** It is a multiplier to apply once an edge is demonstrated, not
+a way to create one.
+
 ## Event blackouts (news, without pretending to predict it)
 
 `server/trading/events.ts`. The bot will not open a position in the minutes
@@ -802,5 +902,6 @@ the server resets paper balances and history.
 | POST | `/api/improve/params/:id/reset` | Reset a strategy to defaults |
 | GET | `/api/confidence` | Confidence score, size multiplier, per-factor breakdown |
 | GET | `/api/events` | Upcoming scheduled releases, symbols on hold, calendar staleness |
+| GET | `/api/costs` | Execution rates in force and what share of your target they eat |
 | GET | `/api/ml/status` | ML model accuracy + feature importances |
 | POST | `/api/ml/train` | Retrain the ML signal model now |
