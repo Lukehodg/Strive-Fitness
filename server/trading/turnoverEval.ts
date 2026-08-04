@@ -39,21 +39,39 @@ const sizing: BacktestSizing = {
   makerOnlyEntries: false,
 };
 
-/** Best strategy's mean return at a given stop/target, plus turnover. */
+/**
+ * Best strategy's mean return at a given stop/target, plus turnover.
+ *
+ * ALWAYS NAMES THE WINNER. An earlier version reported only the number, and
+ * under a realistic price process every row came back "0.00%, 0 trades" —
+ * which reads exactly like a broken harness. It was not: the best of the four
+ * strategies is the ML model, which refuses to trade because it cannot beat
+ * its majority-class baseline, and 0.00% genuinely beats every negative
+ * alternative. A result that looks like a bug and is not is worse than one
+ * that looks like a bug and is, so the winner's name is now part of the
+ * output, and the best TRADING strategy is reported alongside it.
+ */
 function evaluate(paths: ReturnType<typeof generateSyntheticCandles>[], stop: number, target: number) {
   const perStrategy = STRATEGY_LIST.map((s) => {
     const runs = paths.map((p) => backtestStrategy(s, p, 10_000, stop, target, sizing));
-    return { ret: mean(runs.map((r) => r.returnPct)), trades: mean(runs.map((r) => r.stats.totalTrades)) };
+    return {
+      name: s.meta.name,
+      ret: mean(runs.map((r) => r.returnPct)),
+      trades: mean(runs.map((r) => r.stats.totalTrades)),
+    };
   });
-  // Report the best available strategy, since that is what a selector aims at.
   const best = perStrategy.reduce((a, b) => (b.ret > a.ret ? b : a));
-  return best;
+  const traded = perStrategy.filter((x) => x.trades > 0);
+  const bestTrading = traded.length
+    ? traded.reduce((a, b) => (b.ret > a.ret ? b : a))
+    : { name: "none", ret: 0, trades: 0 };
+  return { ...best, bestTrading };
 }
 
 const cost = roundTripCost("BTC/USD", false);
 console.log(`Taker round trip on crypto: ${(cost * 100).toFixed(3)}%\n`);
 console.log("Day-trading profile — how wide does the target need to be?\n");
-console.log("  stop/target    cost as % of target    train      validate   trades");
+console.log("  stop/target   cost/target    validate   trades   best strategy / best that trades");
 console.log("  " + "-".repeat(70));
 
 const grid: Array<[number, number]> = [
@@ -69,11 +87,11 @@ const rows = grid.map(([stop, target]) => {
   const tr = evaluate(train, stop, target);
   const va = evaluate(validate, stop, target);
   console.log(
-    `  ${(stop * 100).toFixed(1)}% / ${(target * 100).toFixed(1)}%` .padEnd(15) +
-    `${((cost / target) * 100).toFixed(0)}%`.padStart(14) +
-    `${(tr.ret * 100).toFixed(2).padStart(15)}%` +
+    `  ${(stop * 100).toFixed(1)}% / ${(target * 100).toFixed(1)}%`.padEnd(14) +
+    `${((cost / target) * 100).toFixed(0)}%`.padStart(9) +
     `${(va.ret * 100).toFixed(2).padStart(12)}%` +
-    `${va.trades.toFixed(0).padStart(9)}`,
+    `${va.trades.toFixed(0).padStart(8)}   ` +
+    `${va.name} / ${va.bestTrading.name} ${(va.bestTrading.ret * 100).toFixed(2)}%`,
   );
   return { stop, target, train: tr.ret, validate: va.ret, trades: va.trades };
 });
@@ -93,3 +111,10 @@ console.log(
   `\n  difference on unseen paths: ${((bestTrain.validate - current.validate) * 100).toFixed(2)}pp, ` +
   `and ${(current.trades - bestTrain.trades).toFixed(0)} fewer round trips to pay for.`,
 );
+if (rows.every((r) => r.trades === 0)) {
+  console.log(
+    `\n  EVERY ROW IS THE NON-TRADING MODEL. On this price process no target\n` +
+    `  width rescues the strategies — widening the target is not the lever,\n` +
+    `  because there is no edge for it to protect.`,
+  );
+}
