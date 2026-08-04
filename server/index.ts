@@ -120,11 +120,34 @@ app.use((req, res, next) => {
           ? "orders: Alpaca PAPER account — no real money at risk"
           : "orders: *** ALPACA LIVE — REAL MONEY *** set ALPACA_BASE_URL to https://paper-api.alpaca.markets to use paper",
       );
+    } else if (process.env.REQUIRE_REAL_DATA === "1") {
+      // Opt-in refusal to start on simulated prices.
+      //
+      // The synthetic fallback is what makes this app run with zero setup, and
+      // it is also what let the project reach forty-odd commits without a
+      // single number coming from a real market. Every performance figure in
+      // the README describes a random-walk generator, not a market. Setting
+      // REQUIRE_REAL_DATA=1 puts the friction where it belongs.
+      log("");
+      log("REFUSING TO START — REQUIRE_REAL_DATA=1 but no Alpaca keys found.");
+      log("  Create a .env next to package.json with ALPACA_KEY_ID and");
+      log("  ALPACA_SECRET_KEY, or unset REQUIRE_REAL_DATA to run on the");
+      log("  simulated feed. On Windows check Notepad did not save it as");
+      log("  .env.txt (run: dir /a .env*)");
+      process.exit(1);
     } else {
-      log("market data: SYNTHETIC (simulated prices — NOT a real market)");
+      log("");
+      log("  ####################################################");
+      log("  #  SYNTHETIC DATA — THESE ARE NOT REAL PRICES      #");
+      log("  #  Nothing observed here says anything about a     #");
+      log("  #  market. Results are a property of the price     #");
+      log("  #  generator in marketData.ts, not of trading.     #");
+      log("  ####################################################");
+      log("");
       log("  no Alpaca keys found. Create a .env next to package.json with");
       log("  ALPACA_KEY_ID / ALPACA_SECRET_KEY, then restart. On Windows check");
       log("  Notepad did not save it as .env.txt (run: dir /a .env*)");
+      log("  Set REQUIRE_REAL_DATA=1 to make this a hard failure instead.");
     }
   });
 })();

@@ -12,7 +12,9 @@
     "check:execution": "tsx server/trading/executionChecks.ts",
     "db:push": "drizzle-kit push",
     "screen": "python screener/screen.py",
-    "check:portfolio": "tsx server/trading/portfolioChecks.ts"
+    "check:portfolio": "tsx server/trading/portfolioChecks.ts",
+    "calibrate": "tsx server/calibrate.ts",
+    "sweep:margin": "tsx server/trading/marginEvalFast.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",

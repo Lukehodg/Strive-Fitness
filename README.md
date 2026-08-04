@@ -1,14 +1,26 @@
 # Auto-Trader — Personal AI Trading Platform
 
-A simple, single-user automated crypto trading platform. It runs proven
-trading strategies on a loop, uses an **AI selector** to pick the best strategy
-for current market conditions, and shows everything on one dashboard.
+A single-user **execution and risk harness** for automated trading, with a
+dashboard. It runs a strategy on a loop, prices fills honestly, keeps stops at
+the venue, and measures whether any of it works.
 
-> ⚠️ **Trading involves real financial risk.** This tool defaults to **paper
-> trading** (simulated money) on purpose. Automated strategies that look great
-> on historical data routinely lose money live. Prove a configuration out on
-> paper for weeks before you even consider real money. Nothing here is
-> financial advice.
+> ### What this is, and what it is not
+>
+> The risk and execution machinery is the real content here: no-lookahead
+> fills, a calibrated cost model, venue-side stop-losses that survive a crash,
+> a daily-loss kill-switch, and measurement harnesses that are allowed to
+> return "no".
+>
+> **Nothing in this repository has demonstrated a trading edge.** Every
+> performance figure below comes from a synthetic price generator, not a
+> market. The AI strategy selection — the thing the name implies is valuable —
+> was measured at **14 percentage points behind simply holding one strategy**
+> before it was fixed, and is now roughly level. Level, not ahead.
+>
+> ⚠️ **Trading involves real financial risk.** This defaults to **paper
+> trading** on purpose. Automated strategies that look great on historical
+> data routinely lose money live. Prove a configuration out on paper for weeks
+> before you consider real money. Nothing here is financial advice.
 
 ## Two engines
 
@@ -32,6 +44,85 @@ npm run dev
 Open <http://localhost:5000> and press **Start**. With no API keys the platform
 runs on **synthetic market data** and a **simulated broker**, so you can watch
 the whole system work end-to-end with zero setup and zero risk.
+
+## Running it on your own PC
+
+Clone the repo, then **double-click `run-windows.bat`**. It checks Node, installs
+dependencies on first run, warns about the `.env.txt` trap, and opens on
+<http://localhost:5000>. On macOS/Linux use `npm install && npm run dev`.
+
+For a long-running setup, build once and run the compiled server:
+
+```bash
+npm run build
+npm start          # serves the built client, no dev toolchain in the loop
+```
+
+### Will the GPU make it faster? No — and here is why
+
+Worth answering properly, because it is the natural thing to reach for and it
+is the wrong lever for this workload:
+
+- **The ML model is tiny.** A logistic regression over ~6,000 samples × 14
+  features is a few million floating-point operations. Copying that to a GPU
+  and back costs more than doing the arithmetic on the CPU.
+- **The hot path is inherently sequential.** A backtest loop cannot be
+  parallelised: bar *i+1*'s position depends on what happened at bar *i*. A
+  dependency chain is the one shape no amount of hardware helps with.
+- **What IS parallel is the number of independent runs.** A sweep is 240
+  separate backtests that never talk to each other. That is coarse-grained
+  parallelism, and it belongs on CPU cores.
+
+So the speed work went into worker threads, not shaders:
+
+```bash
+npm run sweep:margin      # 140 backtests across your cores
+```
+
+Measured on a 4-core machine: **10.0s serial → 4.5s on 3 workers**, producing
+byte-identical numbers. Modest here; it scales better on the larger sweeps. The
+identical-output property is the one that matters — a faster measurement that
+disagrees with the slow one is not a speedup, it is a second bug.
+
+GPU only becomes a real question if this grows a genuinely heavy model
+(gradient boosting over years of tick data, a neural net). That is the
+**Freqtrade/FreqAI** path in [`freqtrade/`](freqtrade/README.md), which is
+Python and already has the ecosystem for it — not this TypeScript engine.
+
+## Calibration — does each setting actually do anything?
+
+```bash
+npm run calibrate
+npm run calibrate -- volTargetPct=0.004      # test a value before adopting it
+```
+
+Prints every configured magnitude beside the value **measured in your data**,
+and flags any that cannot bind.
+
+This exists because two risk controls shipped switched-on, visible in the UI,
+and structurally incapable of ever acting: `portfolioVolTargetPct` was set ~9×
+above the highest volatility the book could reach, and `volTargetPct` sat so
+far above realised volatility that its multiplier was pinned at the 2.0 clamp
+for every symbol — it could only ever size *up*, the opposite of its purpose.
+
+Both numbers were **derived from other numbers rather than measured**. Both
+looked entirely reasonable. Neither was caught by typechecking, unit tests, or
+watching the app run, because *a control that never fires looks exactly like a
+calm market*.
+
+The probe catches both in one command:
+
+```
+[INERT] volTargetPct           configured 0.400%
+                               measured   realised 0.144% · multipliers 2.00
+                               pinned at the 2.0 clamp — can only size UP, never down
+[INERT] portfolioVolTargetPct  configured 0.800%
+                               measured   max reachable book vol 0.086%
+                               above anything the book can reach — will never bind
+```
+
+**Run this after changing any risk setting.** It is the cheapest habit in the
+repo.
 
 ## How it works
 
@@ -62,6 +153,9 @@ Each tick (every `intervalSeconds`), the engine:
 The "AI" is deliberately **transparent and deterministic** — adaptive,
 data-driven *selection* between audited strategies. No opaque model and no
 self-modifying code decides your trades.
+
+It is also **not where the value is**, and the section below shows the working.
+Pinning one strategy (`autoSelectStrategy: false`) is a defensible default.
 
 ### A known limitation of auto-selection
 
