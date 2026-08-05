@@ -246,6 +246,21 @@ export interface BotConfig {
    */
   requireProvenEdge: boolean;
   /**
+   * How the AI selector scores strategies.
+   *
+   * "consistency" (default) scores each strategy across sub-periods with
+   * shrinkage and a dispersion penalty (trading/selection.ts). "recent" is the
+   * original: total return over the whole lookback window
+   * (trading/aiSelector.ts).
+   *
+   * Consistency wins on the only two measurements that exist, both with a
+   * train/validate split on unseen paths: +4.12pp (t=2.68) and +9.28pp
+   * (t=3.44). That is the strongest evidence for any setting in this project —
+   * though note both selectors still lose to not trading at all, which is what
+   * requireProvenEdge is for.
+   */
+  selectionMode: "consistency" | "recent";
+  /**
    * Portfolio-level volatility budget. Per-symbol sizing gives each position
    * the intended risk; this caps what they add up to once correlation is
    * counted. Three correlated positions each sized to 0.4% vol make a ~1.2%
@@ -372,6 +387,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   // and that not trading beats all of them; defaulting this off would mean
   // shipping a system that knowingly ignores its own evidence.
   requireProvenEdge: true,
+  selectionMode: "consistency",
   portfolioVolTarget: true,
   // 0.06% per bar, measured rather than guessed. The first value here was
   // 0.8%, reasoned from the 0.4% per-POSITION default without checking what
@@ -650,6 +666,7 @@ export const updateConfigSchema = z
     confidenceGovernor: z.boolean().optional(),
     makerOnlyEntries: z.boolean().optional(),
     requireProvenEdge: z.boolean().optional(),
+    selectionMode: z.enum(["consistency", "recent"]).optional(),
     portfolioVolTarget: z.boolean().optional(),
     // Floor was 0.001, which is ABOVE the ~0.0009 a fully-invested correlated
     // book can even reach on 1-minute bars — the setting's entire legal range

@@ -15,7 +15,8 @@
     "check:portfolio": "tsx server/trading/portfolioChecks.ts",
     "calibrate": "tsx server/calibrate.ts",
     "sweep:margin": "tsx server/trading/marginEvalFast.ts",
-    "facts": "tsx server/trading/factsCheck.ts"
+    "facts": "tsx server/trading/factsCheck.ts",
+    "test": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",

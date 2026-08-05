@@ -29,6 +29,7 @@ import {
 import { createMarketFeed, type MarketFeed } from "./marketData";
 import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
 import { selectStrategy, detectRegime } from "./aiSelector";
+import { selectStrategyOOS, DEFAULT_OOS } from "./selection";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
 import { positionSymbol } from "./assets";
@@ -763,7 +764,22 @@ class TradingEngine {
       const now = Date.now();
       if (now - this.lastSelectionAt >= RESELECT_INTERVAL_MS) {
         this.lastSelectionAt = now;
-        const result = selectStrategy(candles, this.activeStrategy.meta.id);
+        // Consistency scoring by default — better on both measurements that
+        // exist (see schema.selectionMode). Falls back to the original
+        // recent-total scoring when asked for.
+        const result =
+          config.selectionMode === "recent"
+            ? selectStrategy(candles, this.activeStrategy.meta.id)
+            : selectStrategyOOS(candles, this.activeStrategy.meta.id, {
+                ...DEFAULT_OOS,
+                // The sweep's train winner, confirmed on unseen paths. Note it
+                // prefers a SMALLER margin than the recent-scoring selector —
+                // consistency scores are less noisy, so acting on them sooner
+                // costs less than sitting on a stale choice.
+                folds: 2,
+                dispersionWeight: 0.5,
+                margin: 4,
+              });
         if (result.chosen.meta.id !== this.activeStrategy.meta.id) {
           storage.log(
             "strategy_switch",
