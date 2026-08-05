@@ -13,6 +13,30 @@
 
 import { spawnSync } from "child_process";
 import { existsSync } from "fs";
+import { join } from "path";
+
+// Run the tools with THIS node, pointing at their JS entry points, rather than
+// shelling out to `npx`.
+//
+// The first version used spawnSync("npx", args) directly, which fails on
+// Windows because npx is a .cmd shim. Adding shell:true fixed that and
+// introduced two new problems: Node 22 deprecates passing an args ARRAY with
+// shell:true (DEP0190 — arguments are concatenated, not escaped), and every
+// gate paid npx's resolution overhead, roughly doubling the runtime.
+//
+// Invoking the entry points directly avoids all three. There is no shell, so
+// nothing to escape; no .cmd, so nothing platform-specific; and no npx, so no
+// per-gate resolution cost.
+const TSC = join("node_modules", "typescript", "bin", "tsc");
+const TSX = join("node_modules", "tsx", "dist", "cli.mjs");
+
+for (const [label, path] of [["typescript", TSC], ["tsx", TSX]]) {
+  if (!existsSync(path)) {
+    console.error(`  ${label} is missing at ${path} — run \`npm install\` first.`);
+    process.exit(1);
+  }
+}
+const node = process.execPath;
 
 // Dependencies must exist before anything else is worth trying. Without this,
 // a missing node_modules made all ten gates "fail" with no explanation.
@@ -21,32 +45,30 @@ if (!existsSync("node_modules")) {
   process.exit(1);
 }
 
+const check = (file) => [node, [TSX, join("server", "trading", file)]];
+
 const steps = [
-  ["typecheck", "npx", ["tsc", "--noEmit"]],
-  ["execution", "npx", ["tsx", "server/trading/executionChecks.ts"]],
-  ["portfolio", "npx", ["tsx", "server/trading/portfolioChecks.ts"]],
-  ["portfolio vol", "npx", ["tsx", "server/trading/portfolioVolChecks.ts"]],
-  ["confidence", "npx", ["tsx", "server/trading/confidenceChecks.ts"]],
-  ["events", "npx", ["tsx", "server/trading/eventChecks.ts"]],
-  ["selector", "npx", ["tsx", "server/trading/selectorChecks.ts"]],
-  ["expectancy", "npx", ["tsx", "server/trading/expectancyChecks.ts"]],
+  ["typecheck", node, [TSC, "--noEmit"]],
+  ["execution", ...check("executionChecks.ts")],
+  ["portfolio", ...check("portfolioChecks.ts")],
+  ["portfolio vol", ...check("portfolioVolChecks.ts")],
+  ["confidence", ...check("confidenceChecks.ts")],
+  ["events", ...check("eventChecks.ts")],
+  ["selector", ...check("selectorChecks.ts")],
+  ["expectancy", ...check("expectancyChecks.ts")],
   // The last two catch what unit tests structurally cannot: a price process
   // that is not market-like, and a setting that can never bind. Both have
   // already caught real, shipped bugs that everything above missed.
-  ["market facts", "npx", ["tsx", "server/trading/factsCheck.ts"]],
-  ["calibration", "npx", ["tsx", "server/calibrate.ts"]],
+  ["market facts", ...check("factsCheck.ts")],
+  ["calibration", node, [TSX, join("server", "calibrate.ts")]],
 ];
 
 const failed = [];
 for (const [name, cmd, args] of steps) {
   process.stdout.write(`  ${name.padEnd(16)}`);
   const started = Date.now();
-  // shell:true is REQUIRED on Windows. `npx` there is npx.cmd, which
-  // spawnSync cannot execute directly — every gate failed with ENOENT, and
-  // because r.error was never printed it looked like ten broken tests rather
-  // than one command that never launched. This script was written and tested
-  // on Linux only, where the direct form happens to work.
-  const r = spawnSync(cmd, args, { encoding: "utf8", shell: true });
+  // No shell: cmd is always the node binary and args are always real paths.
+  const r = spawnSync(cmd, args, { encoding: "utf8" });
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   if (r.status === 0) {
     console.log(`ok    ${secs}s`);
