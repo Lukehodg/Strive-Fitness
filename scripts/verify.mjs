@@ -12,6 +12,14 @@
 // seconds when you are about to fix them all anyway.
 
 import { spawnSync } from "child_process";
+import { existsSync } from "fs";
+
+// Dependencies must exist before anything else is worth trying. Without this,
+// a missing node_modules made all ten gates "fail" with no explanation.
+if (!existsSync("node_modules")) {
+  console.error("  node_modules is missing — run `npm install` first.");
+  process.exit(1);
+}
 
 const steps = [
   ["typecheck", "npx", ["tsc", "--noEmit"]],
@@ -33,13 +41,30 @@ const failed = [];
 for (const [name, cmd, args] of steps) {
   process.stdout.write(`  ${name.padEnd(16)}`);
   const started = Date.now();
-  const r = spawnSync(cmd, args, { encoding: "utf8" });
+  // shell:true is REQUIRED on Windows. `npx` there is npx.cmd, which
+  // spawnSync cannot execute directly — every gate failed with ENOENT, and
+  // because r.error was never printed it looked like ten broken tests rather
+  // than one command that never launched. This script was written and tested
+  // on Linux only, where the direct form happens to work.
+  const r = spawnSync(cmd, args, { encoding: "utf8", shell: true });
   const secs = ((Date.now() - started) / 1000).toFixed(1);
   if (r.status === 0) {
     console.log(`ok    ${secs}s`);
   } else {
     console.log(`FAIL  ${secs}s`);
-    failed.push([name, (r.stdout || "") + (r.stderr || "")]);
+    // Distinguish "the command never ran" from "the test failed". They look
+    // identical in a summary table and need completely different fixes.
+    //
+    // Two shapes, because shell:true changes how the failure surfaces:
+    //   - r.error set (spawn itself failed, e.g. EACCES)
+    //   - status 127 (the SHELL could not find the command)
+    // Neither means a check found a problem with the code.
+    const launchError =
+      r.error || r.status === 127
+        ? `could not run "${cmd}" — ${r.error?.message ?? "command not found"}\n` +
+          `This is a LAUNCH failure, not a test failure. Try \`npm install\`.\n`
+        : "";
+    failed.push([name, launchError + (r.stdout || "") + (r.stderr || "")]);
   }
 }
 
