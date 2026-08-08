@@ -18,6 +18,15 @@
 // This makes ONE real, read-only call — GET /v3/accounts/:id/summary — and
 // reports plainly whether it worked, at whatever host is configured.
 
+// Load .env before reading credentials. Run via `tsx` directly rather than
+// through index.ts (which loads this itself), .env is never read otherwise —
+// process.env only has what the shell provided, so a real .env sitting right
+// next to package.json is silently ignored and this reports "no credentials"
+// even when they are there. That exact failure shipped in this file's first
+// version and was only caught because a real run on a real machine, with real
+// credentials in .env, still said "not found".
+import "dotenv/config";
+
 import { readOandaCredentials } from "./brokers";
 
 const creds = readOandaCredentials();

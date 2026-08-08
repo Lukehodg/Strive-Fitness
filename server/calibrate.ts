@@ -24,6 +24,15 @@
 // the data, and flags the ones that cannot bind. A control that is never
 // reached is worse than an absent one: it invites a trust it cannot repay.
 
+// Load .env before anything reads process.env. Run directly via `tsx`, not
+// through index.ts (which loads this itself), a real .env sitting right next
+// to package.json was silently ignored: createMarketFeed() below always saw
+// "no OANDA credentials" and probed the synthetic generator instead of real
+// market data, with the header printing `feed: synthetic` and no indication
+// anything was missing. Exactly the kind of failure this file exists to catch
+// in the app's OWN settings — shipped in its own credential loading instead.
+import "dotenv/config";
+
 import { storage } from "./storage";
 import { createMarketFeed } from "./trading/marketData";
 import { computeVolatilityMultiplier } from "./trading/sizing";
