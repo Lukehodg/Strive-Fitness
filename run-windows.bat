@@ -68,9 +68,9 @@ if not exist ".env" (
   echo      anything about a real market.
   echo.
   echo      For real prices, create a file called .env next to this script:
-  echo         ALPACA_KEY_ID=your_key
-  echo         ALPACA_SECRET_KEY=your_secret
-  echo         ALPACA_BASE_URL=https://paper-api.alpaca.markets
+  echo         OANDA_API_TOKEN=your_token
+  echo         OANDA_ACCOUNT_ID=your_account_id
+  echo         OANDA_BASE_URL=https://api-fxpractice.oanda.com
   echo.
 ) else (
   echo  [ok] .env found.
