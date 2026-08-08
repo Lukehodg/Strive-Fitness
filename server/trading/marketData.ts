@@ -5,8 +5,9 @@
 // realistic-looking data to work with out of the box.
 
 import type { Candle } from "@shared/schema";
-import { readAlpacaCredentials } from "./brokers";
-import { assetClassOf, barsUrl } from "./assets";
+import { readAlpacaCredentials, readOandaCredentials } from "./brokers";
+import { assetClassOf, barsUrl, TYPICAL_BAR_VOL, venueSymbol } from "./assets";
+import { pairSpec } from "./forex";
 
 const MINUTE = 60_000;
 
@@ -62,8 +63,20 @@ function mulberry32(seed: number) {
 // decays slowly, and a larger volatility response to falls than to rises.
 // ---------------------------------------------------------------------------
 
-/** Long-run per-bar volatility (~0.15%), matching liquid crypto on 1m bars. */
-const BASE_VOL = 0.0015;
+/**
+ * Long-run per-bar volatility for the class being generated.
+ *
+ * Was a single 0.0015 constant, which is right for crypto and wrong by a
+ * factor of twelve for FX. Generating EUR/USD at crypto volatility would have
+ * made every FX backtest in this project a fiction — and a FLATTERING one,
+ * because the 4% take-profit would look reachable when in reality the pair
+ * moves a fifth of a percent in a session. The table lives in assets.ts so the
+ * generator and the risk scaling cannot disagree about it.
+ */
+const volFor = (symbol: string): number => TYPICAL_BAR_VOL[assetClassOf(symbol)];
+
+/** The crypto baseline, kept as the reference the GARCH constants are tuned to. */
+const BASE_VOL = TYPICAL_BAR_VOL.crypto;
 /**
  * Regime drift per bar. Deliberately SMALL relative to BASE_VOL.
  *
@@ -74,7 +87,7 @@ const BASE_VOL = 0.0015;
  * that counts as martingale-like. Weak trends relative to noise is not a
  * limitation of the model — it is the reason trend-following is hard.
  */
-const REGIME_DRIFT = BASE_VOL * 0.08;
+const REGIME_DRIFT_FRACTION = 0.08;
 
 // GJR-GARCH(1,1). alpha + gamma/2 + beta = 0.99: high persistence, which is
 // what makes volatility clusters last rather than reverting in a bar or two.
@@ -82,16 +95,54 @@ const GARCH_ALPHA = 0.06;
 /** Extra response to NEGATIVE shocks — the leverage effect. */
 const GARCH_GAMMA = 0.14;
 const GARCH_BETA = 0.86;
-const GARCH_OMEGA = BASE_VOL * BASE_VOL * (1 - GARCH_ALPHA - GARCH_GAMMA / 2 - GARCH_BETA);
-/** Hard ceiling on conditional volatility, in multiples of BASE_VOL. */
-const MAX_VOL_MULTIPLE = 8;
+/**
+ * Long-run variance anchor, scaled to the class being generated. Everything
+ * else in the recursion is a dimensionless weight, so this single term is what
+ * moves the whole process onto FX's volatility rather than crypto's.
+ */
+const omegaFor = (vol: number) =>
+  vol * vol * (1 - GARCH_ALPHA - GARCH_GAMMA / 2 - GARCH_BETA);
+/**
+ * Hard ceiling on conditional volatility, in multiples of the class's base
+ * volatility.
+ *
+ * LOWERED FROM 8 TO 3 ON EVIDENCE. At 8 the process was not reliably
+ * market-like: GJR-GARCH at 0.99 persistence feeding Student-t innovations
+ * occasionally lands a huge shock, which raises variance, which produces more
+ * huge shocks — and the sample kurtosis over a 10k-bar window ends up decided
+ * by a handful of bars. Swept over 150 seeds:
+ *
+ *     cap   median kurtosis   max     seeds outside 1-60   |ACF(1)| > 0.05
+ *      3         12.6         54.7           0                   0
+ *      4         17.5         74.1           1                   1
+ *      5         21.3        150.6           8                   4
+ *
+ * The cap bounds CONDITIONAL VOLATILITY, not the size of a move: a t(6) draw
+ * against a 3x volatility still produces single bars well beyond 2%, so the
+ * fat tails survive — median excess kurtosis 12.6 is squarely in the range
+ * real intraday data shows. Volatility clustering is essentially unaffected
+ * (ACF of |r| 0.23 at lag 1, 0.18 at lag 10, against thresholds of 0.10/0.03).
+ *
+ * The ACF column is the reason this mattered beyond aesthetics. Kurtosis that
+ * extreme inflates the standard error of every other estimate, so seeds were
+ * failing the return-autocorrelation check too — the single fact whose failure
+ * hands trend-following a free edge that does not exist.
+ */
+const MAX_VOL_MULTIPLE = 3;
 /**
  * Student-t degrees of freedom. Lower = fatter tails.
  *
  * 5 produced kurtosis that swung from 12 to 95 across seeds — real enough on
  * average but wildly unstable, and a generator whose tail weight depends on
- * the seed makes results depend on the seed too. 6 keeps kurtosis in the
- * 8-30 band on every seed tested.
+ * the seed makes results depend on the seed too.
+ *
+ * A previous version of this comment claimed 6 "keeps kurtosis in the 8-30
+ * band on every seed tested". That was true of the three seeds it had been
+ * tested on and false in general: widening factsCheck.ts to cover all three
+ * asset classes immediately turned up seeds at 118 and 156. The tail weight
+ * was being set by MAX_VOL_MULTIPLE, not by this constant — sweeping df from
+ * 6 to 9 barely moved the failure count while the cap moved it to zero. Left
+ * at 6, which is the right shape for the innovation itself.
  */
 const T_DF = 6;
 
@@ -137,6 +188,18 @@ function studentT(norm: () => number, _rand: () => number): number {
 }
 
 /**
+ * A plausible quoted level for a symbol, used when the caller does not supply
+ * one. FX reads its pair's reference rate (in the TRADED direction, so an
+ * inverted pair gets 1/157 rather than 157); everything else keeps the
+ * long-standing crypto-ish default.
+ */
+function defaultLevelFor(symbol: string): number {
+  const spec = pairSpec(symbol);
+  if (spec) return spec.inverted ? 1 / spec.referencePrice : spec.referencePrice;
+  return assetClassOf(symbol) === "stock" ? 200 : 60_000;
+}
+
+/**
  * Bars per anchor block (7 days). The walk is regenerated from the start of
  * the block containing `endTime`, so every call within a block sees the SAME
  * series and simply reads a different amount of it.
@@ -169,8 +232,18 @@ export function generateSyntheticCandles(
   symbol: string,
   count: number,
   endTime = Date.now(),
-  startPrice = 60_000,
+  /**
+   * Quoted level. Defaults to something plausible for the instrument — an FX
+   * pair generated around $60,000 would make every pip-denominated cost in the
+   * model meaningless, since FX cost is a spread divided by the price.
+   */
+  startPrice = defaultLevelFor(symbol),
 ): Candle[] {
+  const baseVol = volFor(symbol);
+  const regimeDrift = baseVol * REGIME_DRIFT_FRACTION;
+  const omega = omegaFor(baseVol);
+  const varianceCap = (baseVol * MAX_VOL_MULTIPLE) ** 2;
+  const priceFloor = startPrice * 1e-6;
   const endIndex = Math.floor(endTime / MINUTE);
   // Anchor one full block back so at least BLOCK_BARS of history always
   // precedes `endIndex`, however many bars the caller asks for.
@@ -186,7 +259,7 @@ export function generateSyntheticCandles(
 
   // GJR-GARCH state. Start at the long-run level so the series does not spend
   // its opening bars warming up into realistic behaviour.
-  let variance = BASE_VOL * BASE_VOL;
+  let variance = baseVol * baseVol;
   let lastShock = 0;
 
   for (let i = 0; i < total; i++) {
@@ -200,7 +273,7 @@ export function generateSyntheticCandles(
       // backtest window (easy to miss) but ~+1236% over a month of 1-minute
       // bars. Keep the flat-regime share at 30% and split the rest evenly.
       const r = rand();
-      drift = r < 0.35 ? REGIME_DRIFT : r < 0.7 ? -REGIME_DRIFT : 0;
+      drift = r < 0.35 ? regimeDrift : r < 0.7 ? -regimeDrift : 0;
       regimeLeft = 30 + Math.floor(rand() * 90);
     }
     regimeLeft--;
@@ -208,11 +281,11 @@ export function generateSyntheticCandles(
     // GJR-GARCH(1,1): today's variance from yesterday's shock and variance,
     // with a larger response to DOWN moves (the leverage effect).
     const leverage = lastShock < 0 ? GARCH_GAMMA : 0;
-    variance = GARCH_OMEGA + (GARCH_ALPHA + leverage) * lastShock * lastShock + GARCH_BETA * variance;
+    variance = omega + (GARCH_ALPHA + leverage) * lastShock * lastShock + GARCH_BETA * variance;
     // Bound it. An unbounded GARCH path can wander into a variance that makes
     // a single bar move the price by orders of magnitude, which is not a fat
     // tail, it is a broken series.
-    variance = Math.min(variance, (BASE_VOL * MAX_VOL_MULTIPLE) ** 2);
+    variance = Math.min(variance, varianceCap);
     const vol = Math.sqrt(variance);
 
     // Student-t innovation, standardized to unit variance: fat tails without
@@ -222,14 +295,18 @@ export function generateSyntheticCandles(
 
     const ret = drift + shock;
     const open = price;
-    const close = Math.max(1, open * (1 + ret));
+    // Floor proportional to the instrument's own level, not a hardcoded 1.
+    // A $1 floor is harmless on BTC and catastrophic on FX: EUR/USD trades at
+    // 1.08 and JPY/USD at 0.0064, so a constant floor would have clamped every
+    // bar of every FX series to a dead flat line.
+    const close = Math.max(priceFloor, open * (1 + ret));
     // Wicks scale with the bar's OWN volatility, so a violent bar looks
     // violent. A fixed wick width would let ATR-based sizing read a calm
     // range during a volatility burst.
     const high = Math.max(open, close) * (1 + Math.abs(norm()) * vol * 0.6);
     const low = Math.min(open, close) * (1 - Math.abs(norm()) * vol * 0.6);
     // Volume rises with volatility, as it does in life.
-    const volume = 5 + rand() * 20 * (1 + vol / BASE_VOL);
+    const volume = 5 + rand() * 20 * (1 + vol / baseVol);
     const time = (anchorIndex + i) * MINUTE;
     candles.push({ time, open, high, low, close, volume });
     price = close;
@@ -266,6 +343,10 @@ async function fetchAlpacaBars(
   symbol: string,
   count: number,
 ): Promise<Candle[] | null> {
+  // Alpaca does not offer FX at all. Asking it for EUR/USD returns an empty
+  // bar set, which the caller would silently paper over with synthetic data —
+  // so refuse explicitly and let the FX feed handle it.
+  if (assetClassOf(symbol) === "forex") return null;
   const creds = readAlpacaCredentials();
   if (!creds) return null;
   try {
@@ -306,11 +387,79 @@ async function fetchAlpacaBars(
 }
 
 // ---------------------------------------------------------------------------
+// OANDA market data (spot FX)
+//
+// Separate from the Alpaca path because it is a different vendor with a
+// different auth scheme, a different candle shape, and — the part that matters
+// — a different QUOTE DIRECTION. OANDA quotes USD_JPY; we trade JPY/USD. The
+// inversion happens here, at the single boundary where external data enters,
+// so that nothing downstream ever has to think about it again.
+// ---------------------------------------------------------------------------
+
+/**
+ * Invert a candle. High and low SWAP as well as reciprocating: the highest
+ * USD/JPY of a bar is the LOWEST JPY/USD of that same bar. Getting this
+ * backwards would produce bars whose low exceeds their high, which would then
+ * flow into ATR, the stop distance and every limit-order fill test — a
+ * silently corrupt range rather than an obvious crash.
+ */
+function invertCandle(c: Candle): Candle {
+  return {
+    time: c.time,
+    open: 1 / c.open,
+    high: 1 / c.low,
+    low: 1 / c.high,
+    close: 1 / c.close,
+    volume: c.volume,
+  };
+}
+
+async function fetchOandaBars(symbol: string, count: number): Promise<Candle[] | null> {
+  const spec = pairSpec(symbol);
+  if (!spec) return null;
+  const creds = readOandaCredentials();
+  if (!creds) return null;
+  try {
+    const params = new URLSearchParams({
+      granularity: "M1",
+      count: String(Math.min(count, 5000)),
+      // Mid prices, so the model marks positions at mid and pays the spread
+      // explicitly through the cost model. Taking bid or ask candles instead
+      // would bake half the spread into the price series AND charge it again
+      // in costs.ts — double-counting the single most important cost here.
+      price: "M",
+    });
+    const res = await fetch(
+      `${creds.baseUrl}/v3/instruments/${venueSymbol(symbol)}/candles?${params}`,
+      { headers: { Authorization: `Bearer ${creds.token}` } },
+    );
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    const raw: any[] = data?.candles ?? [];
+    const bars = raw
+      .filter((c) => c.complete && c.mid)
+      .map((c) => ({
+        time: new Date(c.time).getTime(),
+        open: Number(c.mid.o),
+        high: Number(c.mid.h),
+        low: Number(c.mid.l),
+        close: Number(c.mid.c),
+        volume: Number(c.volume) || 0,
+      }))
+      .filter((c) => c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0);
+    if (!bars.length) return null;
+    return spec.inverted ? bars.map(invertCandle) : bars;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public feed
 // ---------------------------------------------------------------------------
 
 export interface MarketFeed {
-  readonly source: "alpaca" | "synthetic";
+  readonly source: "alpaca" | "oanda" | "synthetic";
   /** Latest `count` candles for the symbol, oldest first. */
   getCandles(symbol: string, count: number): Promise<Candle[]>;
   /** Convenience: most recent close price. */
@@ -334,9 +483,12 @@ const CACHE_TTL_MS = 3_000;
 const candleCache = new Map<string, { expires: number; promise: Promise<Candle[]> }>();
 
 export function createMarketFeed(): MarketFeed {
-  const hasKeys = readAlpacaCredentials() !== null;
+  const hasAlpaca = readAlpacaCredentials() !== null;
+  const hasOanda = readOandaCredentials() !== null;
   return {
-    source: hasKeys ? "alpaca" : "synthetic",
+    // Reported per feed, not per symbol; a mixed universe routes each symbol
+    // to the vendor that actually carries it.
+    source: hasAlpaca ? "alpaca" : hasOanda ? "oanda" : "synthetic",
     async getCandles(symbol, count) {
       const key = `${symbol}:${count}`;
       const now = Date.now();
@@ -344,7 +496,10 @@ export function createMarketFeed(): MarketFeed {
       if (cached && cached.expires > now) return cached.promise;
 
       const promise = (async () => {
-        const real = await fetchAlpacaBars(symbol, count);
+        const real =
+          assetClassOf(symbol) === "forex"
+            ? await fetchOandaBars(symbol, count)
+            : await fetchAlpacaBars(symbol, count);
         if (real && real.length) return real;
         return generateSyntheticCandles(symbol, count);
       })();

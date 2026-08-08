@@ -30,6 +30,7 @@
 
 import type { AssetClass } from "./assets";
 import { assetClassOf } from "./assets";
+import { halfSpreadFraction } from "./forex";
 
 export interface CostRates {
   /** Fee paid when crossing the spread (market/immediate order). */
@@ -54,6 +55,12 @@ export interface CostRates {
 export const DEFAULT_RATES: Record<AssetClass, CostRates> = {
   crypto: { takerFee: 0.0025, makerFee: 0.0015, takerSlippage: 0.0005 },
   stock: { takerFee: 0, makerFee: 0, takerSlippage: 0.0002 },
+  // FX slippage is NOT a constant — it is half the quoted spread in pips,
+  // divided by the price, so it differs per pair and moves with the rate.
+  // These entries are the fallback for a pair with no spec; the real numbers
+  // come from forex.ts via halfSpreadFraction(). Retail FX charges no
+  // commission on a spread account, hence zero fees on both sides.
+  forex: { takerFee: 0, makerFee: 0, takerSlippage: 0.0001 },
 };
 
 /** Overrides, as configured by the user. Null means "use the default". */
@@ -62,6 +69,12 @@ export interface CostOverrides {
   cryptoMakerFee?: number | null;
   equityTakerFee?: number | null;
   equityMakerFee?: number | null;
+  /**
+   * FX commission per side, for ECN-style accounts that quote a raw spread
+   * plus a fee rather than marking the spread up. Zero on a standard retail
+   * spread account, which is the default.
+   */
+  forexCommission?: number | null;
 }
 
 let overrides: CostOverrides = {};
@@ -74,8 +87,15 @@ export function setCostOverrides(next: CostOverrides): void {
 const num = (v: number | null | undefined, fallback: number) =>
   typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : fallback;
 
-/** The rates in force for a symbol, after overrides. */
-export function ratesFor(symbol: string): CostRates {
+/**
+ * The rates in force for a symbol, after overrides.
+ *
+ * `price` matters only for FX, where cost is a spread in pips rather than a
+ * percentage. Omitting it falls back to the pair's reference price, which is
+ * accurate to within the rate's drift — fine for reporting, but pass the real
+ * price anywhere the number reaches a fill.
+ */
+export function ratesFor(symbol: string, price?: number): CostRates {
   const cls = assetClassOf(symbol);
   const base = DEFAULT_RATES[cls];
   if (cls === "crypto") {
@@ -83,6 +103,20 @@ export function ratesFor(symbol: string): CostRates {
       takerFee: num(overrides.cryptoTakerFee, base.takerFee),
       makerFee: num(overrides.cryptoMakerFee, base.makerFee),
       takerSlippage: base.takerSlippage,
+    };
+  }
+  if (cls === "forex") {
+    // Half the quoted spread per side, so a round trip pays exactly one full
+    // spread — the number the broker's spread table quotes.
+    const half = halfSpreadFraction(symbol, price);
+    const commission = num(overrides.forexCommission, base.takerFee);
+    return {
+      takerFee: commission,
+      // A resting limit order is filled AT ITS OWN PRICE, so it does not pay
+      // the spread. It still pays commission on an ECN account, which is why
+      // the maker fee tracks the commission rather than being hardcoded to 0.
+      makerFee: commission,
+      takerSlippage: half > 0 ? half : base.takerSlippage,
     };
   }
   return {
@@ -98,15 +132,15 @@ export function ratesFor(symbol: string): CostRates {
  * This is the number that decides whether a strategy can work at all: a target
  * smaller than a few multiples of this is arithmetic, not trading.
  */
-export function roundTripCost(symbol: string, maker: boolean): number {
-  const r = ratesFor(symbol);
+export function roundTripCost(symbol: string, maker: boolean, price?: number): number {
+  const r = ratesFor(symbol, price);
   return maker ? r.makerFee * 2 : (r.takerFee + r.takerSlippage) * 2;
 }
 
 /** Everything in force right now, for the API and the dashboard. */
 export function currentRates(): Array<{ assetClass: AssetClass; rates: CostRates; overridden: boolean }> {
   return (Object.keys(DEFAULT_RATES) as AssetClass[]).map((cls) => {
-    const sample = cls === "crypto" ? "BTC/USD" : "AAPL";
+    const sample = cls === "crypto" ? "BTC/USD" : cls === "forex" ? "EUR/USD" : "AAPL";
     const rates = ratesFor(sample);
     const base = DEFAULT_RATES[cls];
     return {

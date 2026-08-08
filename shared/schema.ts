@@ -299,8 +299,46 @@ export interface BotConfig {
   eventBlackoutBeforeMinutes: number;
   /** Minutes after it to keep standing down while the spread is wide. */
   eventBlackoutAfterMinutes: number;
+  /**
+   * Scale volatility-denominated settings — stop, take-profit, volatility
+   * target — to each instrument's own volatility.
+   *
+   * ON BY DEFAULT, and you almost certainly want it on for any universe that
+   * is not pure crypto. Every risk number in this config was calibrated
+   * against crypto, which moves about twelve times as much per bar as an FX
+   * major. Applied unscaled, a 4% take-profit on EUR/USD is an eighteen-sigma
+   * move over a six-hour hold: it never triggers, so every FX position exits
+   * on a stop or a timeout and the target does nothing at all.
+   *
+   * Turn it off only if you are setting numbers native to the instrument you
+   * are actually trading.
+   */
+  scaleRiskByAssetClass: boolean;
+  /**
+   * FX spread per pair, in pips. Empty means "use the built-in estimates",
+   * which lean deliberately wide. Set what your statements actually show.
+   */
+  forexSpreadPips: Record<string, number>;
+  /**
+   * Annualised overnight financing on an FX position, as a fraction. Positive
+   * is a cost. Defaults to a flat 1.5% assumption rather than a modelled
+   * interest differential — see forex.ts for why guessing the differential is
+   * the more dangerous choice.
+   */
+  forexCarryAnnual: number | null;
+  /** Per-pair carry overrides. Negative values are credits. */
+  forexCarryByPair: Record<string, number>;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
+  /**
+   * Which venue to use in live mode.
+   *
+   * "auto" prefers Alpaca when its keys are present and falls back to OANDA,
+   * which keeps every existing setup behaving exactly as it did. Pick one
+   * explicitly when both are configured — no venue carries both FX and crypto,
+   * so the choice decides which half of a mixed universe is tradeable.
+   */
+  liveBroker: "auto" | "alpaca" | "oanda";
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
   maxPositionPct: number;
   /** Hard stop: if equity drops this fraction below the day's start, halt. */
@@ -404,6 +442,11 @@ export const DEFAULT_CONFIG: BotConfig = {
   eventBlackout: true,
   eventBlackoutBeforeMinutes: 30,
   eventBlackoutAfterMinutes: 15,
+  liveBroker: "auto",
+  scaleRiskByAssetClass: true,
+  forexSpreadPips: {},
+  forexCarryAnnual: null,
+  forexCarryByPair: {},
   mode: "paper",
   maxPositionPct: 0.25,
   dailyLossLimitPct: 0.05,
@@ -681,6 +724,13 @@ export const updateConfigSchema = z
     eventBlackout: z.boolean().optional(),
     eventBlackoutBeforeMinutes: z.number().int().min(0).max(240).optional(),
     eventBlackoutAfterMinutes: z.number().int().min(0).max(240).optional(),
+    liveBroker: z.enum(["auto", "alpaca", "oanda"]).optional(),
+    scaleRiskByAssetClass: z.boolean().optional(),
+    // Spreads are bounded well below the point where FX stops being worth
+    // trading: 50 pips on a major is not a quote, it is a typo.
+    forexSpreadPips: z.record(z.string(), z.number().min(0).max(50)).optional(),
+    forexCarryAnnual: z.number().min(-0.2).max(0.2).nullable().optional(),
+    forexCarryByPair: z.record(z.string(), z.number().min(-0.2).max(0.2)).optional(),
     mode: z.enum(TradingModes),
     maxPositionPct: z.number().min(0.01).max(1),
     dailyLossLimitPct: z.number().min(0.005).max(0.5),

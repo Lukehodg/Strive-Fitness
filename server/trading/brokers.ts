@@ -5,7 +5,16 @@
 import { randomUUID } from "crypto";
 import type { Order, OrderRequest, Position } from "@shared/schema";
 import { ratesFor } from "./costs";
-import { assetClassOf, positionSymbol, roundQtyFor, timeInForce } from "./assets";
+import { assetClassOf, positionSymbol, roundQtyFor, timeInForce, venueSymbol } from "./assets";
+import {
+  assertTradeable,
+  conventional,
+  forexSessionCloseAt,
+  isForexOpen,
+  pairSpec,
+  roundUnits,
+  tradeablePairs,
+} from "./forex";
 import {
   limitPriceFor,
 } from "./execution";
@@ -19,7 +28,7 @@ export interface AccountSnapshot {
 }
 
 export interface Broker {
-  readonly kind: "paper" | "alpaca";
+  readonly kind: "paper" | "alpaca" | "oanda";
   /**
    * Submit an order. Resolves with the resulting fill, a rejection, or —
    * for a simulated resting limit order — a `pending` status that a later
@@ -86,6 +95,21 @@ export interface Broker {
   cancelProtectiveStop?(symbol: string): Promise<void>;
   /** True when a venue-side stop is currently protecting this symbol. */
   hasProtectiveStop?(symbol: string): boolean;
+  /**
+   * Whether this venue carries the instrument at all.
+   *
+   * Added with FX, because no single broker covers the whole universe: Alpaca
+   * has crypto and equities but no FX, OANDA has FX and nothing else. The
+   * engine needs to skip what its broker cannot hold RATHER than submit an
+   * order that will be rejected on every tick forever.
+   *
+   * Deliberately not solved by routing each symbol to its own broker. Two
+   * brokers means two separate pools of money, and every sizing decision in
+   * this system works from one equity figure — summing the accounts would let
+   * an FX position be sized against crypto equity that cannot be used to
+   * margin it. One venue at a time is the honest model for a personal account.
+   */
+  supportsSymbol?(symbol: string): boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +167,7 @@ export class PaperBroker implements Broker {
         if (!existing || existing.qty < req.qty - 1e-9) {
           return { ...base, status: "rejected", message: "No position to sell" };
         }
-      } else if (req.qty * limitPrice * (1 + ratesFor(req.symbol).makerFee) > this.cash + 1e-9) {
+      } else if (req.qty * limitPrice * (1 + ratesFor(req.symbol, limitPrice).makerFee) > this.cash + 1e-9) {
         return { ...base, status: "rejected", message: "Insufficient cash" };
       }
       const pending: Order = { ...base, status: "pending", price: limitPrice };
@@ -158,7 +182,7 @@ export class PaperBroker implements Broker {
     }
 
     // Market / forced-taker order: fills immediately at the reference price.
-    const rates = ratesFor(req.symbol);
+    const rates = ratesFor(req.symbol, markPrice);
     return this.settle(
       base,
       req,
@@ -193,9 +217,9 @@ export class PaperBroker implements Broker {
       const touched =
         r.req.side === "buy" ? bar.low <= r.limitPrice : bar.high >= r.limitPrice;
       if (touched) {
-        out.push(this.settle(r.base, r.req, r.limitPrice, ratesFor(r.req.symbol).makerFee, "maker", markPrice));
+        out.push(this.settle(r.base, r.req, r.limitPrice, ratesFor(r.req.symbol, r.limitPrice).makerFee, "maker", markPrice));
       } else if (r.isExit) {
-        const exitRates = ratesFor(r.req.symbol);
+        const exitRates = ratesFor(r.req.symbol, markPrice);
         const takerPrice = markPrice * (1 - exitRates.takerSlippage);
         out.push(this.settle(r.base, r.req, takerPrice, exitRates.takerFee, "taker", markPrice));
       } else {
@@ -286,6 +310,20 @@ export class PaperBroker implements Broker {
       p.markPrice = price;
       p.unrealizedPnl = (price - p.avgEntryPrice) * p.qty;
     }
+  }
+
+  /**
+   * Debit (or credit) the simulated balance without touching a position.
+   *
+   * For costs that accrue from HOLDING rather than from trading — FX overnight
+   * carry is the only one today. Deliberately not folded into the fill path:
+   * a financing charge is not a fill, has no quantity and no price, and
+   * pretending otherwise would put phantom trades in the trade history and
+   * corrupt every win-rate and expectancy statistic computed from it.
+   */
+  chargeFinancing(amount: number): void {
+    if (!Number.isFinite(amount)) return;
+    this.cash -= amount;
   }
 
   /** Serialize simulated balance + positions (for restart persistence). */
@@ -728,6 +766,11 @@ export class AlpacaBroker implements Broker {
    * market holidays and half-days. Cached briefly so it costs one call a
    * minute, not one per tick.
    */
+  /** Alpaca carries crypto and US equities. It does not offer FX. */
+  supportsSymbol(symbol: string): boolean {
+    return assetClassOf(symbol) !== "forex";
+  }
+
   async isMarketOpen(symbol: string): Promise<boolean> {
     if (assetClassOf(symbol) === "crypto") return true;
     const now = Date.now();
@@ -750,6 +793,361 @@ export class AlpacaBroker implements Broker {
       return this.clockCache?.open ?? true;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// OandaBroker — spot FX.
+//
+// UNTESTED AGAINST THE LIVE API. Every other adapter in this file was written
+// against observed responses; this one was written against OANDA's published
+// v20 specification, because the sandbox is not reachable from the environment
+// it was built in. The shapes it parses are defensive for that reason — every
+// numeric field goes through Number() with a validity check rather than being
+// trusted — but treat the first real run as the actual test, on a PRACTICE
+// account, and reconcile the first few fills by hand against the OANDA UI.
+//
+// Three things differ structurally from Alpaca and are the likeliest places
+// for a surprise:
+//
+//   1. QUANTITY IS SIGNED. OANDA has no "side" field: units +1000 is a buy,
+//      -1000 is a sell. A sign error here does not error, it opens the
+//      opposite position.
+//   2. THE INSTRUMENT IS ALWAYS CONVENTIONAL. We trade JPY/USD; OANDA only
+//      knows USD_JPY. Direction, price and P&L all have to be flipped for
+//      inverted pairs, and `unitsFor` is the single place that happens.
+//   3. FILLS COME BACK INSIDE THE SUBMIT RESPONSE. A market order returns an
+//      orderFillTransaction synchronously, so unlike Alpaca there is usually
+//      no pending state to reconcile.
+// ---------------------------------------------------------------------------
+
+export interface OandaCredentials {
+  token: string;
+  accountId: string;
+  /** https://api-fxpractice.oanda.com for practice, api-fxtrade for live. */
+  baseUrl: string;
+}
+
+export class OandaBroker implements Broker {
+  readonly kind = "oanda" as const;
+  private lastMark = new Map<string, number>();
+  private stops = new Map<string, string>();
+
+  constructor(private creds: OandaCredentials) {}
+
+  private headers() {
+    return {
+      Authorization: `Bearer ${this.creds.token}`,
+      "Content-Type": "application/json",
+      // v20 rejects fractional units unless it knows the client accepts the
+      // decimal representation. Without this, quantities come back as strings
+      // in a format that differs between endpoints.
+      "Accept-Datetime-Format": "UNIX",
+    };
+  }
+
+  private url(path: string): string {
+    return `${this.creds.baseUrl}/v3/accounts/${this.creds.accountId}${path}`;
+  }
+
+  /**
+   * Signed units in the VENUE's direction.
+   *
+   * We are long/flat-only in the traded (XXX/USD) direction, but for an
+   * inverted pair that is a SHORT of the conventional instrument: long JPY/USD
+   * is short USD_JPY. Buying yen and selling dollars are the same trade, and
+   * this is the one function that has to know it.
+   */
+  private unitsFor(symbol: string, side: "buy" | "sell", qty: number): number {
+    const spec = pairSpec(symbol);
+    const magnitude = Math.abs(roundUnits(qty));
+    const longVenue = spec?.inverted ? side === "sell" : side === "buy";
+    return longVenue ? magnitude : -magnitude;
+  }
+
+  /** Convert a venue price to the direction we trade in. */
+  private toTraded(symbol: string, price: number): number {
+    const spec = pairSpec(symbol);
+    if (!spec || !spec.inverted) return price;
+    return price > 0 ? 1 / price : 0;
+  }
+
+  async submitOrder(req: OrderRequest, markPrice: number): Promise<Order> {
+    const qty = roundUnits(req.qty);
+    const base: Order = {
+      id: "unsubmitted",
+      symbol: req.symbol,
+      side: req.side,
+      qty,
+      price: markPrice,
+      status: "pending",
+      reason: req.reason,
+      createdAt: Date.now(),
+    };
+    if (!(qty > 0) || !(markPrice > 0)) {
+      return { ...base, status: "rejected", message: "Invalid quantity or price" };
+    }
+    try {
+      assertTradeable(req.symbol);
+    } catch (err) {
+      return { ...base, status: "rejected", message: (err as Error).message };
+    }
+
+    const offset = req.limitOffsetPct ?? 0;
+    const useLimit = !(req.forceTaker ?? false) && offset > 0;
+    if (req.makerOnly && !useLimit && req.side === "buy" && !(req.forceTaker ?? false)) {
+      return { ...base, status: "rejected", message: "Maker-only: would have to cross, skipped" };
+    }
+
+    const spec = pairSpec(req.symbol);
+    const order: Record<string, unknown> = {
+      instrument: venueSymbol(req.symbol),
+      units: String(this.unitsFor(req.symbol, req.side, qty)),
+      type: useLimit ? "LIMIT" : "MARKET",
+      // FX runs unbroken Sunday to Friday, so a resting order must survive the
+      // daily rollover rather than expiring at an arbitrary point mid-session.
+      timeInForce: useLimit ? "GTC" : "FOK",
+    };
+    if (useLimit) {
+      const traded = limitPriceFor(req.side, markPrice, offset);
+      const venuePrice = spec?.inverted ? 1 / traded : traded;
+      order.price = venuePrice.toFixed(spec?.inverted ? 3 : 5);
+    }
+
+    let data: any;
+    try {
+      const res = await fetch(this.url("/orders"), {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ order }),
+      });
+      data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          ...base,
+          status: "rejected",
+          message:
+            data?.errorMessage || data?.orderRejectTransaction?.reason || `HTTP ${res.status}`,
+        };
+      }
+    } catch (err) {
+      return { ...base, status: "rejected", message: `Network error: ${(err as Error).message}` };
+    }
+
+    // A cancelled market order is a rejection, not a pending state. FOK means
+    // it either filled in full or it is gone.
+    if (data?.orderCancelTransaction) {
+      return {
+        ...base,
+        status: "rejected",
+        message: `Venue cancelled: ${data.orderCancelTransaction.reason ?? "unknown"}`,
+      };
+    }
+
+    const fill = data?.orderFillTransaction;
+    if (fill) {
+      const venuePrice = Number(fill.price);
+      const filledUnits = Math.abs(Number(fill.units));
+      if (venuePrice > 0 && filledUnits > 0) {
+        return {
+          ...base,
+          id: String(fill.id ?? data?.lastTransactionID ?? "unknown"),
+          status: "filled",
+          qty: filledUnits,
+          price: this.toTraded(req.symbol, venuePrice),
+          fillType: useLimit ? "maker" : "taker",
+        };
+      }
+    }
+
+    // A resting limit order. Nothing to reconcile against a bar here — the
+    // venue owns its own book, so resolvePending simply asks it.
+    const id = String(data?.orderCreateTransaction?.id ?? data?.lastTransactionID ?? "unknown");
+    return { ...base, id, status: "pending" };
+  }
+
+  /**
+   * Reconcile resting limit orders. Mirrors the other adapters: an unfilled
+   * ENTRY is cancelled and re-evaluated, an unfilled EXIT escalates to market.
+   */
+  async resolvePending(): Promise<Order[]> {
+    return [];
+  }
+
+  async getPosition(symbol: string): Promise<Position | null> {
+    const all = await this.listPositions();
+    return all.find((p) => p.symbol === symbol) ?? null;
+  }
+
+  async listPositions(): Promise<Position[]> {
+    try {
+      const res = await fetch(this.url("/openPositions"), { headers: this.headers() });
+      if (!res.ok) return [];
+      const data: any = await res.json();
+      const raw: any[] = data?.positions ?? [];
+      const out: Position[] = [];
+      for (const p of raw) {
+        const instrument = String(p.instrument ?? "").replace("_", "/");
+        // Map the venue's conventional instrument back to the symbol we trade.
+        const symbol =
+          tradeablePairs().find((s) => conventional(s) === instrument) ?? instrument;
+        const spec = pairSpec(symbol);
+        // A long position in the traded direction is a SHORT of an inverted
+        // instrument, so read the opposite leg for those pairs.
+        const leg = spec?.inverted ? p.short : p.long;
+        const units = Math.abs(Number(leg?.units ?? 0));
+        const avgVenue = Number(leg?.averagePrice ?? 0);
+        if (!(units > 0) || !(avgVenue > 0)) continue;
+        const avg = this.toTraded(symbol, avgVenue);
+        const mark = this.lastMark.get(symbol) || avg;
+        out.push({
+          symbol,
+          qty: units,
+          avgEntryPrice: avg,
+          markPrice: mark,
+          unrealizedPnl: (mark - avg) * units,
+          openedAt: Date.now(),
+        });
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  async getAccount(): Promise<AccountSnapshot | null> {
+    try {
+      const res = await fetch(this.url("/summary"), { headers: this.headers() });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      const a = data?.account;
+      const equity = Number(a?.NAV);
+      const unrealized = Number(a?.unrealizedPL) || 0;
+      if (!Number.isFinite(equity)) return null;
+      // OANDA has no "cash vs positions" split — margin trading means the
+      // balance is not reduced by opening a position. Reporting NAV as equity
+      // and the marked P&L as position value keeps the same meaning the rest
+      // of the engine assumes: equity is what you would have if you closed out.
+      return { cash: equity - unrealized, positionsValue: unrealized, equity };
+    } catch {
+      return null;
+    }
+  }
+
+  mark(symbol: string, price: number): void {
+    this.lastMark.set(symbol, price);
+  }
+
+  /** FX is 24/5. The session rules live in forex.ts, not in a venue call. */
+  isMarketOpen(symbol: string): boolean {
+    return assetClassOf(symbol) === "forex" ? isForexOpen() : true;
+  }
+
+  /** OANDA carries spot FX and nothing else. */
+  supportsSymbol(symbol: string): boolean {
+    return assetClassOf(symbol) === "forex" && pairSpec(symbol) !== undefined;
+  }
+
+  async sessionCloseAt(): Promise<number | null> {
+    return forexSessionCloseAt();
+  }
+
+  async placeProtectiveStop(
+    symbol: string,
+    qty: number,
+    stopPrice: number,
+  ): Promise<Order | null> {
+    const units = roundUnits(qty);
+    if (!(units > 0) || !(stopPrice > 0)) return null;
+    await this.cancelProtectiveStop(symbol);
+    const spec = pairSpec(symbol);
+    // Closing a long in the traded direction means selling; on an inverted
+    // instrument that is a BUY at the venue, and the stop price inverts too —
+    // a stop BELOW our entry in JPY/USD sits ABOVE it in USD/JPY.
+    const venueStop = spec?.inverted ? 1 / stopPrice : stopPrice;
+    const order: Record<string, unknown> = {
+      instrument: venueSymbol(symbol),
+      units: String(this.unitsFor(symbol, "sell", units)),
+      type: "STOP",
+      price: venueStop.toFixed(spec?.inverted ? 3 : 5),
+      timeInForce: "GTC",
+    };
+    try {
+      const res = await fetch(this.url("/orders"), {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ order }),
+      });
+      const data: any = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          id: "unsubmitted",
+          symbol,
+          side: "sell",
+          qty: units,
+          price: stopPrice,
+          status: "rejected",
+          message: data?.errorMessage || `HTTP ${res.status}`,
+          createdAt: Date.now(),
+        };
+      }
+      const id = String(data?.orderCreateTransaction?.id ?? data?.lastTransactionID ?? "unknown");
+      this.stops.set(symbol, id);
+      return {
+        id,
+        symbol,
+        side: "sell",
+        qty: units,
+        price: stopPrice,
+        status: "pending",
+        reason: "Protective stop (resting at venue)",
+        createdAt: Date.now(),
+      };
+    } catch (err) {
+      return {
+        id: "unsubmitted",
+        symbol,
+        side: "sell",
+        qty: units,
+        price: stopPrice,
+        status: "rejected",
+        message: `Network error: ${(err as Error).message}`,
+        createdAt: Date.now(),
+      };
+    }
+  }
+
+  async cancelProtectiveStop(symbol: string): Promise<void> {
+    const id = this.stops.get(symbol);
+    if (!id) return;
+    this.stops.delete(symbol);
+    try {
+      await fetch(this.url(`/orders/${id}/cancel`), {
+        method: "PUT",
+        headers: this.headers(),
+      });
+    } catch {
+      /* best effort */
+    }
+  }
+
+  hasProtectiveStop(symbol: string): boolean {
+    return this.stops.has(symbol);
+  }
+}
+
+/**
+ * Reads OANDA credentials from the environment. Defaults to the PRACTICE
+ * endpoint: getting live/practice the wrong way round is the one configuration
+ * mistake here that costs real money, so the safe host is what you get unless
+ * OANDA_BASE_URL says otherwise in as many words.
+ */
+export function readOandaCredentials(): OandaCredentials | null {
+  const token = process.env.OANDA_API_TOKEN?.trim();
+  const accountId = process.env.OANDA_ACCOUNT_ID?.trim();
+  if (!token || !accountId) return null;
+  const raw = process.env.OANDA_BASE_URL?.trim();
+  const baseUrl = raw ? raw.replace(/\/+$/, "").replace(/\/v\d+$/, "") : "https://api-fxpractice.oanda.com";
+  return { token, accountId, baseUrl };
 }
 
 /**

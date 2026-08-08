@@ -23,7 +23,9 @@ import { sendAlert } from "../alerts";
 import {
   PaperBroker,
   AlpacaBroker,
+  OandaBroker,
   readAlpacaCredentials,
+  readOandaCredentials,
   type Broker,
 } from "./brokers";
 import { createMarketFeed, type MarketFeed } from "./marketData";
@@ -32,7 +34,11 @@ import { selectStrategy, detectRegime } from "./aiSelector";
 import { selectStrategyOOS, DEFAULT_OOS } from "./selection";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
 import { computeKellyMultiplier, computeVolatilityMultiplier } from "./sizing";
-import { positionSymbol } from "./assets";
+import { assetClassOf, positionSymbol, volScaleFor } from "./assets";
+import {
+  carryAtRollover, conventional, forexSessionCloseAt, inRolloverWindow,
+  isForexOpen, nextRollover, setCarryRates, setSpreadOverrides,
+} from "./forex";
 import { correlation, returnsOf, vetPortfolioEntry, type OpenExposure } from "./portfolio";
 import {
   volatilityOf, volTargetMultiplier, correlationLookup, type RiskLeg,
@@ -141,6 +147,11 @@ class TradingEngine {
   private lastConfidenceBand = -1;
   /** Latest proof-of-expectancy reading, surfaced via /api/expectancy. */
   private lastExpectancy: ReturnType<typeof assessExpectancy> | null = null;
+  /**
+   * Instant through which FX overnight carry has been charged. Persisted, so a
+   * restart does not silently skip — or double-charge — a rollover.
+   */
+  private lastCarryAt = 0;
 
   constructor() {
     this.applyConfigBroker(storage.getConfig());
@@ -156,6 +167,10 @@ class TradingEngine {
         // restart: peak resets to current equity, so "8% below peak" reads as
         // "0.0% below peak" and full size is restored at the worst moment.
         peakEquity: this.peakEquity,
+        // Same reasoning as peakEquity: an unpersisted marker resets to "now"
+        // on boot, so a position held across a restart skips the rollovers it
+        // slept through and its carry is silently forgiven.
+        lastCarryAt: this.lastCarryAt,
         dayStartEquity: this.dayStartEquity,
         dayStamp: this.dayStamp,
         halted: this.halted,
@@ -167,6 +182,7 @@ class TradingEngine {
           openEntries?: Array<[string, { price: number; time: number; strategyId: string }]>;
           openEntry?: { price: number; time: number; strategyId: string } | null;
           peakEquity?: number;
+          lastCarryAt?: number;
           dayStartEquity: number;
           dayStamp: string;
           halted: boolean;
@@ -183,6 +199,7 @@ class TradingEngine {
           this.openEntries = new Map([[storage.getConfig().symbol, d.openEntry]]);
         }
         if (typeof d.peakEquity === "number") this.peakEquity = d.peakEquity;
+        if (typeof d.lastCarryAt === "number") this.lastCarryAt = d.lastCarryAt;
         if (typeof d.dayStartEquity === "number") this.dayStartEquity = d.dayStartEquity;
         if (typeof d.dayStamp === "string") this.dayStamp = d.dayStamp;
         if (typeof d.halted === "boolean") this.halted = d.halted;
@@ -193,10 +210,23 @@ class TradingEngine {
 
   // -- Broker wiring ------------------------------------------------------
 
-  /** Choose the broker implementation based on mode + available credentials. */
+  /**
+   * Choose the broker implementation based on mode + available credentials.
+   *
+   * ONE live venue at a time. Alpaca covers crypto and equities, OANDA covers
+   * FX, and neither covers the other — but running both would mean two
+   * separate account balances feeding one set of sizing rules, which is how
+   * you end up sizing an FX position against crypto equity that cannot margin
+   * it. Symbols the chosen venue does not carry are skipped, loudly.
+   */
   private applyConfigBroker(config: BotConfig): void {
     const creds = readAlpacaCredentials();
-    if (config.mode === "live" && creds) {
+    const oanda = readOandaCredentials();
+    const wantOanda =
+      config.liveBroker === "oanda" || (config.liveBroker === "auto" && !creds && !!oanda);
+    if (config.mode === "live" && wantOanda && oanda) {
+      if (!(this.broker instanceof OandaBroker)) this.broker = new OandaBroker(oanda);
+    } else if (config.mode === "live" && creds && config.liveBroker !== "oanda") {
       this.broker = new AlpacaBroker(creds);
     } else {
       // Keep the existing paper broker if we already have one running, so
@@ -208,7 +238,7 @@ class TradingEngine {
   }
 
   liveKeysConfigured(): boolean {
-    return readAlpacaCredentials() !== null;
+    return readAlpacaCredentials() !== null || readOandaCredentials() !== null;
   }
 
   // -- Lifecycle ----------------------------------------------------------
@@ -304,13 +334,136 @@ class TradingEngine {
    * held indefinitely; applying only the time cap would let a late equity
    * entry straddle the bell.
    */
+  /**
+   * Whether this symbol can be traded right now.
+   *
+   * FX sessions are decided HERE rather than left to the broker, because the
+   * default broker is the paper one and it has no opinion about sessions at
+   * all — so an FX universe in paper mode would have traded straight through
+   * every weekend against synthetic prices, and looked perfectly healthy doing
+   * it. The venue still gets the final say for everything else.
+   */
+  private async symbolIsOpen(symbol: string): Promise<boolean> {
+    // A venue that does not carry the instrument is not "closed", it is the
+    // wrong venue — say so once rather than retrying an order that can only
+    // ever be rejected.
+    if (this.broker.supportsSymbol && !this.broker.supportsSymbol(symbol)) {
+      this.noteBlock(
+        symbol,
+        `${this.broker.kind} does not carry this instrument — ` +
+          `${assetClassOf(symbol) === "forex" ? "FX needs OANDA credentials" : "use Alpaca for crypto and equities"}`,
+      );
+      return false;
+    }
+    if (assetClassOf(symbol) === "forex") return isForexOpen();
+    return (await this.broker.isMarketOpen?.(symbol)) ?? true;
+  }
+
+  /**
+   * When this symbol's session ends, or null if it does not have one.
+   *
+   * For FX this is the FRIDAY close, not tonight's rollover. That is the only
+   * moment the market genuinely stops and a position is exposed to a two-day
+   * gap it cannot be stopped out of, which is exactly what the day profile's
+   * flatten rule exists to avoid.
+   */
+  private async symbolCloseAt(symbol: string): Promise<number | null> {
+    if (assetClassOf(symbol) === "forex") return forexSessionCloseAt();
+    return (await this.broker.sessionCloseAt?.(symbol)) ?? null;
+  }
+
+  /**
+   * Risk settings scaled to the instrument's own volatility.
+   *
+   * The config's stop, target and volatility target were all calibrated on
+   * crypto. FX moves at about an eighth of that, so applied unscaled a 4%
+   * take-profit is an eighteen-sigma move that never triggers — every FX
+   * position would then exit on a stop or a timeout and the take-profit would
+   * be decorative. Scaling preserves the RATIO the measured sweep established
+   * while putting the distances where the instrument actually travels.
+   */
+  private riskFor(config: BotConfig, symbol: string) {
+    const scale = config.scaleRiskByAssetClass ? volScaleFor(symbol) : 1;
+    return {
+      scale,
+      stopLossPct: config.stopLossPct * scale,
+      takeProfitPct: config.takeProfitPct * scale,
+      volTargetPct: config.volTargetPct * scale,
+    };
+  }
+
+  /**
+   * Charge overnight financing on FX positions held through 17:00 ET.
+   *
+   * SIMULATED BROKER ONLY. A real venue debits the swap itself, so applying it
+   * here as well would charge it twice — and the second charge would be
+   * invisible, showing up only as a slow unexplained drift in equity.
+   *
+   * Small per night (~0.004% of notional) and easy to dismiss, which is
+   * exactly why it is modelled: it is a systematic cost that always points the
+   * same way, so leaving it out makes every held position look slightly better
+   * than it was, and the error grows with holding time. Over a month that is
+   * ~0.12% of notional — more than ten times an FX round trip.
+   */
+  private async accrueForexCarry(): Promise<void> {
+    const paper = this.broker instanceof PaperBroker ? this.broker : null;
+    if (!paper) {
+      // Reset the marker so switching back to paper does not immediately
+      // charge for every rollover that passed while trading live.
+      this.lastCarryAt = Date.now();
+      return;
+    }
+    const now = Date.now();
+    if (!this.lastCarryAt) {
+      this.lastCarryAt = now;
+      return;
+    }
+    // Find the rollover instants strictly between the last accrual and now.
+    // Stepping forward from the marker rather than testing "is it 17:00 right
+    // now" means a tick that lands either side of the rollover, or an app that
+    // was asleep across several nights, still charges every one of them.
+    const rollovers: number[] = [];
+    let cursor = this.lastCarryAt;
+    for (let guard = 0; guard < 32; guard++) {
+      const next = nextRollover(cursor);
+      if (next === null) {
+        // Market shut: skip ahead an hour and look again for the reopen.
+        cursor += 3600_000;
+        if (cursor >= now) break;
+        continue;
+      }
+      if (next > now) break;
+      rollovers.push(next);
+      cursor = next + 60_000;
+    }
+    this.lastCarryAt = now;
+    if (!rollovers.length) return;
+
+    for (const position of await this.getPositions()) {
+      if (assetClassOf(position.symbol) !== "forex") continue;
+      const mark = position.markPrice > 0 ? position.markPrice : position.avgEntryPrice;
+      const notional = position.qty * mark;
+      if (!(notional > 0)) continue;
+      let charged = 0;
+      for (const at of rollovers) charged += notional * carryAtRollover(position.symbol, at);
+      if (!(Math.abs(charged) > 0)) continue;
+      paper.chargeFinancing(charged);
+      storage.log(
+        "info",
+        `Overnight carry on ${conventional(position.symbol)}: ` +
+          `${charged >= 0 ? "-" : "+"}$${Math.abs(charged).toFixed(4)} ` +
+          `over ${rollovers.length} rollover${rollovers.length > 1 ? "s" : ""}`,
+      );
+    }
+  }
+
   private async dayTradingExitReason(
     config: BotConfig,
     symbol: string,
   ): Promise<string | null> {
     if (!config.dayTradingMode) return null;
 
-    const closeAt = await this.broker.sessionCloseAt?.(symbol);
+    const closeAt = await this.symbolCloseAt(symbol);
     if (closeAt) {
       const minutesLeft = (closeAt - Date.now()) / 60_000;
       if (minutesLeft <= config.flatBeforeCloseMinutes) {
@@ -331,7 +484,7 @@ class TradingEngine {
   /** True when it is too close to the bell to justify opening anything. */
   private async tooLateToEnter(config: BotConfig, symbol: string): Promise<boolean> {
     if (!config.dayTradingMode) return false;
-    const closeAt = await this.broker.sessionCloseAt?.(symbol);
+    const closeAt = await this.symbolCloseAt(symbol);
     if (!closeAt) return false;
     return (closeAt - Date.now()) / 60_000 <= config.noEntriesBeforeCloseMinutes;
   }
@@ -361,7 +514,7 @@ class TradingEngine {
       // so each worker isolates its own errors.
       await mapWithConcurrency(universe, FETCH_CONCURRENCY, async (symbol) => {
         try {
-          const open = (await this.broker.isMarketOpen?.(symbol)) ?? true;
+          const open = await this.symbolIsOpen(symbol);
           if (!open) {
             closedSymbols.push(symbol);
             return;
@@ -452,6 +605,9 @@ class TradingEngine {
       // before anything prices a fill. Cheap, and skipping it would leave the
       // paper broker charging defaults while backtests used the overrides.
       setCostOverrides(config);
+      setSpreadOverrides(config.forexSpreadPips);
+      setCarryRates(config.forexCarryByPair, config.forexCarryAnnual);
+      await this.accrueForexCarry();
 
       // Score conditions before deciding anything. This reads only realised
       // results — it cannot be talked into optimism by a strong-looking signal.
@@ -611,6 +767,15 @@ class TradingEngine {
         // Opening near the bell just books a round trip's costs for a position
         // the flatten rule will close minutes later.
         if (await this.tooLateToEnter(config, symbol)) continue;
+        // FX daily rollover: spreads widen to several times normal for a few
+        // minutes around 17:00 ET as liquidity providers step away. Same logic
+        // as the event blackout — not a prediction, just declining to cross a
+        // spread that is temporarily five times its usual width. Entries only;
+        // anything already open keeps its stop and is left alone.
+        if (assetClassOf(symbol) === "forex" && inRolloverWindow()) {
+          this.noteBlock(symbol, "FX rollover window — spreads are widest, no entries");
+          continue;
+        }
         // Scheduled release imminent. Entries only — anything already open is
         // left alone, because closing into the same thin pre-release book is
         // not obviously safer than holding with the stop already at the venue.
@@ -811,12 +976,13 @@ class TradingEngine {
     symbol: string,
   ): Promise<boolean> {
     const change = (price - position.avgEntryPrice) / position.avgEntryPrice;
+    const risk = this.riskFor(config, symbol);
     let reason: string | null = null;
     let isStopLoss = false;
-    if (change <= -config.stopLossPct) {
+    if (change <= -risk.stopLossPct) {
       reason = `Stop-loss: ${(change * 100).toFixed(2)}%`;
       isStopLoss = true;
-    } else if (change >= config.takeProfitPct) {
+    } else if (change >= risk.takeProfitPct) {
       reason = `Take-profit: +${(change * 100).toFixed(2)}%`;
     }
     if (!reason) return false;
@@ -851,8 +1017,13 @@ class TradingEngine {
     // Volatility targeting + fractional Kelly, when the user has opted in.
     // Both are bounded so they can only move sizing within maxPositionPct —
     // never past it (enforced inside sizePosition, not here).
+    // The volatility TARGET has to be scaled too, not just the stop and the
+    // take-profit. Left at its crypto value against FX's realised volatility
+    // the ratio is ~12, which pins the multiplier at its 2.0 ceiling on every
+    // single trade — the setting stops adapting and silently becomes a
+    // constant. That exact failure has already shipped twice in this project.
     const volMultiplier = config.adaptiveSizing
-      ? computeVolatilityMultiplier(candles, config.volTargetPct)
+      ? computeVolatilityMultiplier(candles, this.riskFor(config, symbol).volTargetPct)
       : 1;
     const kellyMultiplier = config.adaptiveSizing
       ? computeKellyMultiplier(storage.allTrades(), this.activeStrategy.meta.id, config.kellyFraction)
@@ -1021,7 +1192,7 @@ class TradingEngine {
    */
   private async protectPosition(config: BotConfig, entry: Order): Promise<void> {
     if (!this.broker.placeProtectiveStop) return;
-    const stopPrice = entry.price * (1 - config.stopLossPct);
+    const stopPrice = entry.price * (1 - this.riskFor(config, entry.symbol).stopLossPct);
     try {
       const stop = await this.broker.placeProtectiveStop(entry.symbol, entry.qty, stopPrice);
       if (!stop) return;
@@ -1266,7 +1437,7 @@ class TradingEngine {
     return out;
   }
 
-  get feedSource(): "alpaca" | "synthetic" {
+  get feedSource(): "alpaca" | "oanda" | "synthetic" {
     return this.feed.source;
   }
 }

@@ -1,4 +1,5 @@
 import type { BotConfig, StrategyParams } from "@shared/schema";
+import { tradeablePairs } from "./forex";
 
 // Ready-made trading universes.
 //
@@ -35,6 +36,18 @@ const ETFS: string[] = [
   "XLE", "XLK", "XLV", "GLD", "TLT",
 ];
 
+/**
+ * The seven USD majors, quoted XXX/USD — so USD/JPY appears as JPY/USD. See
+ * forex.ts for why every pair is turned to face USD.
+ *
+ * The cheapest instruments available here by a wide margin: a EUR/USD round
+ * trip costs about 0.009% against crypto's 0.600%, which is the difference
+ * between execution eating 15% of a target and 3% of it. Runs 24/5 —
+ * continuously from Sunday 17:00 ET to Friday 17:00 ET — and is exempt from
+ * the Pattern Day Trader rule, so like crypto it is viable on a small account.
+ */
+const FOREX: string[] = tradeablePairs();
+
 export const UNIVERSE_PRESETS: UniversePreset[] = [
   {
     id: "crypto",
@@ -59,13 +72,24 @@ export const UNIVERSE_PRESETS: UniversePreset[] = [
     symbols: ETFS,
   },
   {
+    id: "forex",
+    name: "FX majors",
+    description:
+      "The 7 USD majors, quoted against USD (so USD/JPY shows as JPY/USD). " +
+      "By far the cheapest to trade — roughly 0.009% a round trip against " +
+      "crypto's 0.600% — and open 24/5, Sunday evening to Friday evening. " +
+      "Requires OANDA credentials for live trading; Alpaca does not offer FX.",
+    symbols: FOREX,
+  },
+  {
     id: "everything",
     name: "Everything",
     description:
-      "All 40 symbols across crypto, equities and ETFs. Widest selection; the " +
-      "portfolio limits still cap what is actually held. Crypto keeps trading " +
-      "overnight while the equities stand down.",
-    symbols: [...CRYPTO, ...MEGA_CAP, ...ETFS],
+      "All 47 symbols across FX, crypto, equities and ETFs. Widest selection; " +
+      "the portfolio limits still cap what is actually held. FX and crypto keep " +
+      "trading overnight while the equities stand down, and FX stands down over " +
+      "the weekend while crypto carries on.",
+    symbols: [...CRYPTO, ...MEGA_CAP, ...ETFS, ...FOREX],
   },
 ];
 

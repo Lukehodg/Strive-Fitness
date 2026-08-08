@@ -56,6 +56,7 @@ const steps = [
   ["events", ...check("eventChecks.ts")],
   ["selector", ...check("selectorChecks.ts")],
   ["expectancy", ...check("expectancyChecks.ts")],
+  ["forex", ...check("forexChecks.ts")],
   // The last two catch what unit tests structurally cannot: a price process
   // that is not market-like, and a setting that can never bind. Both have
   // already caught real, shipped bugs that everything above missed.

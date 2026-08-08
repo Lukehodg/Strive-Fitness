@@ -99,7 +99,9 @@ export function attemptFill(
    */
   makerOnly = false,
 ): FillResult {
-  const rates = ratesFor(symbol);
+  // Price matters for FX, where the cost is a spread in pips: the same 1-pip
+  // spread is a different fraction of a 1.08 rate than of a 0.66 one.
+  const rates = ratesFor(symbol, referencePrice);
 
   if (!forceTaker && offsetPct > 0 && restingBar) {
     const limitPrice = limitPriceFor(side, referencePrice, offsetPct);
