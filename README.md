@@ -196,6 +196,7 @@ Python and already has the ecosystem for it — not this TypeScript engine.
 ```bash
 npm run calibrate
 npm run calibrate -- volTargetPct=0.004      # test a value before adopting it
+npm run calibrate -- preset=forex            # test a whole universe
 ```
 
 Prints every configured magnitude beside the value **measured in your data**,
@@ -224,14 +225,26 @@ The probe catches both in one command:
 ```
 
 **Run this after changing any risk setting.** It is the cheapest habit in the
-repo.
+repo, and `npm test` now runs it across **every preset** — the settings are all
+volatility-denominated and the presets differ in volatility by more than an
+order of magnitude, so one run on whichever universe happens to be configured
+proves nothing about the others. That is exactly how the FX preset first
+arrived with two controls that could never bind while the gate reported green.
+
+It also caught a setting that had been "fixed" once already:
+`portfolioVolTargetPct` was 0.060% against a measured ceiling of 0.059%. Not
+wrong by an order of magnitude any more — just sitting *precisely* on the
+boundary, so whether it read OK or INERT depended on how many bars the estimate
+used. It is now ~60% of the ceiling, with room to actually bind.
 
 ## How it works
 
 Each tick (every `intervalSeconds`), the engine:
 
-1. **Pulls market data** — real Alpaca crypto bars if keys are set, otherwise a
-   synthetic price series.
+1. **Pulls market data** — real bars where keys are set (Alpaca for crypto and
+   equities, OANDA for FX), otherwise a synthetic price series. Symbols whose
+   market is shut, or which the configured broker does not carry, are skipped
+   with a reason rather than ordered into.
 2. **Selects a strategy** (when auto-select is on) — it classifies the market
    *regime* (trending / ranging / volatile), backtests every strategy on the
    recent window, and picks the best risk-adjusted fit. Every switch is logged
@@ -535,6 +548,62 @@ manufactures an edge that isn't there.
 npx tsx server/trading/costEval.ts        # the tables above
 npx tsx server/trading/turnoverEval.ts    # how wide a target needs to be
 ```
+
+### Spot FX — the cheapest thing here by a factor of 65
+
+Cost is the binding constraint at small size, so the largest available
+improvement is not a better signal, it is a cheaper market. Measured through
+the same cost model, per round trip:
+
+| instrument | round trip | vs crypto | share of its own target |
+|---|---|---|---|
+| crypto (Alpaca tier 1) | 0.600% | 1× | 15.0% of a 4% target |
+| US equity (Alpaca) | 0.040% | 15× cheaper | 1.0% |
+| **USD/JPY** | **0.0064%** | **94× cheaper** | **0.9% of a 0.32% target** |
+| **EUR/USD** | **0.0093%** | **65× cheaper** | **1.9%** |
+
+The concrete version, from `forexChecks.ts`: a $50 position and a 0.5%
+favourable move nets **+$0.2438 on EUR/USD** and **−$0.05 on crypto** — the
+crypto round trip is larger than the entire gross move.
+
+Note this corrects a figure I gave earlier in the project. I had put EUR/USD at
+0.018% by applying a "both sides" doubling on top of a number that was already
+a full spread. A round trip pays *one* spread: half on entry, half on exit.
+
+**Every pair is traded turned to face USD.** USD/JPY is held internally as
+JPY/USD. This is the one design decision the rest depends on, because the whole
+codebase assumes `notional = qty × price` and `P&L = (exit − entry) × qty`.
+Both hold exactly for a USD-quoted pair; **neither** holds for a USD-base one,
+where the price move accrues in yen. Inverting once at the feed boundary keeps
+every downstream calculation exact instead of threading a currency conversion
+through the backtester, the brokers, sizing and P&L — four edits to the most
+safety-critical arithmetic here, each a place to be quietly wrong about money.
+Long JPY/USD *is* short USD/JPY; the dashboard shows the conventional name.
+
+What FX also brings, none of it free:
+
+- **Sessions.** 24/5, Sunday 17:00 ET to Friday 17:00 ET — not 24/7 and not an
+  equity session. Entries are also blocked through the 17:00 rollover, when
+  spreads widen several-fold. Same logic as the event blackout: no prediction,
+  just declining to cross a spread at its worst.
+- **Overnight carry**, modelled as a flat cost rather than a guessed interest
+  differential. Guessing would half the time invent a *credit*, which is the
+  direction that fabricates edge. Triple on Wednesdays (spot settles T+2).
+- **Risk scaling.** An FX major moves ~1/12 of crypto per bar, so an unscaled 4%
+  take-profit is an eighteen-sigma move that never fires. `scaleRiskByAssetClass`
+  scales the stop, target, volatility target and maker offset per instrument,
+  keeping the ratios the measured sweeps established.
+- **No leverage.** FX brokers offer 30:1 and up; none of it is exposed here.
+  The cheap spread is the point; the leverage is what turns a small account into
+  a margin call, and the sizing controls only mean what they say unlevered.
+- **Majors only, USD legs only.** Crosses like GBP/JPY are recognised (so they
+  are never misfiled as crypto) but refused with an explanatory error, because
+  they have no USD leg to settle into.
+
+Live FX needs OANDA credentials — Alpaca does not offer currencies. **The OANDA
+adapter has not been run against the live API**: it was written from the v20
+spec, since the sandbox is unreachable from where it was built. Treat the first
+practice-account run as the real test and reconcile the first few fills by hand.
 
 ### The day profile was fighting its own costs
 

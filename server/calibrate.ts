@@ -31,6 +31,9 @@ import { returnsOf, correlation } from "./trading/portfolio";
 import { volatilityOf, portfolioVolatility, type RiskLeg } from "./trading/portfolioVol";
 import { setCostOverrides, roundTripCost } from "./trading/costs";
 import { SWITCH_MARGIN, REGIME_FIT_BONUS } from "./trading/aiSelector";
+import { assetClassOf, volScaleFor } from "./trading/assets";
+import { carryAtRollover, setCarryRates, setSpreadOverrides } from "./trading/forex";
+import { getPreset, UNIVERSE_PRESETS } from "./trading/universes";
 import type { Candle } from "@shared/schema";
 
 const feed = createMarketFeed();
@@ -43,13 +46,32 @@ const feed = createMarketFeed();
  * That is the whole workflow this tool is for. Both of the inert-control bugs
  * would have taken one run of exactly that command to catch.
  */
-const overrides: Record<string, number> = {};
+const overrides: Record<string, number | string | boolean | string[]> = {};
 for (const arg of process.argv.slice(2)) {
   const [k, v] = arg.split("=");
-  if (k && v !== undefined && Number.isFinite(Number(v))) overrides[k] = Number(v);
+  if (!k || v === undefined) continue;
+  if (Number.isFinite(Number(v))) {
+    overrides[k] = Number(v);
+  } else if (v === "true" || v === "false") {
+    overrides[k] = v === "true";
+  } else if (k === "preset") {
+    // A whole universe, so you can ask "would my settings work on FX?"
+    // without editing anything:  npm run calibrate -- preset=forex
+    const p = getPreset(v);
+    if (!p) {
+      console.error(`Unknown preset "${v}". Try: ${UNIVERSE_PRESETS.map((u) => u.id).join(", ")}`);
+      process.exit(1);
+    }
+    overrides.symbol = p.symbols[0];
+    overrides.extraSymbols = p.symbols.slice(1);
+  } else {
+    overrides[k] = v;
+  }
 }
 const config = { ...storage.getConfig(), ...overrides } as ReturnType<typeof storage.getConfig>;
 setCostOverrides(config);
+setSpreadOverrides(config.forexSpreadPips);
+setCarryRates(config.forexCarryByPair, config.forexCarryAnnual);
 if (Object.keys(overrides).length) {
   console.log(`Overrides applied: ${Object.entries(overrides).map(([k, v]) => `${k}=${v}`).join(" ")}\n`);
 }
@@ -64,7 +86,11 @@ const universe = [config.symbol, ...(config.extraSymbols ?? [])].slice(0, 8);
 const bars: Record<string, Candle[]> = {};
 for (const s of universe) {
   try {
-    bars[s] = await feed.getCandles(s, 200);
+    // 500 bars, not 200. Volatility is the denominator of nearly every
+    // verdict here, and at 200 bars its standard error is ~5%, which was
+    // enough to move a marginal setting across the INERT boundary between
+    // runs. A probe whose answer depends on the sample is not a probe.
+    bars[s] = await feed.getCandles(s, 500);
   } catch {
     /* skip unreachable symbols */
   }
@@ -79,14 +105,26 @@ const vols = available.map((s) => volatilityOf(returnsOf(bars[s])));
 const medianVol = [...vols].sort((a, b) => a - b)[Math.floor(vols.length / 2)];
 const pct = (x: number, dp = 3) => `${(x * 100).toFixed(dp)}%`;
 
-console.log(`Calibration probe — feed: ${feed.source}, ${available.length} symbol(s), 200 bars each\n`);
+console.log(`Calibration probe — feed: ${feed.source}, ${available.length} symbol(s), 500 bars each\n`);
 if (feed.source === "synthetic") {
   console.log("  NOTE: synthetic feed. These readings describe the generator, not a market.\n");
 }
 
+/**
+ * The risk scale the ENGINE would apply to this symbol.
+ *
+ * Calibrate has to model what the engine actually does or it is probing a
+ * different system. Once the engine started scaling volatility-denominated
+ * settings per asset class, a probe that ignored the scaling would report
+ * every FX symbol as INERT — a false alarm on a correctly configured book —
+ * while telling you nothing about whether the SCALED value binds, which is the
+ * only question that matters.
+ */
+const scaleOf = (s: string) => (config.scaleRiskByAssetClass ? volScaleFor(s) : 1);
+
 // --- 1. Per-symbol volatility target ----------------------------------------
 {
-  const mults = available.map((s) => computeVolatilityMultiplier(bars[s], config.volTargetPct));
+  const mults = available.map((s) => computeVolatilityMultiplier(bars[s], config.volTargetPct * scaleOf(s)));
   const allPinnedHigh = mults.every((m) => m >= 1.999);
   const allPinnedLow = mults.every((m) => m <= 0.251);
   add(
@@ -108,7 +146,9 @@ if (feed.source === "synthetic") {
   // correlation, which is the worst case the budget is meant to catch.
   const worstLegs: RiskLeg[] = [{ symbol: "X", weight: config.maxTotalExposurePct, vol: medianVol }];
   const ceiling = portfolioVolatility(worstLegs, () => 1);
-  const budget = config.portfolioVolTargetPct;
+  // Scaled by the book's mean asset-class scale, exactly as the engine does.
+  const meanScale = available.reduce((a, s) => a + scaleOf(s), 0) / available.length;
+  const budget = config.portfolioVolTargetPct * meanScale;
   add(
     "portfolioVolTargetPct",
     pct(budget),
@@ -125,13 +165,23 @@ if (feed.source === "synthetic") {
 }
 
 // --- 3. Costs against the profit target --------------------------------------
-for (const sym of [config.symbol]) {
-  const taker = roundTripCost(sym, false);
-  const share = config.takeProfitPct > 0 ? taker / config.takeProfitPct : 1;
+//
+// ONE ROW PER ASSET CLASS IN THE UNIVERSE, not one row for the primary symbol.
+// Cost and volatility both differ by more than an order of magnitude across
+// classes, so a single verdict computed from config.symbol says nothing about
+// the rest of the book. A mixed universe reporting "OK" off its one crypto
+// symbol would hide an FX target that cannot pay for itself, and vice versa.
+const classesPresent = Array.from(new Set(available.map(assetClassOf)));
+for (const cls of classesPresent) {
+  const sample = available.find((s) => assetClassOf(s) === cls)!;
+  const price = bars[sample][bars[sample].length - 1].close;
+  const taker = roundTripCost(sample, false, price);
+  const target = config.takeProfitPct * scaleOf(sample);
+  const share = target > 0 ? taker / target : 1;
   add(
-    "takeProfitPct vs cost",
-    pct(config.takeProfitPct, 2),
-    `round trip ${pct(taker, 3)} = ${(share * 100).toFixed(0)}% of target`,
+    `takeProfitPct vs cost · ${cls}`,
+    pct(target, 3),
+    `round trip ${pct(taker, 4)} = ${(share * 100).toFixed(1)}% of target`,
     share > 0.33 ? "WARN" : "OK",
     share > 0.33
       ? "costs eat a third or more of the gross target — widen it or trade less"
@@ -140,17 +190,50 @@ for (const sym of [config.symbol]) {
 }
 
 // --- 4. Stop-loss against the noise ------------------------------------------
-{
-  // A stop inside one bar's typical range is hit by noise, not by being wrong.
-  const barsToStop = medianVol > 0 ? config.stopLossPct / medianVol : Infinity;
+//
+// Also per class, and for the same reason: "3 bars of typical movement" is a
+// property of the instrument's volatility, and the whole point of the risk
+// scaling is that the same configured percentage means a different number of
+// bars on FX than on crypto. This row is what proves the scaling landed.
+for (const cls of classesPresent) {
+  const members = available.filter((s) => assetClassOf(s) === cls);
+  const clsVols = members.map((s) => volatilityOf(returnsOf(bars[s])));
+  const clsVol = [...clsVols].sort((a, b) => a - b)[Math.floor(clsVols.length / 2)];
+  const stop = config.stopLossPct * scaleOf(members[0]);
+  const barsToStop = clsVol > 0 ? stop / clsVol : Infinity;
   add(
-    "stopLossPct",
-    pct(config.stopLossPct, 2),
-    `${barsToStop.toFixed(1)} bars of typical movement`,
+    `stopLossPct · ${cls}`,
+    pct(stop, 3),
+    `realised ${pct(clsVol, 4)}/bar — ${barsToStop.toFixed(1)} bars of typical movement`,
     barsToStop < 3 ? "WARN" : "OK",
     barsToStop < 3
       ? "inside the noise — random movement will trigger it"
       : "outside normal bar-to-bar noise",
+  );
+}
+
+// --- 4b. FX overnight carry against the target -------------------------------
+//
+// The cost that does not show up in a round trip. It accrues per night held,
+// so a swing profile pays it repeatedly on a position a day profile never
+// pays at all — and at ~0.004%/night against a 0.32% target it is small per
+// night and decidedly not small over a month.
+if (classesPresent.includes("forex")) {
+  const fx = available.find((s) => assetClassOf(s) === "forex")!;
+  const nightly = carryAtRollover(fx, Date.UTC(2026, 7, 11, 21, 0));
+  const target = config.takeProfitPct * scaleOf(fx);
+  const nights = config.dayTradingMode ? 0 : 5;
+  const share = target > 0 ? (nightly * nights) / target : 0;
+  add(
+    "forex carry vs target",
+    `${pct(nightly, 4)}/night`,
+    config.dayTradingMode
+      ? "day profile never holds overnight — no carry paid"
+      : `${nights} nights = ${pct(nightly * nights, 3)} = ${(share * 100).toFixed(1)}% of target`,
+    share > 0.25 ? "WARN" : "OK",
+    share > 0.25
+      ? "financing is a serious share of the target — shorten holds or check your real swap rates"
+      : "financing is a minor share of the target",
   );
 }
 
@@ -163,10 +246,11 @@ for (const sym of [config.symbol]) {
     return c.reduce((a, b) => a + (b.high - b.low) / b.close, 0) / c.length;
   });
   const medianRange = [...ranges].sort((a, b) => a - b)[Math.floor(ranges.length / 2)];
-  const ratio = medianRange > 0 ? config.limitOrderOffsetPct / medianRange : Infinity;
+  const offset = config.limitOrderOffsetPct * scaleOf(available[0]);
+  const ratio = medianRange > 0 ? offset / medianRange : Infinity;
   add(
     "limitOrderOffsetPct",
-    pct(config.limitOrderOffsetPct, 3),
+    pct(offset, 4),
     `typical bar range ${pct(medianRange, 3)} — offset is ${(ratio * 100).toFixed(0)}% of it`,
     ratio > 0.5 ? "WARN" : "OK",
     ratio > 0.5

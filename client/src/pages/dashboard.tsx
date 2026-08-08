@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { displaySymbol } from "@/lib/utils";
 import {
   api,
   type BotConfig,
@@ -199,7 +200,7 @@ export default function Dashboard() {
           value={openPositions.length ? String(openPositions.length) : "Flat"}
           sub={
             openPositions.length
-              ? `${pct(unrealPct)} unreal. · ${openPositions.map((p) => p.symbol).slice(0, 3).join(", ")}${openPositions.length > 3 ? "…" : ""}`
+              ? `${pct(unrealPct)} unreal. · ${openPositions.map((p) => displaySymbol(p.symbol)).slice(0, 3).join(", ")}${openPositions.length > 3 ? "…" : ""}`
               : `watching ${1 + (cfg.data?.extraSymbols?.length ?? 0)} symbol${(cfg.data?.extraSymbols?.length ?? 0) ? "s" : ""}`
           }
         />
@@ -318,7 +319,7 @@ export default function Dashboard() {
               <div className="mb-3 space-y-1">
                 {events.data.blocked.map((b) => (
                   <div key={b.symbol} className="flex items-baseline gap-2 text-xs">
-                    <span className="term-mono term-down w-20 shrink-0">{b.symbol}</span>
+                    <span className="term-mono term-down w-20 shrink-0">{displaySymbol(b.symbol)}</span>
                     <span className="term-dim">{b.reason}</span>
                   </div>
                 ))}
@@ -379,7 +380,7 @@ export default function Dashboard() {
                     const up = p.unrealizedPnl >= 0;
                     return (
                       <tr key={p.symbol} className="border-t border-[#1f262b]">
-                        <td className="py-2 term-mono font-semibold text-[#e6edf2]">{p.symbol}</td>
+                        <td className="py-2 term-mono font-semibold text-[#e6edf2]">{displaySymbol(p.symbol)}</td>
                         <td className="py-2 text-right term-mono text-[#c3ccd2]">{p.qty.toFixed(6)}</td>
                         <td className="py-2 text-right term-mono text-[#c3ccd2]">{money(p.avgEntryPrice)}</td>
                         <td className="py-2 text-right term-mono term-value">{money(p.markPrice)}</td>
@@ -599,8 +600,10 @@ export default function Dashboard() {
 
       <p className="text-center text-xs text-[#5a656c] mt-8">
         {s?.feedSource === "alpaca"
-          ? "Live market data via Alpaca."
-          : "Running on synthetic market data (demo). Add Alpaca API keys for real market data."}
+          ? "Live market data via Alpaca (crypto and equities)."
+          : s?.feedSource === "oanda"
+            ? "Live FX market data via OANDA."
+            : "Running on synthetic market data (demo). Add Alpaca keys for crypto/equities, or OANDA keys for FX."}
         {" · "}All trading defaults to paper mode. Not financial advice.
       </p>
     </div>
@@ -1187,6 +1190,19 @@ function SettingsPanel() {
                 onChange={(e) => upd({ portfolioVolTargetPct: Number(e.target.value) })}
                 disabled={!form.portfolioVolTarget} />
             </Field>
+            <div className="flex items-center justify-between rounded-lg term-inset p-3">
+              <div>
+                <p className="text-sm font-medium text-white">Scale risk to each market</p>
+                <p className="text-xs term-dim">
+                  Every setting above was calibrated on crypto. An FX major moves about a
+                  twelfth as much per bar, so a 4% take-profit there is an eighteen-sigma
+                  move that never triggers. This scales the stop, target, volatility target
+                  and maker offset to each instrument, keeping the ratios you set. Leave it
+                  on unless you are trading one market and tuning for it directly.
+                </p>
+              </div>
+              <Switch checked={form.scaleRiskByAssetClass} onCheckedChange={(v) => upd({ scaleRiskByAssetClass: v })} />
+            </div>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>
                 <p className="text-sm font-medium text-white">Event blackout</p>

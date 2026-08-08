@@ -389,7 +389,28 @@ class TradingEngine {
       stopLossPct: config.stopLossPct * scale,
       takeProfitPct: config.takeProfitPct * scale,
       volTargetPct: config.volTargetPct * scale,
+      // The maker offset is a DISTANCE THROUGH THE MARKET, so it scales with
+      // volatility like everything else. Unscaled it is 0.06% against an FX
+      // bar range of 0.013% — nearly five times a whole bar — so no resting
+      // entry would ever be touched. The maker-first policy would have gone on
+      // reporting itself as enabled while silently skipping every FX entry.
+      limitOrderOffsetPct: config.limitOrderOffsetPct * scale,
     };
+  }
+
+  /**
+   * The portfolio volatility budget, scaled to the book actually held.
+   *
+   * A book of FX pairs has roughly a twelfth of the volatility of a book of
+   * crypto, so a fixed budget is either unreachable (never binds, which the
+   * calibration probe flags as INERT) or crushingly tight. Scaled by the mean
+   * of the legs' own scales, the budget keeps the same meaning — a fraction of
+   * the risk the exposure limits allow — whatever the book is made of.
+   */
+  private portfolioVolBudget(config: BotConfig, symbols: string[]): number {
+    if (!config.scaleRiskByAssetClass || !symbols.length) return config.portfolioVolTargetPct;
+    const mean = symbols.reduce((a, s) => a + volScaleFor(s), 0) / symbols.length;
+    return config.portfolioVolTargetPct * mean;
   }
 
   /**
@@ -837,7 +858,10 @@ class TradingEngine {
               weight: requested / fresh.equity,
               vol: volatilityOf(candidateReturns),
             },
-            config.portfolioVolTargetPct,
+            this.portfolioVolBudget(config, [
+              ...openPositions.map((p) => p.symbol),
+              candidate.symbol,
+            ]),
             correlationLookup(candidate.symbol, correlations),
           );
           if (volResult.multiplier <= 0) {
@@ -1054,7 +1078,7 @@ class TradingEngine {
         side: "buy",
         qty: decision.qty,
         reason,
-        limitOffsetPct: config.limitOrderOffsetPct,
+        limitOffsetPct: this.riskFor(config, symbol).limitOrderOffsetPct,
         makerOnly: config.makerOnlyEntries,
         bar: { high: bar.high, low: bar.low },
       },
@@ -1241,7 +1265,7 @@ class TradingEngine {
         side: "sell",
         qty: position.qty,
         reason,
-        limitOffsetPct: config.limitOrderOffsetPct,
+        limitOffsetPct: this.riskFor(config, symbol).limitOrderOffsetPct,
         bar: { high: bar.high, low: bar.low },
         forceTaker,
       },

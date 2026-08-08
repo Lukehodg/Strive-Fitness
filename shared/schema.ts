@@ -277,6 +277,18 @@ export interface BotConfig {
    * that can never bind — the feature would be inert while appearing enabled,
    * which is the worst of both. Move to hourly bars and the same book is ~8x
    * more volatile per bar, so this needs raising with it.
+   *
+   * SET WITH HEADROOM, not to the ceiling. This was 0.06% against a measured
+   * ceiling of 0.059% — nominally "fixed" from the original 0.8% but still
+   * sitting exactly on the boundary, so whether it read OK or INERT depended
+   * on how many bars the estimate used. A control that is one sampling error
+   * away from doing nothing has not really been fixed. It is now ~60% of the
+   * corr-1 ceiling, which leaves it binding under realistic correlations
+   * rather than only in the theoretical worst case.
+   *
+   * Mixed universes are handled automatically: the engine scales this by the
+   * book's mean asset-class volatility, so an FX book gets a budget an FX book
+   * can actually reach. See scaleRiskByAssetClass.
    */
   portfolioVolTargetPct: number;
   /**
@@ -434,7 +446,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   // ~9x above anything achievable and never once bound. 0.06% starts
   // constraining a correlated book at roughly 40% total exposure, which is
   // where the risk it exists to catch actually begins.
-  portfolioVolTargetPct: 0.0006,
+  portfolioVolTargetPct: 0.00035,
   cryptoTakerFee: null,
   cryptoMakerFee: null,
   equityTakerFee: null,

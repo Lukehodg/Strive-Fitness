@@ -25,6 +25,7 @@ import {
 } from "./forex";
 import { generateSyntheticCandles } from "./marketData";
 import { etToUtc } from "./events";
+import { PaperBroker } from "./brokers";
 
 let failures = 0;
 const check = (label: string, cond: boolean, detail = "") => {
@@ -255,6 +256,66 @@ const fxTarget = 0.04 * volScaleFor("EUR/USD");
 check("a scaled FX target still clears its costs by a wide margin",
   fxTarget / fxRT > 20,
   `${(fxTarget * 100).toFixed(3)}% target vs ${(fxRT * 100).toFixed(4)}% cost = ${(fxTarget / fxRT).toFixed(0)}x`);
+
+// --- 8. money, through the real broker --------------------------------------
+//
+// THE CLAIM THE WHOLE MODULE RESTS ON, asserted against actual fills rather
+// than reasoning: for a pair quoted XXX/USD, notional is qty*price in dollars
+// and P&L is (exit-entry)*qty in dollars — including for a pair the market
+// quotes the other way up, where those identities would silently produce
+// yen-denominated profit if the inversion were wrong anywhere.
+//
+// Wrong-currency P&L does not throw. It reports a plausible number that is off
+// by the exchange rate, which on USD/JPY is a factor of 157.
+async function roundTrip(symbol: string, price: number, movePct: number) {
+  const broker = new PaperBroker(200);
+  const startEquity = (await broker.getAccount()).equity;
+  const qty = Math.floor(50 / price);
+  const buy = await broker.submitOrder(
+    { symbol, side: "buy", qty, limitOffsetPct: 0, forceTaker: true }, price,
+  );
+  const notional = qty * buy.price;
+  const exitPrice = price * (1 + movePct);
+  broker.mark(symbol, exitPrice);
+  await broker.submitOrder(
+    { symbol, side: "sell", qty, limitOffsetPct: 0, forceTaker: true }, exitPrice,
+  );
+  const realised = (await broker.getAccount()).equity - startEquity;
+  const expected = notional * movePct - roundTripCost(symbol, false, price) * notional;
+  return { qty, notional, realised, expected };
+}
+
+const eurTrip = await roundTrip("EUR/USD", 1.08, 0.005);
+check("EUR/USD: a $50 position is ~46 units of EUR",
+  eurTrip.qty === 46 && Math.abs(eurTrip.notional - 49.7) < 0.5,
+  `${eurTrip.qty} units = $${eurTrip.notional.toFixed(2)}`);
+check("EUR/USD: realised P&L lands in dollars",
+  Math.abs(eurTrip.realised - eurTrip.expected) < 0.002,
+  `$${eurTrip.realised.toFixed(4)} vs expected $${eurTrip.expected.toFixed(4)}`);
+
+// The inverted pair. Long JPY/USD is short USD/JPY — a real position, and the
+// one most likely to be silently wrong.
+const jpyTrip = await roundTrip("JPY/USD", 1 / 157, 0.005);
+check("USD/JPY: a $50 position is thousands of units of JPY",
+  jpyTrip.qty > 7000 && Math.abs(jpyTrip.notional - 50) < 1,
+  `${jpyTrip.qty} units = $${jpyTrip.notional.toFixed(2)} — dollars, not yen`);
+check("USD/JPY: realised P&L lands in dollars, not yen",
+  Math.abs(jpyTrip.realised - jpyTrip.expected) < 0.002,
+  `$${jpyTrip.realised.toFixed(4)} vs expected $${jpyTrip.expected.toFixed(4)}` +
+    ` (a currency error here would be ~157x)`);
+
+const jpyLoss = await roundTrip("JPY/USD", 1 / 157, -0.003);
+check("USD/JPY: losses are in dollars too",
+  jpyLoss.realised < 0 && Math.abs(jpyLoss.realised - jpyLoss.expected) < 0.002,
+  `$${jpyLoss.realised.toFixed(4)} vs expected $${jpyLoss.expected.toFixed(4)}`);
+
+// And the reason any of this was worth doing, as one comparison. The SAME
+// trade — $50, a 0.5% favourable move — on each asset class.
+const cryptoNet = 50 * 0.005 - roundTripCost("BTC/USD", false) * 50;
+check("the same 0.5% move nets money on FX and LOSES it on crypto",
+  eurTrip.realised > 0 && cryptoNet < 0,
+  `FX +$${eurTrip.realised.toFixed(4)} vs crypto $${cryptoNet.toFixed(4)} — ` +
+    `crypto's 0.60% round trip exceeds the whole gross move`);
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
 process.exit(failures ? 1 : 0);

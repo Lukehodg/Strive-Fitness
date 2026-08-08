@@ -61,12 +61,23 @@ const steps = [
   // that is not market-like, and a setting that can never bind. Both have
   // already caught real, shipped bugs that everything above missed.
   ["market facts", ...check("factsCheck.ts")],
-  ["calibration", node, [TSX, join("server", "calibrate.ts")]],
+  // Calibration runs PER PRESET, not once on the default config.
+  //
+  // Every setting here is volatility-denominated, and the presets differ in
+  // volatility by more than an order of magnitude — crypto ~0.10%/bar against
+  // FX ~0.008%. A single run on whichever universe happens to be configured
+  // says nothing about the others, which is how the FX preset shipped with two
+  // controls that could never bind while the gate reported green.
+  ...["crypto", "stocks", "etfs", "forex", "everything"].map((preset) => [
+    `calibrate:${preset}`,
+    node,
+    [TSX, join("server", "calibrate.ts"), `preset=${preset}`],
+  ]),
 ];
 
 const failed = [];
 for (const [name, cmd, args] of steps) {
-  process.stdout.write(`  ${name.padEnd(16)}`);
+  process.stdout.write(`  ${name.padEnd(22)}`);
   const started = Date.now();
   // No shell: cmd is always the node binary and args are always real paths.
   const r = spawnSync(cmd, args, { encoding: "utf8" });

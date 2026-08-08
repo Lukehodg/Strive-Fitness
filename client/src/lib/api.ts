@@ -148,7 +148,7 @@ export interface ProposalsResponse {
 }
 
 export interface StatusResponse extends BotStatus {
-  feedSource: "alpaca" | "synthetic";
+  feedSource: "alpaca" | "oanda" | "synthetic";
 }
 
 export interface RecommendationResponse {
