@@ -599,11 +599,9 @@ export default function Dashboard() {
       </Tabs>
 
       <p className="text-center text-xs text-[#5a656c] mt-8">
-        {s?.feedSource === "alpaca"
-          ? "Live market data via Alpaca (crypto and equities)."
-          : s?.feedSource === "oanda"
-            ? "Live FX market data via OANDA."
-            : "Running on synthetic market data (demo). Add Alpaca keys for crypto/equities, or OANDA keys for FX."}
+        {s?.feedSource === "oanda"
+          ? "Live FX market data via OANDA."
+          : "Running on synthetic market data (demo). Add OANDA keys for real FX prices."}
         {" · "}All trading defaults to paper mode. Not financial advice.
       </p>
     </div>
@@ -1126,9 +1124,10 @@ Spot FX only, quoted against USD — so USD/JPY is entered as JPY/USD. Open 24/5
             <div className="rounded-lg term-inset p-3">
               <p className="text-sm font-medium text-white">Execution costs</p>
               <p className="text-xs term-dim mb-2">
-                Set these to what your statements actually show. Defaults are Alpaca's
-                entry crypto tier (0.25% taker / 0.15% maker) and commission-free equities.
-                Leave blank to use them.
+                Set these to what your statements actually show. The default is a retail
+                spread account — the spread itself is the whole cost, per pair, and moves
+                with the rate. Only set a commission if your account charges one on top
+                (an ECN/raw-spread account).
               </p>
               {costs.data && (
                 <div className="mb-3 space-y-1">
@@ -1242,7 +1241,7 @@ Spot FX only, quoted against USD — so USD/JPY is entered as JPY/USD. Open 24/5
           <div>
             <p className="font-medium text-white">Live trading (real money)</p>
             <p className="text-sm text-[#9aa6ad]">
-              {liveKeys ? "Alpaca keys detected. Enabling uses your real account." : "Requires ALPACA_KEY_ID / ALPACA_SECRET_KEY. Paper only until then."}
+              {liveKeys ? "OANDA credentials detected. Enabling uses your real account." : "Requires OANDA_API_TOKEN / OANDA_ACCOUNT_ID. Paper only until then."}
             </p>
           </div>
           <Switch
