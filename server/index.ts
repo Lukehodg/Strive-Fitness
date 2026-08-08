@@ -8,7 +8,7 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { networkInterfaces } from "os";
 import { registerRoutes } from "./routes";
-import { readAlpacaCredentials } from "./trading/brokers";
+import { readAlpacaCredentials, readOandaCredentials } from "./trading/brokers";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -113,6 +113,7 @@ app.use((req, res, next) => {
     // also easy to hit (a .env Notepad saved as ".env.txt" is enough), so it
     // gets an explicit banner rather than a field buried in /api/status.
     const creds = readAlpacaCredentials();
+    const oanda = readOandaCredentials();
     if (creds) {
       log(`market data: ALPACA (real prices) — endpoint ${creds.baseUrl}`);
       log(
@@ -120,6 +121,25 @@ app.use((req, res, next) => {
           ? "orders: Alpaca PAPER account — no real money at risk"
           : "orders: *** ALPACA LIVE — REAL MONEY *** set ALPACA_BASE_URL to https://paper-api.alpaca.markets to use paper",
       );
+    }
+    if (oanda) {
+      log(`market data: OANDA (real FX prices) — endpoint ${oanda.baseUrl}`);
+      log(
+        oanda.baseUrl.includes("fxpractice")
+          ? "orders: OANDA PRACTICE account — no real money at risk"
+          : "orders: *** OANDA LIVE — REAL MONEY *** set OANDA_BASE_URL to https://api-fxpractice.oanda.com to use practice",
+      );
+    }
+    if (creds && oanda) {
+      // Both configured. Only ONE venue is used at a time, so say which, or
+      // the banner implies a combined book that does not exist.
+      log(
+        "  both venues configured — liveBroker in Settings decides which is used " +
+          "(default 'auto' prefers Alpaca). No venue carries both FX and crypto.",
+      );
+    }
+    if (creds || oanda) {
+      // Fall through: at least one real feed is live, so no synthetic warning.
     } else if (process.env.REQUIRE_REAL_DATA === "1") {
       // Opt-in refusal to start on simulated prices.
       //
@@ -129,9 +149,10 @@ app.use((req, res, next) => {
       // the README describes a random-walk generator, not a market. Setting
       // REQUIRE_REAL_DATA=1 puts the friction where it belongs.
       log("");
-      log("REFUSING TO START — REQUIRE_REAL_DATA=1 but no Alpaca keys found.");
+      log("REFUSING TO START — REQUIRE_REAL_DATA=1 but no broker keys found.");
       log("  Create a .env next to package.json with ALPACA_KEY_ID and");
-      log("  ALPACA_SECRET_KEY, or unset REQUIRE_REAL_DATA to run on the");
+      log("  ALPACA_SECRET_KEY (crypto/equities), or OANDA_API_TOKEN and");
+      log("  OANDA_ACCOUNT_ID (FX), or unset REQUIRE_REAL_DATA to run on the");
       log("  simulated feed. On Windows check Notepad did not save it as");
       log("  .env.txt (run: dir /a .env*)");
       process.exit(1);
@@ -144,9 +165,11 @@ app.use((req, res, next) => {
       log("  #  generator in marketData.ts, not of trading.     #");
       log("  ####################################################");
       log("");
-      log("  no Alpaca keys found. Create a .env next to package.json with");
-      log("  ALPACA_KEY_ID / ALPACA_SECRET_KEY, then restart. On Windows check");
-      log("  Notepad did not save it as .env.txt (run: dir /a .env*)");
+      log("  no broker keys found. Create a .env next to package.json with");
+      log("    ALPACA_KEY_ID / ALPACA_SECRET_KEY      for crypto and US equities");
+      log("    OANDA_API_TOKEN / OANDA_ACCOUNT_ID     for spot FX");
+      log("  then restart. See .env.example for the full list.");
+      log("  On Windows check Notepad did not save it as .env.txt (dir /a .env*)");
       log("  Set REQUIRE_REAL_DATA=1 to make this a hard failure instead.");
     }
   });
