@@ -85,6 +85,22 @@ the whole system work end-to-end with zero setup and zero risk.
    `REQUIRE_REAL_DATA=1` to make that a hard failure instead of a silent
    fallback.
 
+6. **Confirm the credentials actually work**, not just that they're present:
+
+   ```bash
+   npm run check:oanda
+   ```
+
+   The banner above only proves `.env` was read — it prints the moment the two
+   variables are non-empty, before any request is made. A wrong token, a bad
+   account id, or a practice token pointed at the live host all pass that
+   check identically to a working one, and a failed candle fetch is silently
+   swallowed elsewhere in the app and falls back to synthetic prices with no
+   error at all. `check:oanda` makes one real, read-only call — account
+   summary — and reports plainly: `CONNECTED` with your balance/NAV, or
+   `FAILED` with the actual HTTP status and what it usually means (401 = bad
+   token, 404 = bad account id, 403 = practice/live mismatch).
+
 Keys alone do not trade: the engine stays on the simulated broker until you
 also set **mode: live** in Settings, and `/api/config` refuses live mode
 outright when credentials are missing. Note the URL is what decides real money
