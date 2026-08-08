@@ -3,8 +3,8 @@
 // save the trained model to disk so the running app loads a mature model.
 //
 // Usage:
-//   npm run train                       # BTC/USD, 1h, ~2 years
-//   npm run train -- --symbol ETH/USD --interval 1h --bars 26000
+//   npm run train                       # EUR/USD, 1h, ~2 years
+//   npm run train -- --symbol GBP/USD --interval 1h --bars 12480
 //   npm run train -- --refresh          # force a fresh download
 
 // Load .env first — the downloader may use provider credentials.
@@ -19,7 +19,7 @@ function arg(flag: string, fallback?: string): string | undefined {
 }
 
 async function main() {
-  const symbol = arg("--symbol", "BTC/USD")!;
+  const symbol = arg("--symbol", "EUR/USD")!;
   const interval = (arg("--interval", "1h") as Interval)!;
   const bars = Number(arg("--bars", "17520"));
   const refresh = process.argv.includes("--refresh");

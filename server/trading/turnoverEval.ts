@@ -2,7 +2,7 @@
 //
 //   npx tsx server/trading/turnoverEval.ts
 //
-// costEval.ts showed a taker round trip on crypto is 0.60%, and the day
+// A taker round trip on crypto is 0.60% once priced correctly, and the day
 // profile's take-profit target is 1.5% — so 40% of the gross target is spent
 // on execution before the trade is even right. That is not a tuning detail,
 // it is the dominant term.

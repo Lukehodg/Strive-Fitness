@@ -28,7 +28,7 @@ export interface AccountSnapshot {
 }
 
 export interface Broker {
-  readonly kind: "paper" | "alpaca" | "oanda";
+  readonly kind: "paper" | "oanda";
   /**
    * Submit an order. Resolves with the resulting fill, a rejection, or —
    * for a simulated resting limit order — a `pending` status that a later
@@ -67,21 +67,23 @@ export interface Broker {
     bars: Record<string, { high: number; low: number; close: number }>,
   ): Order[] | Promise<Order[]>;
   /**
-   * Whether this instrument can be traded right now. Crypto is 24/7, but US
-   * equities are closed nights, weekends and holidays — roughly 75% of the
-   * time — so without this the engine would fire orders into a shut market.
+   * Whether this instrument can be traded right now. Spot FX runs 24/5 —
+   * unbroken from Sunday 17:00 ET to Friday 17:00 ET — so without this the
+   * engine would fire orders into a shut market every weekend.
    */
   isMarketOpen?(symbol: string): boolean | Promise<boolean>;
   /**
-   * When the current session ends, for day-trading flatten rules. Null for
-   * instruments that never close (crypto) or when the venue cannot say.
+   * When the current session ends, for day-trading flatten rules. For FX this
+   * is the FRIDAY close — the only moment the market genuinely stops and a
+   * position is exposed to a weekend gap it cannot be stopped out of. Null
+   * when the market is already shut.
    */
   sessionCloseAt?(symbol: string): Promise<number | null>;
   /**
    * Park a stop-loss AT THE VENUE so the position stays protected even if
    * this process dies. Engine-side stops only work while the engine runs;
    * a laptop closing overnight otherwise leaves a position completely
-   * unguarded through a 24/7 crypto market.
+   * unguarded through the Asian and European sessions.
    *
    * Returns null when the broker cannot do this (the paper broker IS the
    * app, so venue-side protection is meaningless there).
@@ -98,16 +100,9 @@ export interface Broker {
   /**
    * Whether this venue carries the instrument at all.
    *
-   * Added with FX, because no single broker covers the whole universe: Alpaca
-   * has crypto and equities but no FX, OANDA has FX and nothing else. The
-   * engine needs to skip what its broker cannot hold RATHER than submit an
-   * order that will be rejected on every tick forever.
-   *
-   * Deliberately not solved by routing each symbol to its own broker. Two
-   * brokers means two separate pools of money, and every sizing decision in
-   * this system works from one equity figure — summing the accounts would let
-   * an FX position be sized against crypto equity that cannot be used to
-   * margin it. One venue at a time is the honest model for a personal account.
+   * OANDA lists spot FX and nothing else, so a symbol outside the tradeable
+   * pair table must be SKIPPED rather than submitted — otherwise the engine
+   * re-sends an order the venue can only reject, on every tick, forever.
    */
   supportsSymbol?(symbol: string): boolean;
 }
@@ -341,473 +336,23 @@ export class PaperBroker implements Broker {
 }
 
 // ---------------------------------------------------------------------------
-// AlpacaBroker — real orders against Alpaca's trading API.
-//
-// Alpaca exposes the SAME REST surface for paper and live; only the base URL
-// and the keys differ. This adapter is used when the user opts into real
-// trading and supplies credentials. It is intentionally minimal (market
-// orders only) and shares the PaperBroker's interface exactly.
-// ---------------------------------------------------------------------------
-
-export interface AlpacaCredentials {
-  keyId: string;
-  secretKey: string;
-  /** Base trading URL, e.g. https://paper-api.alpaca.markets */
-  baseUrl: string;
-}
-
-/** Alpaca order states that are final — no further transition is coming. */
-const ALPACA_TERMINAL = new Set([
-  "filled",
-  "canceled",
-  "expired",
-  "rejected",
-  "done_for_day",
-  "stopped",
-  "suspended",
-]);
-
-/** Smallest order notional worth sending (Alpaca crypto rejects dust). */
-const MIN_NOTIONAL = 1;
-
-export class AlpacaBroker implements Broker {
-  readonly kind = "alpaca" as const;
-  private lastMark = new Map<string, number>();
-  /** Orders submitted to the venue that have not reached a terminal state. */
-  private working = new Map<string, { req: OrderRequest; base: Order; isExit: boolean }>();
-  private clockCache: { open: boolean; nextClose: number | null; expires: number } | null = null;
-  /** symbol -> venue order id of the resting protective stop. */
-  private protectiveStops = new Map<string, string>();
-
-  constructor(private creds: AlpacaCredentials) {}
-
-  private headers() {
-    return {
-      "APCA-API-KEY-ID": this.creds.keyId,
-      "APCA-API-SECRET-KEY": this.creds.secretKey,
-      "Content-Type": "application/json",
-    };
-  }
-
-  /**
-   * Submit an order and report ONLY what the venue confirms.
-   *
-   * The previous implementation returned `status: res.ok ? "filled" : ...`
-   * with `price: filled_avg_price || markPrice`. Both are wrong for real
-   * money: a market order POST returns HTTP 200 with status "accepted"/"new"
-   * and a null `filled_avg_price`, so the engine recorded a position it did
-   * not yet own, at a price it had invented from the last candle close. Every
-   * downstream P&L, stop-loss and take-profit then keyed off that fiction —
-   * including the daily-loss kill-switch.
-   *
-   * Now an unfilled order comes back `pending` and is reconciled against the
-   * venue in resolvePending(), so recorded fills are always real fills at
-   * real prices.
-   */
-  async submitOrder(req: OrderRequest, markPrice: number): Promise<Order> {
-    const offsetRaw = req.limitOffsetPct ?? 0;
-    const wantLimit = !(req.forceTaker ?? false) && offsetRaw > 0;
-    // Equities reject FRACTIONAL limit orders, so a sub-share position has to
-    // cross as a market order. roundQtyFor tells us which we actually get.
-    const rounded = roundQtyFor(req.symbol, req.qty, wantLimit, req.side === "sell");
-    const qty = rounded.qty;
-    const base: Order = {
-      id: "unsubmitted",
-      symbol: req.symbol,
-      side: req.side,
-      qty,
-      price: markPrice,
-      status: "pending",
-      reason: req.reason,
-      createdAt: Date.now(),
-    };
-
-    if (!(qty > 0) || !(markPrice > 0)) {
-      return { ...base, status: "rejected", message: "Invalid quantity or price" };
-    }
-    if (qty * markPrice < MIN_NOTIONAL) {
-      return {
-        ...base,
-        status: "rejected",
-        message: `Order notional ${(qty * markPrice).toFixed(2)} below venue minimum ${MIN_NOTIONAL}`,
-      };
-    }
-
-    // Honour the maker-first policy the backtester assumes. Sending a market
-    // order for everything (the previous behaviour) meant live paid taker fees
-    // plus spread on every trade while backtests priced ~88% of fills as
-    // makers — a systematic overstatement of live returns.
-    const useLimit = rounded.canUseLimit;
-
-    // Maker-only entry that CANNOT be a limit order. This is the live-only
-    // leak: an equity order for under one share is fractional, Alpaca rejects
-    // fractional limits, so roundQtyFor silently downgrades it to a market
-    // order. On a small account every equity position is sub-share, so entries
-    // crossed the spread every time no matter how limitOffsetPct was set.
-    if (req.makerOnly && !useLimit && req.side === "buy" && !(req.forceTaker ?? false)) {
-      return {
-        ...base,
-        status: "rejected",
-        message: "Maker-only: fractional order cannot rest as a limit, skipped",
-      };
-    }
-
-    const limitPrice = useLimit ? limitPriceFor(req.side, markPrice, offsetRaw) : 0;
-
-    const body: Record<string, unknown> = {
-      symbol: req.symbol,
-      qty: String(qty),
-      side: req.side,
-      type: useLimit ? "limit" : "market",
-      time_in_force: timeInForce(req.symbol),
-    };
-    if (useLimit) body.limit_price = limitPrice.toFixed(2);
-
-    let data: any;
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/orders`, {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify(body),
-      });
-      data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return {
-          ...base,
-          status: "rejected",
-          message: data?.message || `HTTP ${res.status}`,
-        };
-      }
-    } catch (err) {
-      return { ...base, status: "rejected", message: `Network error: ${(err as Error).message}` };
-    }
-
-    const submitted: Order = { ...base, id: String(data.id ?? "unknown") };
-    const resolved = this.fromVenue(submitted, data);
-    if (resolved.status !== "pending") return resolved;
-
-    this.working.set(submitted.id, { req: { ...req, qty }, base: submitted, isExit: req.side === "sell" });
-    return { ...submitted, price: useLimit ? limitPrice : markPrice };
-  }
-
-  /** Translate a venue order payload into our Order, or leave it pending. */
-  private fromVenue(base: Order, data: any): Order {
-    const status = String(data?.status ?? "");
-    const filledQty = Number(data?.filled_qty ?? 0);
-    const filledPrice = Number(data?.filled_avg_price ?? 0);
-
-    if (status === "filled" && filledQty > 0 && filledPrice > 0) {
-      return {
-        ...base,
-        status: "filled",
-        qty: filledQty,
-        price: filledPrice,
-        fillType: String(data?.type) === "limit" ? "maker" : "taker",
-      };
-    }
-    if (ALPACA_TERMINAL.has(status)) {
-      // Partial fills still count for what actually executed.
-      if (filledQty > 0 && filledPrice > 0) {
-        return {
-          ...base,
-          status: "filled",
-          qty: filledQty,
-          price: filledPrice,
-          fillType: String(data?.type) === "limit" ? "maker" : "taker",
-          message: `Partially filled (${status})`,
-        };
-      }
-      return { ...base, status: "rejected", message: `Venue reported ${status}` };
-    }
-    return { ...base, status: "pending" };
-  }
-
-  /**
-   * Reconcile working orders against the venue. Mirrors PaperBroker's
-   * semantics so backtest and live behave the same: an unfilled ENTRY is
-   * cancelled and re-evaluated next tick, while an unfilled EXIT is escalated
-   * to a market order, because an exit that never happens is a risk failure.
-   */
-  async resolvePending(
-    bars: Record<string, { high: number; low: number; close: number }>,
-  ): Promise<Order[]> {
-    if (!this.working.size) return [];
-    const out: Order[] = [];
-
-    for (const [id, entry] of Array.from(this.working.entries())) {
-      let data: any;
-      try {
-        const res = await fetch(`${this.creds.baseUrl}/v2/orders/${id}`, {
-          headers: this.headers(),
-        });
-        if (!res.ok) continue; // transient — try again next tick
-        data = await res.json();
-      } catch {
-        continue;
-      }
-
-      const settled = this.fromVenue(entry.base, data);
-      if (settled.status !== "pending") {
-        this.working.delete(id);
-        out.push(settled);
-        continue;
-      }
-
-      // Still working. Don't let it linger: cancel, and for an exit escalate.
-      await this.cancel(id);
-      this.working.delete(id);
-      if (entry.isExit) {
-        const markPrice = bars[entry.req.symbol]?.close ?? entry.base.price;
-        const market = await this.submitOrder(
-          { ...entry.req, forceTaker: true, limitOffsetPct: 0 },
-          markPrice,
-        );
-        out.push(market);
-      } else {
-        out.push({
-          ...entry.base,
-          status: "rejected",
-          message: "Resting buy not filled — cancelled, will re-evaluate",
-        });
-      }
-    }
-    return out;
-  }
-
-  private async cancel(id: string): Promise<void> {
-    try {
-      await fetch(`${this.creds.baseUrl}/v2/orders/${id}`, {
-        method: "DELETE",
-        headers: this.headers(),
-      });
-    } catch {
-      /* best effort — the next reconcile will pick up the true state */
-    }
-  }
-
-  async getPosition(symbol: string): Promise<Position | null> {
-    // Crypto positions drop the slash (BTCUSD); equities use the bare ticker.
-    const sym = positionSymbol(symbol);
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/positions/${sym}`, {
-        headers: this.headers(),
-      });
-      if (!res.ok) return null; // 404 = flat
-      const p: any = await res.json();
-      const qty = Number(p.qty);
-      if (!(qty > 0)) return null;
-      const avg = Number(p.avg_entry_price);
-      const mark = Number(p.current_price) || this.lastMark.get(symbol) || avg;
-      return {
-        symbol,
-        qty,
-        avgEntryPrice: avg,
-        markPrice: mark,
-        unrealizedPnl: Number(p.unrealized_pl) || (mark - avg) * qty,
-        openedAt: Date.now(),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  /** Every open position at the venue, regardless of configured universe. */
-  async listPositions(): Promise<Position[]> {
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/positions`, { headers: this.headers() });
-      if (!res.ok) return [];
-      const raw: any[] = await res.json();
-      if (!Array.isArray(raw)) return [];
-      return raw
-        .map((p) => {
-          const qty = Number(p.qty);
-          const avg = Number(p.avg_entry_price);
-          const mark = Number(p.current_price) || avg;
-          return {
-            symbol: String(p.symbol),
-            qty,
-            avgEntryPrice: avg,
-            markPrice: mark,
-            unrealizedPnl: Number(p.unrealized_pl) || (mark - avg) * qty,
-            openedAt: Date.now(),
-          } as Position;
-        })
-        .filter((p) => p.qty > 0);
-    } catch {
-      return [];
-    }
-  }
-
-  /**
-   * NOTE: this reports the WHOLE account. Position sizing (maxPositionPct)
-   * and the daily-loss kill-switch therefore measure against everything in
-   * the account, including assets this bot never traded. Use a dedicated
-   * Alpaca account for the bot so those limits mean what you expect.
-   */
-  async getAccount(markPrice?: number): Promise<AccountSnapshot | null> {
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/account`, {
-        headers: this.headers(),
-      });
-      if (!res.ok) return null;
-      const a: any = await res.json();
-      const cash = Number(a.cash) || 0;
-      const equity = Number(a.equity) || cash;
-      return { cash, positionsValue: equity - cash, equity };
-    } catch {
-      // Unreachable != empty. Say "unknown" and let the caller stand down.
-      return null;
-    }
-  }
-
-  mark(symbol: string, price: number): void {
-    this.lastMark.set(symbol, price);
-  }
-
-  /** Session close for equities; null for crypto, which never closes. */
-  async sessionCloseAt(symbol: string): Promise<number | null> {
-    if (assetClassOf(symbol) === "crypto") return null;
-    await this.isMarketOpen(symbol); // refreshes the cached clock
-    return this.clockCache?.nextClose ?? null;
-  }
-
-  /**
-   * Place a resting stop-loss at the venue.
-   *
-   * Deliberately the stop only, not a bracket with a take-profit attached:
-   * Alpaca does not support OCO/bracket orders for crypto, so a paired
-   * take-profit would have to be managed by this process — and if it fills
-   * while the process is down, the stop would remain live against a position
-   * that no longer exists. Losing a take-profit to downtime costs upside;
-   * losing a stop costs money, so only the stop is parked at the venue.
-   */
-  async placeProtectiveStop(
-    symbol: string,
-    qty: number,
-    stopPrice: number,
-  ): Promise<Order | null> {
-    const rounded = roundQtyFor(symbol, qty, false);
-    if (!(rounded.qty > 0) || !(stopPrice > 0)) return null;
-    await this.cancelProtectiveStop(symbol);
-
-    const isCrypto = assetClassOf(symbol) === "crypto";
-    const body: Record<string, unknown> = {
-      symbol,
-      qty: String(rounded.qty),
-      side: "sell",
-      // Crypto supports stop_limit but not plain stop; equities take either.
-      // The limit sits below the trigger so the order still fills through a
-      // fast move instead of chasing the price down.
-      type: isCrypto ? "stop_limit" : "stop",
-      stop_price: stopPrice.toFixed(2),
-      // Protection must outlive the session, so GTC on both asset classes.
-      time_in_force: "gtc",
-    };
-    if (isCrypto) body.limit_price = (stopPrice * 0.995).toFixed(2);
-
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/orders`, {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify(body),
-      });
-      const data: any = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        return {
-          id: "unsubmitted",
-          symbol,
-          side: "sell",
-          qty: rounded.qty,
-          price: stopPrice,
-          status: "rejected",
-          message: data?.message || `HTTP ${res.status}`,
-          createdAt: Date.now(),
-        };
-      }
-      this.protectiveStops.set(symbol, String(data.id));
-      return {
-        id: String(data.id),
-        symbol,
-        side: "sell",
-        qty: rounded.qty,
-        price: stopPrice,
-        status: "pending",
-        reason: "Protective stop (resting at venue)",
-        createdAt: Date.now(),
-      };
-    } catch (err) {
-      return {
-        id: "unsubmitted",
-        symbol,
-        side: "sell",
-        qty: rounded.qty,
-        price: stopPrice,
-        status: "rejected",
-        message: `Network error: ${(err as Error).message}`,
-        createdAt: Date.now(),
-      };
-    }
-  }
-
-  async cancelProtectiveStop(symbol: string): Promise<void> {
-    const id = this.protectiveStops.get(symbol);
-    if (!id) return;
-    this.protectiveStops.delete(symbol);
-    await this.cancel(id);
-  }
-
-  hasProtectiveStop(symbol: string): boolean {
-    return this.protectiveStops.has(symbol);
-  }
-
-  /**
-   * Crypto trades continuously. For equities we ask Alpaca's clock rather
-   * than hardcoding 09:30-16:00 ET, because that would silently trade through
-   * market holidays and half-days. Cached briefly so it costs one call a
-   * minute, not one per tick.
-   */
-  /** Alpaca carries crypto and US equities. It does not offer FX. */
-  supportsSymbol(symbol: string): boolean {
-    return assetClassOf(symbol) !== "forex";
-  }
-
-  async isMarketOpen(symbol: string): Promise<boolean> {
-    if (assetClassOf(symbol) === "crypto") return true;
-    const now = Date.now();
-    if (this.clockCache && now < this.clockCache.expires) return this.clockCache.open;
-    try {
-      const res = await fetch(`${this.creds.baseUrl}/v2/clock`, { headers: this.headers() });
-      if (!res.ok) return this.clockCache?.open ?? true;
-      const c: any = await res.json();
-      const open = Boolean(c?.is_open);
-      const nextClose = c?.next_close ? new Date(c.next_close).getTime() : null;
-      this.clockCache = {
-        open,
-        nextClose: Number.isFinite(nextClose) ? nextClose : null,
-        expires: now + 60_000,
-      };
-      return open;
-    } catch {
-      // Network blip: fall back to the last known state rather than blocking
-      // trading outright, and never cache the failure.
-      return this.clockCache?.open ?? true;
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // OandaBroker — spot FX.
 //
-// UNTESTED AGAINST THE LIVE API. Every other adapter in this file was written
-// against observed responses; this one was written against OANDA's published
-// v20 specification, because the sandbox is not reachable from the environment
-// it was built in. The shapes it parses are defensive for that reason — every
-// numeric field goes through Number() with a validity check rather than being
-// trusted — but treat the first real run as the actual test, on a PRACTICE
-// account, and reconcile the first few fills by hand against the OANDA UI.
+// THE ONLY LIVE VENUE. Paper trading uses PaperBroker above; everything real
+// goes through here.
 //
-// Three things differ structurally from Alpaca and are the likeliest places
-// for a surprise:
+// UNTESTED AGAINST THE LIVE API. This was written against OANDA's published
+// v20 specification, because the sandbox is not reachable from the environment
+// it was built in. It has been driven end-to-end over HTTP against a mock v20
+// venue, which confirmed the wire format below — but a mock built from the
+// same reading of the spec cannot catch a misreading of it. The shapes it
+// parses are defensive for that reason: every numeric field goes through
+// Number() with a validity check rather than being trusted. Treat the first
+// real run as the actual test, on a PRACTICE account, and reconcile the first
+// few fills by hand against the OANDA UI.
+//
+// Three things are structurally unusual and are the likeliest places for a
+// surprise:
 //
 //   1. QUANTITY IS SIGNED. OANDA has no "side" field: units +1000 is a buy,
 //      -1000 is a sell. A sign error here does not error, it opens the
@@ -816,8 +361,8 @@ export class AlpacaBroker implements Broker {
 //      knows USD_JPY. Direction, price and P&L all have to be flipped for
 //      inverted pairs, and `unitsFor` is the single place that happens.
 //   3. FILLS COME BACK INSIDE THE SUBMIT RESPONSE. A market order returns an
-//      orderFillTransaction synchronously, so unlike Alpaca there is usually
-//      no pending state to reconcile.
+//      orderFillTransaction synchronously, so there is usually no pending
+//      state left to reconcile afterwards.
 // ---------------------------------------------------------------------------
 
 export interface OandaCredentials {
@@ -1150,30 +695,3 @@ export function readOandaCredentials(): OandaCredentials | null {
   return { token, accountId, baseUrl };
 }
 
-/**
- * Reads Alpaca credentials from the environment. Returns null when live
- * trading isn't configured, which keeps the platform in paper mode.
- */
-export function readAlpacaCredentials(): AlpacaCredentials | null {
-  const keyId = process.env.ALPACA_KEY_ID?.trim();
-  const secretKey = process.env.ALPACA_SECRET_KEY?.trim();
-  if (!keyId || !secretKey) return null;
-  const baseUrl = normalizeAlpacaBaseUrl(process.env.ALPACA_BASE_URL);
-  return { keyId, secretKey, baseUrl };
-}
-
-/**
- * Normalize the trading endpoint to a bare origin.
- *
- * Alpaca's dashboard shows the endpoint WITH the API version appended
- * ("https://paper-api.alpaca.markets/v2"), so pasting it verbatim is the
- * obvious thing to do — but every request in this file appends "/v2" itself,
- * which would produce "/v2/v2/orders" and 404 on absolutely everything.
- * Strip a trailing slash and a trailing version segment so both forms work.
- */
-export function normalizeAlpacaBaseUrl(raw?: string): string {
-  const fallback = "https://paper-api.alpaca.markets";
-  const trimmed = raw?.trim();
-  if (!trimmed) return fallback;
-  return trimmed.replace(/\/+$/, "").replace(/\/v\d+$/, "");
-}

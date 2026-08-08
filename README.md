@@ -4,6 +4,13 @@ A single-user **execution and risk harness** for automated trading, with a
 dashboard. It runs a strategy on a loop, prices fills honestly, keeps stops at
 the venue, and measures whether any of it works.
 
+**Spot FX only, through OANDA.** Seven USD majors, quoted against the dollar
+(so USD/JPY is traded as JPY/USD — see [Spot FX](#spot-fx--the-cheapest-thing-here-by-a-factor-of-65)
+for why). Crypto and US equities were supported via Alpaca and were removed:
+execution cost is the binding constraint at small size, and the FX majors cost
+roughly a sixty-fifth of crypto per round trip. The crypto and equity cost
+models survive only inside the comparison tools that measured that.
+
 > ### What this is, and what it is not
 >
 > The risk and execution machinery is the real content here: no-lookahead
@@ -29,10 +36,12 @@ Strive has two interchangeable trading engines:
 - **Built-in (this app)** — a lightweight, zero-setup TypeScript engine with its
   own dashboard, AI strategy selection, self-improvement loop, and ML signal
   model. Great for exploring and running instantly.
-- **Freqtrade** (`freqtrade/`) — a mature, production crypto bot (real exchange
+- **Freqtrade** (`freqtrade/`) — a mature, production bot (real exchange
   execution, backtesting, hyperopt, and the **FreqAI** ML pipeline) wired up
-  with our strategies and a rich, Qlib-style feature set. Recommended for
-  anything approaching real money. See [`freqtrade/README.md`](freqtrade/README.md).
+  with our strategies and a rich, Qlib-style feature set. Note it is
+  crypto-oriented and was set up before this platform moved to FX, so its
+  configuration still targets exchanges rather than OANDA. See
+  [`freqtrade/README.md`](freqtrade/README.md).
 
 ## Quick start (zero config)
 
@@ -44,6 +53,47 @@ npm run dev
 Open <http://localhost:5000> and press **Start**. With no API keys the platform
 runs on **synthetic market data** and a **simulated broker**, so you can watch
 the whole system work end-to-end with zero setup and zero risk.
+
+## Connecting your OANDA account
+
+1. **Create the account.** A [practice account](https://www.oanda.com/) is free
+   and takes a few minutes. Use practice first — nothing below is proven.
+2. **Generate a v20 API token.** In the OANDA web dashboard: *Manage API
+   Access* → *Generate*. It is shown **once**.
+3. **Find your account id.** Same dashboard, a four-part number like
+   `001-004-1234567-001`. Not your login, and not the account nickname.
+4. **Create `.env`** next to `package.json` (`cp .env.example .env`):
+
+   ```
+   OANDA_API_TOKEN=your_token
+   OANDA_ACCOUNT_ID=001-004-1234567-001
+   OANDA_BASE_URL=https://api-fxpractice.oanda.com
+   ```
+
+   The token and the URL must **match the account type** — a practice token
+   fails against the live host and vice versa.
+
+5. **Restart and read the banner.** This is the check that matters:
+
+   ```
+   market data: OANDA (real FX prices) — endpoint https://api-fxpractice.oanda.com
+   orders: OANDA PRACTICE account — no real money at risk
+   ```
+
+   Still seeing `SYNTHETIC DATA`? The file was not read. On Windows the usual
+   cause is Notepad saving `.env.txt` — check with `dir /a .env*`. Set
+   `REQUIRE_REAL_DATA=1` to make that a hard failure instead of a silent
+   fallback.
+
+Keys alone do not trade: the engine stays on the simulated broker until you
+also set **mode: live** in Settings, and `/api/config` refuses live mode
+outright when credentials are missing. Note the URL is what decides real money
+— anything that is not `api-fxpractice` prints
+`*** OANDA LIVE — REAL MONEY ***`.
+
+**Expect the proof-of-edge gate to block every live entry.** It wants 30
+realised trades with positive expectancy and no strategy has that. That is the
+system working, not a bug — see [the no-trade gate](#the-no-trade-gate).
 
 ## The most important finding in this repository
 
@@ -241,10 +291,10 @@ used. It is now ~60% of the ceiling, with room to actually bind.
 
 Each tick (every `intervalSeconds`), the engine:
 
-1. **Pulls market data** — real bars where keys are set (Alpaca for crypto and
-   equities, OANDA for FX), otherwise a synthetic price series. Symbols whose
-   market is shut, or which the configured broker does not carry, are skipped
-   with a reason rather than ordered into.
+1. **Pulls market data** — real OANDA FX bars where credentials are set,
+   otherwise a synthetic price series. Symbols whose market is shut (FX is
+   24/5), or which the venue does not carry, are skipped with a logged reason
+   rather than ordered into.
 2. **Selects a strategy** (when auto-select is on) — it classifies the market
    *regime* (trending / ranging / volatile), backtests every strategy on the
    recent window, and picks the best risk-adjusted fit. Every switch is logged
@@ -432,14 +482,23 @@ Out of the box the model trains on the runtime feed. To *mature* it, train on
 years of real history from free public data (no API key):
 
 ```bash
-npm run train                                  # BTC/USD, hourly, ~2 years
-npm run train -- --symbol ETH/USD --bars 26000 # more/other data
-npm run train -- --refresh                     # force a fresh download
+npm run train                                   # EUR/USD, hourly, ~2 years
+npm run train -- --symbol GBP/USD --bars 12480  # more/other data
+npm run train -- --refresh                      # force a fresh download
 ```
 
-This downloads real OHLCV (Binance, falling back to CryptoCompare), trains, and
+This downloads real OHLCV **from OANDA** — the same vendor the live engine
+prices against, which is the right property for training data to have: a model
+trained on one vendor's bars and traded against another's learns the difference
+between them as well as the market. It then trains and
 **saves the model to disk** (`data/ml-model.json`). The app loads that mature
 model on startup and won't overwrite it with light live-feed retraining.
+
+**Training now requires OANDA credentials.** There is no keyless FX feed, so
+this fails with an explicit message rather than quietly training on something
+else. Note also that FX has no weekend session: a year is ~6,240 hourly bars,
+not 8,760, so a "2 year" download returning fewer bars than a 24/7 instrument
+would is correct rather than truncated.
 
 The pipeline uses techniques from the quant-ML literature to stay honest:
 
@@ -453,55 +512,25 @@ The pipeline uses techniques from the quant-ML literature to stay honest:
 - **Richer features** — MACD-style EMA spread, Bollinger %b, ATR, and volume,
   on top of returns / RSI / momentum / range position.
 
-### News sentiment — built, measured, and NOT trading
+### News sentiment — built, measured, and REMOVED
 
-`server/trading/news.ts` pulls headlines from Alpaca's news API (same keys, no
-scraping, no terms-of-service problem) and scores them with a finance-specific
-lexicon. `server/ml/newsFeatures.ts` turns that stream into four per-bar
-features.
+A headline-sentiment pipeline used to live here: `trading/news.ts` pulled
+articles from Alpaca's news API and scored them with a finance lexicon,
+`ml/newsFeatures.ts` turned that into four per-bar features, and
+`ml/newsAblation.ts` tested whether they earned their place.
 
-Alpaca was chosen over scraping for one reason that outweighs breadth: it has
-**history**. Sentiment you can only observe live cannot be backtested, and a
-signal you cannot backtest is a guess with extra steps.
+**They did not.** Held to the standard every feature here has to meet — does
+adding this beat the same model without it, out of sample — the news features
+did not clear the bar, so they were never wired into a trade.
 
-**Nothing here sizes a trade until an ablation says it earns its place.**
+All three modules were deleted with the move to FX. They depended on Alpaca's
+news history, which is gone, and nothing else imported them; keeping a
+plausible-looking sentiment pipeline that could no longer fetch anything would
+be exactly the sort of dead code this repo has been bitten by before.
 
-```bash
-npx tsx server/ml/newsAblation.ts              # self-test, no keys needed
-npx tsx server/ml/newsAblation.ts AAPL 180     # real news, needs your keys
-```
-
-Same candles, same labels, same folds, same seed — the only difference is four
-extra columns. Then a paired t-test across folds, because they are the same
-folds. Adding a feature almost always raises *in-sample* accuracy; the only
-question worth asking is whether it raises *out-of-sample* ranking by more than
-the noise in the estimate.
-
-The self-test validates the instrument before you trust its readings, on two
-synthetic conditions with known answers: **noise** news must report no edge,
-**planted** news must report a large one. A harness that can't detect a planted
-edge is not evidence of absence, and one that finds an edge in pure noise is
-worse than useless.
-
-> **A negative verdict is the expected outcome and is worth having.** It means
-> the feature stays out of the model instead of quietly adding variance.
-
-Two things this exercise turned up that are worth knowing independently:
-
-- **Accuracy is the wrong metric for this dataset.** The triple-barrier labels
-  are ~70% positive and the model's out-of-fold probabilities span 0.564–0.822
-  — it predicts "up" on 100% of samples and never crosses the 0.5 threshold.
-  Its "70.21% accuracy" *is* the 70.10% base rate. The ablation uses AUC, which
-  is rank-based and registers a better probability ordering even when every
-  prediction stays on one side of the threshold. (The live model already
-  refuses to trade this case — `isTradable()` requires accuracy to beat the
-  majority-class baseline by a margin — but a metric that reads identically for
-  a good model and a constant one can't answer an ablation.)
-- **News features are hour-scale by design.** They read only headlines strictly
-  *before* a bar opens. The naive join — bucket news by bar and attach it to
-  that bar — puts price-moving news and the move it caused in the same bucket,
-  so the model learns "big sentiment now = big move now", backtests brilliantly,
-  and does nothing live.
+The finding stands on its own and is the part worth keeping: a sentiment
+feature that cannot be shown to add out-of-sample skill is a guess with extra
+steps, however sophisticated the scoring.
 
 ### Why not a geopolitics scraper (FlightRadar, etc.)
 
@@ -600,8 +629,7 @@ What FX also brings, none of it free:
   are never misfiled as crypto) but refused with an explanatory error, because
   they have no USD leg to settle into.
 
-Live FX needs OANDA credentials — Alpaca does not offer currencies. **The OANDA
-adapter has not been run against the live API**: it was written from the v20
+**The OANDA adapter has not been run against the live API**: it was written from the v20
 spec, since the sandbox is unreachable from where it was built. Treat the first
 practice-account run as the real test and reconcile the first few fills by hand.
 
@@ -679,7 +707,7 @@ a target that wouldn't arrive in time.
 `limitOrderOffsetPct > 0` (the default) already makes both brokers cancel an
 unfilled entry rather than crossing, so in backtests maker-only changes
 **nothing — measured at exactly 0.00pp.** Where it bites is live equities: an
-order for under one share cannot be a limit order at Alpaca, so `roundQtyFor`
+order for under one share could not be a limit order, so `roundQtyFor`
 silently downgrades it to a market order. **On a small account every equity
 position is sub-share**, so those entries crossed the spread every time
 regardless of the offset. The `makerOnlyEntries` setting skips them instead.
@@ -811,12 +839,12 @@ So when an entry fills, a stop-loss is **parked at the broker**:
 
 | | |
 |---|---|
-| Crypto | `stop_limit`, GTC (Alpaca has no plain `stop` for crypto) |
+| Spot FX | `STOP`, GTC, signed units in the venue's own direction |
 | Equities | `stop`, GTC |
 | Limit price | 0.5% below the trigger, so it fills through a fast move |
 
 Deliberately the **stop only**, not a bracket with a take-profit attached.
-Alpaca does not support OCO/bracket for crypto, so a paired take-profit would
+OANDA's bracket support is not used here, so a paired take-profit would
 have to be managed by this process — and if it filled while the process was
 down, the stop would be left live against a position that no longer exists.
 Losing a take-profit to downtime costs upside; losing a stop costs money.
@@ -955,9 +983,10 @@ guard, not a strategy setting. At the swing value of 3/min the engine spent
 most ticks logging "order rate limit reached" once day trading turned over
 more orders.
 
-> **Day trading equities under $25k is not viable.** The Pattern Day Trader
-> rule caps margin accounts under that at 3 day trades per 5 business days,
-> and this profile is designed to exceed that immediately. Crypto is exempt.
+> **Spot FX is exempt from the Pattern Day Trader rule**, which caps US margin
+> accounts under $25k at 3 day trades per 5 business days. That exemption is
+> part of why FX suits a small account — this profile would breach the rule
+> immediately on equities.
 
 > **More trades means more cost.** Fee drag already runs 1.5-3% of capital per
 > month at swing frequency. This profile trades considerably more, against an
@@ -969,16 +998,15 @@ more orders.
 ### Universe presets
 
 ```bash
-curl localhost:5000/api/universes                        # list presets
-curl -X POST localhost:5000/api/universes/everything/apply
+curl localhost:5000/api/universes                     # list presets
+curl -X POST localhost:5000/api/universes/majors/apply
 ```
 
 | Preset | Symbols | Notes |
 |---|---|---|
-| `crypto` | 15 | 24/7, exempt from PDT — the only one viable on a small real account |
-| `stocks` | 15 | Mega caps, market hours only |
-| `etfs` | 10 | Index/sector ETFs, tighter spreads |
-| `everything` | 40 | All of the above |
+| `majors` | 7 | All USD majors — widest selection |
+| `tightest` | 4 | Cheapest to trade; roughly half the execution cost of the wider set |
+| `eurusd` | 1 | No diversification; for testing one pair properly |
 
 **A wide universe does not mean a big book.** The engine scans everything each
 tick, but the portfolio limits still decide what it may hold — 3 concurrent
@@ -987,7 +1015,7 @@ risk: more candidates to pick the best from.
 
 Symbols are fetched with a bounded worker pool (8 in flight). Sequentially, 40
 symbols at ~200ms each would take ~8s per tick and starve the loop; unbounded,
-it would burst through Alpaca's ~200 requests/minute limit. Measured: 8023ms
+it would burst through OANDA's rate limit. Measured: 8023ms
 sequential vs 1006ms at concurrency 8, peak 8 in flight. A failure on one
 symbol is logged and skipped — it never aborts the tick.
 
@@ -1033,82 +1061,83 @@ reading rather than the flattering one.
 
 Verify the rules with `npm run check:portfolio` (23 checks).
 
-## Trading stocks as well as crypto
+## Instruments
 
-Set **Symbol** in Settings to any Alpaca-supported instrument. The asset class
-is inferred from the spelling — no extra configuration:
+Spot FX only. Set **Symbol** in Settings to a tradeable pair, or apply a
+universe preset:
 
-| Symbol | Asset class | Hours | Fees |
-|---|---|---|---|
-| `BTC/USD`, `ETH/USD` | crypto (slash) | 24/7 | 0.10% taker / 0.02% maker |
-| `AAPL`, `SPY`, `NVDA` | US equity | market hours only | commission-free |
+| Preset | Pairs | Notes |
+|---|---|---|
+| `majors` | 7 | All USD majors |
+| `tightest` | 4 | EUR/USD, JPY/USD, GBP/USD, CAD/USD — cheapest to trade |
+| `eurusd` | 1 | One pair, properly |
 
-Handled automatically per asset class: the market-data endpoint
-(`/v1beta3/crypto` vs `/v2/stocks`), the position symbol (`BTCUSD` vs `AAPL`),
-time-in-force (`gtc` vs `day`), and the fee model.
+**Every pair is quoted against USD.** USD/JPY is entered and displayed as
+`JPY/USD`, USD/CHF as `CHF/USD`, USD/CAD as `CAD/USD`. Long `JPY/USD` is short
+`USD/JPY` — the same economic position, turned to face the dollar so that
+`notional = qty × price` and `P&L = (exit − entry) × qty` both hold exactly in
+dollars. Crosses like `GBP/JPY` are recognised but refused with an explanatory
+error: they have no USD leg to settle into.
 
-Two equity-specific behaviours worth knowing:
+Handled automatically: the OANDA instrument name (`USD_JPY`), the direction and
+sign of every order for inverted pairs, unit rounding, 24/5 session gating, the
+17:00 ET rollover blackout, per-pair spreads, and overnight carry.
 
-- **Market hours.** Equities are shut nights, weekends and holidays — roughly
-  75% of the time. The engine asks Alpaca's `/v2/clock` (so holidays and
-  half-days are handled properly, not hardcoded) and stands down until the
-  market reopens rather than firing orders into a closed venue.
-- **Fractional shares can't use limit orders.** Alpaca rejects fractional
-  limit orders, so a position of 12.7 shares is rounded down to 12 to keep the
-  cheaper maker fill. Below one share it falls back to a market order.
+Two FX-specific behaviours worth knowing:
 
-### ⚠️ Pattern Day Trader rule — this matters for stocks
+- **24/5, not 24/7.** The week runs Sunday 17:00 ET to Friday 17:00 ET. The
+  engine stands down over the weekend rather than firing orders into a shut
+  market, and the day profile's flatten rule targets the *Friday* close — the
+  only moment a position faces a gap it cannot be stopped out of.
+- **One unit is the minimum.** About 90p of EUR. This is the reason FX works on
+  a small account at all: a lot-based broker forces a 1,000-unit micro lot
+  (~£850), which on a £100 account is 9× leverage before any position sizing
+  has happened. No leverage is exposed here at all.
 
-US margin accounts under **$25,000** are limited to **3 day trades per 5
-business days**. This engine averages ~450 round trips a month, so a small
-real-money stock account would be flagged as a Pattern Day Trader almost
-immediately and then restricted from opening new positions.
-
-This does not affect: crypto (exempt), Alpaca paper accounts (funded at
-$100k), or cash accounts (settlement rules apply instead). But it does mean
-**this strategy is not viable on a small real-money stock account.** Crypto has
-no such restriction, which is why it remains the better fit for small capital.
-
-Data note: free Alpaca plans serve IEX rather than full SIP consolidated data,
-so equity bars are thinner than what a paid feed would show. Override with
-`ALPACA_DATA_FEED=sip` if you have a subscription.
-
-## Stage 1: Alpaca paper trading (real prices, no money at risk)
+## Stage 1: OANDA practice trading (real prices, no money at risk)
 
 **Do this before any real money.** It is the only way to test against real
 market data, which is the single biggest gap in every backtest in this repo —
 all of the simulated results here run on synthetic prices.
 
-Alpaca exposes the *same* REST API for paper and live; only the base URL and
-keys differ. So this exercises the exact live code path end to end.
+OANDA exposes the *same* v20 REST API for practice and live; only the host and
+token differ. So this exercises the exact live code path end to end.
 
 ```
-ALPACA_KEY_ID=...
-ALPACA_SECRET_KEY=...
-ALPACA_BASE_URL=https://paper-api.alpaca.markets    # <- paper endpoint
+OANDA_API_TOKEN=...
+OANDA_ACCOUNT_ID=001-004-1234567-001
+OANDA_BASE_URL=https://api-fxpractice.oanda.com     # <- practice endpoint
 ```
 
 Then set **mode: live** in Settings.
 
-> **Naming trap:** the app's "live" mode only means *"route orders to Alpaca
-> instead of the internal simulator."* With `ALPACA_BASE_URL` pointing at the
-> paper endpoint, **no real money is involved.** Real money requires
-> deliberately changing that URL to `https://api.alpaca.markets`.
+> **Naming trap:** the app's "live" mode only means *"route orders to OANDA
+> instead of the internal simulator."* With `OANDA_BASE_URL` pointing at the
+> practice host, **no real money is involved.** Real money requires
+> deliberately changing that URL to `https://api-fxtrade.oanda.com`.
+
+> **The adapter has never run against the real API.** It was written from the
+> v20 spec and driven over HTTP against a mock venue, which confirmed the wire
+> format — signed units, conventional instrument names, inverted stop sides —
+> but a mock built from the same reading of the spec cannot catch a misreading
+> of it. Reconcile the first few fills by hand.
 
 What to watch, in order of importance:
 
-1. **Do recorded fill prices match Alpaca's dashboard?** The broker now reports
-   only venue-confirmed fills at real `filled_avg_price`. If these diverge,
-   stop — every P&L number and the kill-switch depend on them.
+1. **Do recorded fill prices match OANDA's dashboard, and in the right
+   direction?** For an inverted pair the app shows JPY/USD ~0.0064 where OANDA
+   shows USD/JPY ~157, and a *long* here is a *short* there. Both should
+   describe the same position. If they diverge, stop — every P&L number and
+   the kill-switch depend on this.
 2. **What fraction of fills are maker vs taker?** Backtests assume ~88% maker.
    If live is mostly taker, real costs are ~0.1-0.2%/round trip higher than
    every backtest in this repo claims.
 3. **Does net P&L after fees beat simply holding?** That is the only bar that
    matters. Fee drag alone runs 1.5-3% of capital per month at ~450 trades.
 
-Use a **dedicated Alpaca account**. `getAccount` reports whole-account equity,
-so position sizing and the daily-loss kill-switch measure against everything in
-the account, including assets this bot never traded.
+Use a **dedicated OANDA account**. `getAccount` reports whole-account NAV, so
+position sizing and the daily-loss kill-switch measure against everything in
+the account, including positions this bot never opened.
 
 ### What the live order path guarantees
 
@@ -1121,24 +1150,29 @@ the account, including assets this bot never traded.
   failure. Stop-losses always go straight to market.
 - Dust orders below the venue minimum are refused locally rather than sent.
 
-These paths are covered by a mock-venue test using real Alpaca response shapes,
-but **have not been run against Alpaca's servers** — that is what stage 1 is for.
+These paths are covered by a mock-venue test using OANDA v20 response shapes,
+but **have not been run against OANDA's servers** — that is what stage 1 is for.
 
 ## Stage 2: going live (real money)
 
 Live trading is a first-class mode, but off until *you* turn it on:
 
-1. Create an [Alpaca](https://alpaca.markets) account and generate API keys.
+1. Create an [OANDA](https://www.oanda.com) account and generate a v20 API
+   token (*Manage API Access* → *Generate*).
 2. Set environment variables (see `.env.example`):
    ```
-   ALPACA_KEY_ID=...
-   ALPACA_SECRET_KEY=...
-   ALPACA_BASE_URL=https://paper-api.alpaca.markets   # paper endpoint
+   OANDA_API_TOKEN=...
+   OANDA_ACCOUNT_ID=001-004-1234567-001
+   OANDA_BASE_URL=https://api-fxpractice.oanda.com   # practice endpoint
    ```
-   Use Alpaca's **paper** endpoint first — same API, fake money on their side.
-   Switch `ALPACA_BASE_URL` to the live endpoint only when you're ready.
+   Use the **practice** host first — same API, fake money on their side.
+   Switch to `https://api-fxtrade.oanda.com` only when you are ready, and
+   remember the token must match the account type.
 3. In **Settings**, flip **Live trading** on. The server refuses live mode
-   unless keys are present.
+   unless credentials are present.
+4. Expect the **proof-of-edge gate** to block every entry until a strategy has
+   30 realised trades with positive expectancy. Turning that off is disabling
+   a safety feature built precisely because the evidence says do not trade.
 
 ## Performance
 
@@ -1193,8 +1227,8 @@ server/
   trading/
     indicators.ts       SMA / EMA / RSI / ATR ...
     strategies.ts       Strategy library + registry
-    brokers.ts          Broker interface, PaperBroker, AlpacaBroker
-    marketData.ts       Alpaca bars + synthetic fallback
+    brokers.ts          Broker interface, PaperBroker, OandaBroker
+    marketData.ts       OANDA FX bars + synthetic fallback
     backtester.ts       Replays strategies over history
     aiSelector.ts       Regime detection + strategy ranking
     riskManager.ts      Hard risk limits
@@ -1208,7 +1242,7 @@ server/
     analyst.ts          Claude API code/trade review (optional)
     improver.ts         Self-improvement loop + autonomy gating
   ml/
-    dataSource.ts       Real historical OHLCV downloader (Binance/CryptoCompare)
+    dataSource.ts       Real historical OHLCV downloader (OANDA)
     features.ts         Market feature engineering
     labeling.ts         Triple-barrier labeling
     cv.ts               Purged walk-forward cross-validation

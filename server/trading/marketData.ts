@@ -1,12 +1,12 @@
-// Market data feed. Prefers real Alpaca crypto bars when credentials are
-// present; otherwise falls back to a synthetic generator so the whole platform
-// runs end-to-end with zero configuration. The synthetic series uses a random
-// walk with drift and regime shifts so strategies and the backtester have
-// realistic-looking data to work with out of the box.
+// Market data feed. Prefers real OANDA FX bars when credentials are present;
+// otherwise falls back to a synthetic generator so the whole platform runs
+// end-to-end with zero configuration. The synthetic series is a GJR-GARCH
+// process with Student-t innovations, so strategies and the backtester see
+// fat tails and volatility clustering rather than a plain random walk.
 
 import type { Candle } from "@shared/schema";
-import { readAlpacaCredentials, readOandaCredentials } from "./brokers";
-import { assetClassOf, barsUrl, TYPICAL_BAR_VOL, venueSymbol } from "./assets";
+import { readOandaCredentials } from "./brokers";
+import { assetClassOf, TYPICAL_BAR_VOL, venueSymbol } from "./assets";
 import { pairSpec } from "./forex";
 
 const MINUTE = 60_000;
@@ -336,64 +336,12 @@ export function generateSyntheticCandles(
 }
 
 // ---------------------------------------------------------------------------
-// Alpaca market data (crypto + equities)
-// ---------------------------------------------------------------------------
-
-async function fetchAlpacaBars(
-  symbol: string,
-  count: number,
-): Promise<Candle[] | null> {
-  // Alpaca does not offer FX at all. Asking it for EUR/USD returns an empty
-  // bar set, which the caller would silently paper over with synthetic data —
-  // so refuse explicitly and let the FX feed handle it.
-  if (assetClassOf(symbol) === "forex") return null;
-  const creds = readAlpacaCredentials();
-  if (!creds) return null;
-  try {
-    const params = new URLSearchParams({
-      symbols: symbol,
-      timeframe: "1Min",
-      limit: String(Math.min(count, 1000)),
-    });
-    // Equities and crypto live behind different market-data endpoints.
-    if (assetClassOf(symbol) === "stock") {
-      // Free Alpaca data plans only serve IEX, and delayed SIP data is
-      // rejected outright — asking for IEX explicitly keeps stock bars
-      // working on a default account instead of erroring.
-      params.set("feed", process.env.ALPACA_DATA_FEED || "iex");
-    }
-    const url = barsUrl(symbol, params);
-    const res = await fetch(url, {
-      headers: {
-        "APCA-API-KEY-ID": creds.keyId,
-        "APCA-API-SECRET-KEY": creds.secretKey,
-      },
-    });
-    if (!res.ok) return null;
-    const data: any = await res.json();
-    const bars: any[] = data?.bars?.[symbol] ?? [];
-    if (!bars.length) return null;
-    return bars.map((b) => ({
-      time: new Date(b.t).getTime(),
-      open: b.o,
-      high: b.h,
-      low: b.l,
-      close: b.c,
-      volume: b.v,
-    }));
-  } catch {
-    return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // OANDA market data (spot FX)
 //
-// Separate from the Alpaca path because it is a different vendor with a
-// different auth scheme, a different candle shape, and — the part that matters
-// — a different QUOTE DIRECTION. OANDA quotes USD_JPY; we trade JPY/USD. The
-// inversion happens here, at the single boundary where external data enters,
-// so that nothing downstream ever has to think about it again.
+// The one place external prices enter the system, and therefore the one place
+// that has to know about QUOTE DIRECTION. OANDA quotes USD_JPY; we trade
+// JPY/USD. The inversion happens here so nothing downstream ever thinks about
+// it again — see forex.ts for why every pair is turned to face USD.
 // ---------------------------------------------------------------------------
 
 /**
@@ -459,7 +407,7 @@ async function fetchOandaBars(symbol: string, count: number): Promise<Candle[] |
 // ---------------------------------------------------------------------------
 
 export interface MarketFeed {
-  readonly source: "alpaca" | "oanda" | "synthetic";
+  readonly source: "oanda" | "synthetic";
   /** Latest `count` candles for the symbol, oldest first. */
   getCandles(symbol: string, count: number): Promise<Candle[]>;
   /** Convenience: most recent close price. */
@@ -471,7 +419,7 @@ export interface MarketFeed {
  * API routes each call `createMarketFeed()` separately, so a cache living on
  * the returned object would never dedupe across them. Keyed by
  * `${symbol}:${count}`; caches the in-flight promise (not just the resolved
- * value) so concurrent callers within the same tick share one Alpaca
+ * value) so concurrent callers within the same tick share one OANDA
  * request/synthetic generation instead of firing one each.
  *
  * TTL is shorter than the engine's minimum tick interval (5s, enforced in
@@ -483,12 +431,9 @@ const CACHE_TTL_MS = 3_000;
 const candleCache = new Map<string, { expires: number; promise: Promise<Candle[]> }>();
 
 export function createMarketFeed(): MarketFeed {
-  const hasAlpaca = readAlpacaCredentials() !== null;
   const hasOanda = readOandaCredentials() !== null;
   return {
-    // Reported per feed, not per symbol; a mixed universe routes each symbol
-    // to the vendor that actually carries it.
-    source: hasAlpaca ? "alpaca" : hasOanda ? "oanda" : "synthetic",
+    source: hasOanda ? "oanda" : "synthetic",
     async getCandles(symbol, count) {
       const key = `${symbol}:${count}`;
       const now = Date.now();
@@ -496,10 +441,7 @@ export function createMarketFeed(): MarketFeed {
       if (cached && cached.expires > now) return cached.promise;
 
       const promise = (async () => {
-        const real =
-          assetClassOf(symbol) === "forex"
-            ? await fetchOandaBars(symbol, count)
-            : await fetchAlpacaBars(symbol, count);
+        const real = await fetchOandaBars(symbol, count);
         if (real && real.length) return real;
         return generateSyntheticCandles(symbol, count);
       })();

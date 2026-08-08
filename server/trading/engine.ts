@@ -4,7 +4,7 @@
 // the active broker, and records everything to storage.
 //
 // Safety posture:
-//  - Defaults to paper mode; live mode requires explicit config AND Alpaca keys.
+//  - Defaults to paper mode; live mode requires explicit config AND OANDA keys.
 //  - A daily-loss kill-switch halts all new entries until manually resumed.
 //  - Every risk block and order is written to the decision log for audit.
 
@@ -22,9 +22,7 @@ import { registerPersistence } from "../persistence";
 import { sendAlert } from "../alerts";
 import {
   PaperBroker,
-  AlpacaBroker,
   OandaBroker,
-  readAlpacaCredentials,
   readOandaCredentials,
   type Broker,
 } from "./brokers";
@@ -50,9 +48,9 @@ import { assessExpectancy } from "./expectancy";
 
 const CANDLE_COUNT = 200;
 /**
- * Symbols fetched concurrently per tick. Alpaca's free data tier allows
- * ~200 requests/minute; 8 in flight keeps a large universe well inside that
- * while cutting tick time roughly 8x versus fetching one at a time.
+ * Symbols fetched concurrently per tick. OANDA's v20 API allows roughly 120
+ * requests/second per account; 8 in flight sits far inside that while cutting
+ * tick time roughly 8x versus fetching one symbol at a time.
  */
 const FETCH_CONCURRENCY = 8;
 
@@ -213,32 +211,24 @@ class TradingEngine {
   /**
    * Choose the broker implementation based on mode + available credentials.
    *
-   * ONE live venue at a time. Alpaca covers crypto and equities, OANDA covers
-   * FX, and neither covers the other — but running both would mean two
-   * separate account balances feeding one set of sizing rules, which is how
-   * you end up sizing an FX position against crypto equity that cannot margin
-   * it. Symbols the chosen venue does not carry are skipped, loudly.
+   * OANDA is the only live venue. Without credentials, or outside live mode,
+   * the in-memory paper broker is used — and an existing one is kept rather
+   * than replaced, so flipping config mid-session does not wipe the simulated
+   * balance.
    */
   private applyConfigBroker(config: BotConfig): void {
-    const creds = readAlpacaCredentials();
     const oanda = readOandaCredentials();
-    const wantOanda =
-      config.liveBroker === "oanda" || (config.liveBroker === "auto" && !creds && !!oanda);
-    if (config.mode === "live" && wantOanda && oanda) {
+    if (config.mode === "live" && oanda) {
       if (!(this.broker instanceof OandaBroker)) this.broker = new OandaBroker(oanda);
-    } else if (config.mode === "live" && creds && config.liveBroker !== "oanda") {
-      this.broker = new AlpacaBroker(creds);
-    } else {
-      // Keep the existing paper broker if we already have one running, so
-      // switching config mid-session doesn't wipe simulated balance.
-      if (!(this.broker instanceof PaperBroker)) {
-        this.broker = new PaperBroker(10_000);
-      }
+      return;
+    }
+    if (!(this.broker instanceof PaperBroker)) {
+      this.broker = new PaperBroker(10_000);
     }
   }
 
   liveKeysConfigured(): boolean {
-    return readAlpacaCredentials() !== null || readOandaCredentials() !== null;
+    return readOandaCredentials() !== null;
   }
 
   // -- Lifecycle ----------------------------------------------------------
@@ -351,7 +341,7 @@ class TradingEngine {
       this.noteBlock(
         symbol,
         `${this.broker.kind} does not carry this instrument — ` +
-          `${assetClassOf(symbol) === "forex" ? "FX needs OANDA credentials" : "use Alpaca for crypto and equities"}`,
+          `this platform trades spot FX only (see forex.ts for the pair table)`,
       );
       return false;
     }
@@ -1175,9 +1165,9 @@ class TradingEngine {
     };
     storage.addTrade(trade);
 
-    // Only forget the entry once the position is genuinely flat. Alpaca
-    // reports a PARTIAL fill as status "filled" carrying just the executed
-    // quantity, so deleting unconditionally orphaned the remainder: its next
+    // Only forget the entry once the position is genuinely flat. A venue can
+    // report a PARTIAL fill as "filled" carrying just the executed quantity,
+    // so deleting unconditionally orphaned the remainder: its next
     // exit found no entry, booked pnl = 0, and fed that fiction straight into
     // the Kelly multiplier and the confidence governor, both of which read the
     // trade history.
@@ -1461,7 +1451,7 @@ class TradingEngine {
     return out;
   }
 
-  get feedSource(): "alpaca" | "oanda" | "synthetic" {
+  get feedSource(): "oanda" | "synthetic" {
     return this.feed.source;
   }
 }

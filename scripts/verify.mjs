@@ -63,12 +63,12 @@ const steps = [
   ["market facts", ...check("factsCheck.ts")],
   // Calibration runs PER PRESET, not once on the default config.
   //
-  // Every setting here is volatility-denominated, and the presets differ in
-  // volatility by more than an order of magnitude — crypto ~0.10%/bar against
-  // FX ~0.008%. A single run on whichever universe happens to be configured
-  // says nothing about the others, which is how the FX preset shipped with two
+  // Every setting here is volatility-denominated, and a one-pair universe does
+  // not have the same reachable portfolio volatility as a seven-pair one. A
+  // single run on whichever universe happens to be configured says nothing
+  // about the others, which is how the FX preset first shipped with two
   // controls that could never bind while the gate reported green.
-  ...["crypto", "stocks", "etfs", "forex", "everything"].map((preset) => [
+  ...["majors", "tightest", "eurusd"].map((preset) => [
     `calibrate:${preset}`,
     node,
     [TSX, join("server", "calibrate.ts"), `preset=${preset}`],

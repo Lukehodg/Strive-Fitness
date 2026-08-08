@@ -87,11 +87,12 @@ export function attemptFill(
   forceTaker: boolean,
   isExit: boolean,
   /**
-   * Symbol, so the right asset class's costs apply. Crypto pays a real fee;
-   * Alpaca equities pay none and cost only the spread. Charging both the same
-   * flat rate — which is what this did before — misprices every backtest.
+   * Symbol, so the right asset class's costs apply. FX pays a spread that
+   * varies per pair and with the rate; crypto pays a percentage fee. Charging
+   * both the same flat rate — which is what this did before — misprices every
+   * backtest.
    */
-  symbol = "BTC/USD",
+  symbol = "EUR/USD",
   /**
    * Maker-only: an entry that cannot rest is SKIPPED rather than crossed.
    * Exits ignore this — an exit that never happens is a risk-management

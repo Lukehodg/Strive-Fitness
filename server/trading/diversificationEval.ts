@@ -119,7 +119,7 @@ const sizing: BacktestSizing = {
   volTargetPct: 0.004,
   kellyFraction: 0.5,
   limitOrderOffsetPct: 0.0006,
-  symbol: "BTC/USD",
+  symbol: "EUR/USD",
   makerOnlyEntries: false,
 };
 

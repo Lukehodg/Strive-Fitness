@@ -188,12 +188,12 @@ export type TradingMode = (typeof TradingModes)[number];
 
 /** User-tunable configuration. All risk limits are enforced server-side. */
 export interface BotConfig {
-  /** Primary trading symbol, e.g. "BTC/USD". Always part of the universe. */
+  /** Primary trading symbol, e.g. "EUR/USD". Always part of the universe. */
   symbol: string;
   /**
    * Extra symbols the engine may trade alongside `symbol`. Empty keeps the
-   * original single-symbol behaviour. Crypto ("BTC/USD") and equities
-   * ("AAPL") can be mixed; asset-class rules are applied per symbol.
+   * original single-symbol behaviour. Every symbol must be a tradeable FX
+   * pair in XXX/USD form — see server/trading/forex.ts for the table.
    */
   extraSymbols?: string[];
   /** Max positions held simultaneously across the whole universe. */
@@ -296,10 +296,12 @@ export interface BotConfig {
    * default for the asset class. Set these to what your statements actually
    * show — a wrong cost model is the fastest way to manufacture a fake edge.
    */
-  cryptoTakerFee?: number | null;
-  cryptoMakerFee?: number | null;
-  equityTakerFee?: number | null;
-  equityMakerFee?: number | null;
+  /**
+   * FX commission per side, as a fraction, for ECN-style accounts that quote a
+   * raw spread plus a fee. Null (the default) means a standard retail spread
+   * account, where the spread IS the whole cost.
+   */
+  forexCommission?: number | null;
   /**
    * Event blackout: don't open new positions around scheduled releases
    * (payrolls, EIA inventories, FOMC). This makes no prediction about what a
@@ -342,15 +344,6 @@ export interface BotConfig {
   forexCarryByPair: Record<string, number>;
   /** paper = simulated fills; live = real broker orders (requires keys). */
   mode: TradingMode;
-  /**
-   * Which venue to use in live mode.
-   *
-   * "auto" prefers Alpaca when its keys are present and falls back to OANDA,
-   * which keeps every existing setup behaving exactly as it did. Pick one
-   * explicitly when both are configured — no venue carries both FX and crypto,
-   * so the choice decides which half of a mixed universe is tradeable.
-   */
-  liveBroker: "auto" | "alpaca" | "oanda";
   /** Fraction of equity to deploy on a full-conviction entry (0.25 = 25%). */
   maxPositionPct: number;
   /** Hard stop: if equity drops this fraction below the day's start, halt. */
@@ -399,6 +392,18 @@ export interface BotConfig {
    *
    * Set it near the volatility you actually observe, so the multiplier sits
    * around 1 and can move both ways.
+   *
+   * LOWERED FROM 0.0015 WHEN THE PLATFORM MOVED TO FX — the third time this
+   * exact bug has been caught, and the third time by `npm run calibrate`
+   * rather than by reading the code. 0.0015 is crypto's volatility ANCHOR, but
+   * the process realises about 80% of its anchor, and scaling by the FX factor
+   * then landed the target at roughly twice EUR/USD's realised volatility.
+   * Every symbol pinned at the 2.0 clamp: the control could only size up.
+   *
+   * Expressed in crypto units and scaled per instrument (see
+   * scaleRiskByAssetClass), 0.0008 puts the FX target at ~0.0064%/bar against
+   * a realised 0.006-0.009%, so the multiplier sits near 1.1-1.7 and has room
+   * to move in both directions on every preset.
    */
   volTargetPct: number;
   /** Kelly fraction (0.5 = half-Kelly) used when adaptiveSizing is on. */
@@ -421,7 +426,7 @@ export const AutonomyLevels = [
 export type AutonomyLevel = (typeof AutonomyLevels)[number];
 
 export const DEFAULT_CONFIG: BotConfig = {
-  symbol: "BTC/USD",
+  symbol: "EUR/USD",
   extraSymbols: [],
   maxConcurrentPositions: 3,
   maxTotalExposurePct: 0.6,
@@ -447,14 +452,10 @@ export const DEFAULT_CONFIG: BotConfig = {
   // constraining a correlated book at roughly 40% total exposure, which is
   // where the risk it exists to catch actually begins.
   portfolioVolTargetPct: 0.00035,
-  cryptoTakerFee: null,
-  cryptoMakerFee: null,
-  equityTakerFee: null,
-  equityMakerFee: null,
+  forexCommission: null,
   eventBlackout: true,
   eventBlackoutBeforeMinutes: 30,
   eventBlackoutAfterMinutes: 15,
-  liveBroker: "auto",
   scaleRiskByAssetClass: true,
   forexSpreadPips: {},
   forexCarryAnnual: null,
@@ -475,7 +476,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   // 0.15%/bar: the realised per-bar volatility of liquid crypto on 1-minute
   // bars, measured rather than assumed. See the field docs above for why the
   // previous 0.4% made this control inert in one direction.
-  volTargetPct: 0.0015,
+  volTargetPct: 0.0008,
   kellyFraction: 0.5,
 };
 
@@ -729,14 +730,10 @@ export const updateConfigSchema = z
     portfolioVolTargetPct: z.number().min(0.0001).max(0.05).optional(),
     // Capped at 1% a side: anything higher is a typo, and a typo here silently
     // rewrites every backtest.
-    cryptoTakerFee: z.number().min(0).max(0.01).nullable().optional(),
-    cryptoMakerFee: z.number().min(0).max(0.01).nullable().optional(),
-    equityTakerFee: z.number().min(0).max(0.01).nullable().optional(),
-    equityMakerFee: z.number().min(0).max(0.01).nullable().optional(),
+    forexCommission: z.number().min(0).max(0.01).nullable().optional(),
     eventBlackout: z.boolean().optional(),
     eventBlackoutBeforeMinutes: z.number().int().min(0).max(240).optional(),
     eventBlackoutAfterMinutes: z.number().int().min(0).max(240).optional(),
-    liveBroker: z.enum(["auto", "alpaca", "oanda"]).optional(),
     scaleRiskByAssetClass: z.boolean().optional(),
     // Spreads are bounded well below the point where FX stops being worth
     // trading: 50 pips on a major is not a quote, it is a typo.

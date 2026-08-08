@@ -55,7 +55,7 @@ class Improver {
 
   private trainMeta() {
     return {
-      source: (this.feed.source === "alpaca" ? "live" : "synthetic") as
+      source: (this.feed.source === "oanda" ? "live" : "synthetic") as
         | "live"
         | "synthetic",
       symbol: storage.getConfig().symbol,

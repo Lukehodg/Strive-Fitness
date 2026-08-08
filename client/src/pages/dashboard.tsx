@@ -1043,7 +1043,7 @@ function SettingsPanel() {
   // applying a trading profile or a universe — left these fields showing the
   // OLD values. Pressing "Save settings" afterwards then wrote those stale
   // values back, silently undoing the profile you had just applied: stop-loss
-  // back to 3%, max position back to 25%, symbol back to BTC/USD.
+  // back to 3%, max position back to 25%, symbol back to EUR/USD.
   useEffect(() => {
     if (config.data && !dirty) setForm(config.data);
   }, [config.data, dirty]);
@@ -1081,7 +1081,7 @@ function SettingsPanel() {
           <Field label="Primary symbol">
             <Input value={form.symbol} onChange={(e) => upd({ symbol: e.target.value })} className="term-inset" />
             <p className="text-xs text-[#5a656c] mt-1">
-              A slash means crypto (BTC/USD, 24/7); a bare ticker means a US stock (AAPL, market hours only).
+Spot FX only, quoted against USD — so USD/JPY is entered as JPY/USD. Open 24/5, Sunday 17:00 ET to Friday 17:00 ET.
             </p>
           </Field>
           <Field label="Evaluation interval (seconds)">
@@ -1149,20 +1149,18 @@ function SettingsPanel() {
                   ))}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Crypto taker %">
-                  <Input type="number" step={0.01} min={0} max={1}
-                    value={form.cryptoTakerFee != null ? form.cryptoTakerFee * 100 : ""}
-                    placeholder="0.25"
-                    onChange={(e) => upd({ cryptoTakerFee: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
-                </Field>
-                <Field label="Crypto maker %">
-                  <Input type="number" step={0.01} min={0} max={1}
-                    value={form.cryptoMakerFee != null ? form.cryptoMakerFee * 100 : ""}
-                    placeholder="0.15"
-                    onChange={(e) => upd({ cryptoMakerFee: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
-                </Field>
-              </div>
+              <Field label="FX commission % per side (blank = retail spread account)">
+                <Input type="number" step={0.001} min={0} max={1}
+                  value={form.forexCommission != null ? form.forexCommission * 100 : ""}
+                  placeholder="0 — the spread is the whole cost"
+                  onChange={(e) => upd({ forexCommission: e.target.value === "" ? null : Number(e.target.value) / 100 })} />
+                <p className="text-xs text-[#5a656c] mt-1">
+                  Only for raw-spread/ECN accounts that charge per lot on top of a tighter
+                  quote. Leave blank on a standard retail account. Per-pair spreads are set
+                  in forex.ts and default to the wide end of what a retail account sees —
+                  calibrate them against your own statements.
+                </p>
+              </Field>
             </div>
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>
@@ -1174,7 +1172,7 @@ function SettingsPanel() {
             <div className="flex items-center justify-between rounded-lg term-inset p-3">
               <div>
                 <p className="text-sm font-medium text-white">Maker-only entries</p>
-                <p className="text-xs term-dim">Skip an entry that would have to cross the spread rather than paying for it. Exits are never affected. Mainly matters live on equities: an order under one share can't be a limit at Alpaca, so on a small account those entries cross every time.</p>
+                <p className="text-xs term-dim">Skip an entry that would have to cross the spread rather than paying for it. Exits are never affected. On FX every order can rest as a limit at any size, so this is a straight choice between paying the spread and waiting for a better price.</p>
               </div>
               <Switch checked={form.makerOnlyEntries} onCheckedChange={(v) => upd({ makerOnlyEntries: v })} />
             </div>

@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Build, run and drive this trading platform to verify a change at its real surface (HTTP API + engine loop), including the Alpaca broker path.
+description: Build, run and drive this trading platform to verify a change at its real surface (HTTP API + engine loop), including the OANDA broker path.
 ---
 
 # Verifying Auto-Trader
@@ -23,41 +23,64 @@ Use `setsid nohup ... < /dev/null &`. A plain `&` job dies when a later
 Startup prints the data source unmissably — check it first:
 
 ```
-market data: ALPACA (real prices) — endpoint <url>     |  SYNTHETIC (...)
-orders: Alpaca PAPER account ...                       |  *** ALPACA LIVE — REAL MONEY ***
+market data: OANDA (real FX prices) — endpoint <url>   |  SYNTHETIC (...)
+orders: OANDA PRACTICE account ...                     |  *** OANDA LIVE — REAL MONEY ***
 ```
 
-## Driving the Alpaca path without Alpaca
+## Driving the OANDA path without OANDA
 
-`api.alpaca.markets` is blocked from this environment. Point the app at a
-local stand-in venue instead — this exercises the real broker code over real
-HTTP:
+`api-fxpractice.oanda.com` is not reachable from this environment. Point the
+app at a local stand-in venue instead — this exercises the real broker code
+over real HTTP:
 
 ```bash
-printf 'ALPACA_KEY_ID=PK1\nALPACA_SECRET_KEY=s\nALPACA_BASE_URL=http://127.0.0.1:7788\n' > .env
+printf 'OANDA_API_TOKEN=t\nOANDA_ACCOUNT_ID=001-001-1-001\nOANDA_BASE_URL=http://127.0.0.1:7799\n' > .env
 ```
 
-The venue must serve `/v2/clock`, `/v2/account`, `/v2/positions/:sym`,
-`POST /v2/orders`, `GET|DELETE /v2/orders/:id`. Fill non-stop orders
-immediately so the engine progresses to placing its protective stop.
-Market data still falls back to synthetic (the data host is hardcoded),
-which is fine — orders and positions still flow through the mock.
+The venue must serve, under `/v3/accounts/:id/`: `summary`, `openPositions`,
+`POST orders`, `PUT orders/:id/cancel`, and `/v3/instruments/:inst/candles`.
+Fill MARKET orders immediately (return an `orderFillTransaction`) so the engine
+progresses to placing its protective stop; acknowledge LIMIT and STOP orders
+with an `orderCreateTransaction` instead.
 
-`ALPACA_BASE_URL` is normalized, so a pasted `.../v2` works.
+`OANDA_BASE_URL` is normalized, so a pasted `.../v3` works.
+
+**Check the wire format, not just the outcome.** Three things are easy to get
+backwards and none of them throws:
+
+- **Units are signed.** There is no `side` field. Buying `EUR/USD` must send
+  `EUR_USD +units`; buying `JPY/USD` must send `USD_JPY -units`, because long
+  JPY/USD is short USD/JPY.
+- **Instruments are always conventional.** `USD_JPY` exists; `JPY_USD` does not.
+- **Stops invert too.** A stop *below* entry in JPY/USD is *above* it in
+  USD/JPY, and closing a long here is a BUY at the venue.
+
+## FX is closed at weekends
+
+The engine correctly stands down Saturday and Sunday, so a weekend run produces
+`Market closed for EUR/USD, …` and zero orders. That is the session logic
+working, not a failure — but it means the trading path cannot be exercised
+end-to-end until Sunday 17:00 ET. To verify the adapter itself outside those
+hours, drive `OandaBroker` directly against the mock venue.
 
 ## Getting it to actually trade
 
 Signals are rare on a single symbol. To see orders within ~40s:
 
 ```bash
-curl -s -X POST localhost:5000/api/universes/crypto/apply      # 15 symbols
+curl -s -X POST localhost:5000/api/universes/majors/apply      # 7 pairs
 curl -s -X PATCH localhost:5000/api/config -H "Content-Type: application/json" \
-  -d '{"mode":"live","intervalSeconds":5,"autoSelectStrategy":false,"activeStrategyId":"breakout"}'
+  -d '{"mode":"live","intervalSeconds":5,"autoSelectStrategy":false,"activeStrategyId":"breakout","requireProvenEdge":false}'
 curl -s -X POST localhost:5000/api/control/start
 ```
 
-`mode: "live"` routes orders to Alpaca; `paper` uses the in-memory broker.
+`mode: "live"` routes orders to OANDA; `paper` uses the in-memory broker.
 Config updates are **PATCH**, not POST.
+
+`requireProvenEdge` defaults to **true** and blocks every live entry until a
+strategy has 30 realised trades with positive expectancy — so without turning
+it off you will see zero orders and a `LIVE entries blocked` line. That is the
+gate working; turn it off deliberately when verifying the order path.
 
 ## Reading the evidence
 
@@ -69,7 +92,10 @@ Config updates are **PATCH**, not POST.
 
 ## Worth probing
 
-- Unknown universe id → 404 listing valid ids
+- Unknown universe id → 404 listing valid ids (`majors, tightest, eurusd`)
 - Venue rejecting a protective stop → `risk_block` + warning alert
-- Market closed (`/v2/clock` false) → equities stand down, no orders sent
+- Weekend / outside 24/5 → all pairs stand down, no orders sent
 - Position/exposure limits → `risk_block` entries once full
+- A cross like `GBP/JPY` → rejected with a "not a tradeable FX pair" message
+- Confidence governor → compare `Sized to N% of equity` with the governor on
+  vs off; the ratio should match `1 / sizeMultiplier` from `/api/confidence`

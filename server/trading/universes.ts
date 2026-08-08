@@ -16,80 +16,49 @@ export interface UniversePreset {
   symbols: string[];
 }
 
-/** Alpaca's liquid USD crypto pairs. Trade 24/7, no day-trading restrictions. */
-const CRYPTO: string[] = [
-  "BTC/USD", "ETH/USD", "LTC/USD", "BCH/USD", "LINK/USD",
-  "UNI/USD", "AAVE/USD", "AVAX/USD", "DOT/USD", "SOL/USD",
-  "SHIB/USD", "DOGE/USD", "XRP/USD", "MKR/USD", "SUSHI/USD",
-];
-
-/** Large-cap US equities: tight spreads, deep liquidity, reliable data. */
-const MEGA_CAP: string[] = [
-  "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN",
-  "META", "TSLA", "AVGO", "JPM", "V",
-  "UNH", "XOM", "JNJ", "WMT", "MA",
-];
-
-/** Liquid sector and index ETFs — broad exposure, very tight spreads. */
-const ETFS: string[] = [
-  "SPY", "QQQ", "IWM", "DIA", "XLF",
-  "XLE", "XLK", "XLV", "GLD", "TLT",
-];
-
 /**
  * The seven USD majors, quoted XXX/USD — so USD/JPY appears as JPY/USD. See
  * forex.ts for why every pair is turned to face USD.
- *
- * The cheapest instruments available here by a wide margin: a EUR/USD round
- * trip costs about 0.009% against crypto's 0.600%, which is the difference
- * between execution eating 15% of a target and 3% of it. Runs 24/5 —
- * continuously from Sunday 17:00 ET to Friday 17:00 ET — and is exempt from
- * the Pattern Day Trader rule, so like crypto it is viable on a small account.
  */
-const FOREX: string[] = tradeablePairs();
+const MAJORS: string[] = tradeablePairs();
+
+/**
+ * The four most liquid pairs, and the tightest spreads available.
+ *
+ * EUR/USD at ~1 pip is about 0.009% a round trip; NZD/USD at ~2 pips is more
+ * than three times that once the rate is taken into account. When cost is the
+ * binding constraint, trading fewer and cheaper instruments is a real choice
+ * and not just a smaller universe.
+ */
+const TIGHTEST: string[] = ["EUR/USD", "JPY/USD", "GBP/USD", "CAD/USD"];
 
 export const UNIVERSE_PRESETS: UniversePreset[] = [
   {
-    id: "crypto",
-    name: "Crypto only",
-    description:
-      "15 liquid USD pairs. Trades 24/7 and is exempt from the Pattern Day " +
-      "Trader rule, so it is the only preset viable on a small real-money account.",
-    symbols: CRYPTO,
-  },
-  {
-    id: "stocks",
-    name: "US large caps",
-    description:
-      "15 mega-cap equities. Market hours only. PDT applies under $25k.",
-    symbols: MEGA_CAP,
-  },
-  {
-    id: "etfs",
-    name: "Index & sector ETFs",
-    description:
-      "10 liquid ETFs. Tighter spreads than single stocks and less headline risk.",
-    symbols: ETFS,
-  },
-  {
-    id: "forex",
+    id: "majors",
     name: "FX majors",
     description:
-      "The 7 USD majors, quoted against USD (so USD/JPY shows as JPY/USD). " +
-      "By far the cheapest to trade — roughly 0.009% a round trip against " +
-      "crypto's 0.600% — and open 24/5, Sunday evening to Friday evening. " +
-      "Requires OANDA credentials for live trading; Alpaca does not offer FX.",
-    symbols: FOREX,
+      "All 7 USD majors. Quoted against USD, so USD/JPY shows as JPY/USD — " +
+      "the same position, turned to face the dollar. Open 24/5, Sunday " +
+      "evening to Friday evening, and exempt from the Pattern Day Trader rule.",
+    symbols: MAJORS,
   },
   {
-    id: "everything",
-    name: "Everything",
+    id: "tightest",
+    name: "Tightest spreads",
     description:
-      "All 47 symbols across FX, crypto, equities and ETFs. Widest selection; " +
-      "the portfolio limits still cap what is actually held. FX and crypto keep " +
-      "trading overnight while the equities stand down, and FX stands down over " +
-      "the weekend while crypto carries on.",
-    symbols: [...CRYPTO, ...MEGA_CAP, ...ETFS, ...FOREX],
+      "The 4 cheapest pairs to trade. Fewer candidates, but roughly half the " +
+      "execution cost of the wider set — which matters more than selection " +
+      "when no edge has been proven yet.",
+    symbols: TIGHTEST,
+  },
+  {
+    id: "eurusd",
+    name: "EUR/USD only",
+    description:
+      "The single most liquid instrument in the world, and the cheapest here " +
+      "at ~0.009% a round trip. No diversification at all — use this to test " +
+      "one pair properly rather than to trade a book.",
+    symbols: ["EUR/USD"],
   },
 ];
 

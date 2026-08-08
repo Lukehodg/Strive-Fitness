@@ -6,16 +6,16 @@
 // called — dead code that looked like the cost model but wasn't. The result
 // was wrong in both directions at once:
 //
-//   - CRYPTO was UNDERCHARGED. The model used 0.10% taker, while Alpaca's
-//     entry crypto tier is nearer 0.25%. Every backtest was therefore
-//     optimistic, and the error scaled with turnover — worst exactly where the
-//     day-trading profile lives.
-//   - EQUITIES were OVERCHARGED on commission (0.10% when Alpaca charges none)
-//     and undercharged on spread, which is the cost that actually exists there.
+//   - CRYPTO was UNDERCHARGED. The model used 0.10% taker against a real entry
+//     tier nearer 0.25%. Every backtest was optimistic, and the error scaled
+//     with turnover — worst exactly where the day-trading profile lives.
+//   - EQUITIES were OVERCHARGED on commission and undercharged on spread,
+//     which is the cost that actually exists there.
 //
-// At a 1.5% take-profit target those are not rounding errors. A 0.25%/side
-// taker cost is a third of the gross target consumed before the trade is even
-// right.
+// Pricing that correctly is what showed execution to be the binding constraint
+// in this system, and that is what led to trading FX instead: the majors cost
+// roughly a sixty-fifth of crypto. The crypto and equity rows survive below
+// only as the comparison forexEval.ts measures against.
 //
 // CALIBRATE THIS AGAINST YOUR OWN FILLS. The defaults below are a documented
 // starting point, not gospel — fee tiers change and depend on volume. Every
@@ -65,10 +65,6 @@ export const DEFAULT_RATES: Record<AssetClass, CostRates> = {
 
 /** Overrides, as configured by the user. Null means "use the default". */
 export interface CostOverrides {
-  cryptoTakerFee?: number | null;
-  cryptoMakerFee?: number | null;
-  equityTakerFee?: number | null;
-  equityMakerFee?: number | null;
   /**
    * FX commission per side, for ECN-style accounts that quote a raw spread
    * plus a fee rather than marking the spread up. Zero on a standard retail
@@ -98,13 +94,6 @@ const num = (v: number | null | undefined, fallback: number) =>
 export function ratesFor(symbol: string, price?: number): CostRates {
   const cls = assetClassOf(symbol);
   const base = DEFAULT_RATES[cls];
-  if (cls === "crypto") {
-    return {
-      takerFee: num(overrides.cryptoTakerFee, base.takerFee),
-      makerFee: num(overrides.cryptoMakerFee, base.makerFee),
-      takerSlippage: base.takerSlippage,
-    };
-  }
   if (cls === "forex") {
     // Half the quoted spread per side, so a round trip pays exactly one full
     // spread — the number the broker's spread table quotes.
@@ -126,11 +115,13 @@ export function ratesFor(symbol: string, price?: number): CostRates {
       takerSlippage: spec ? halfSpreadFraction(symbol, price) : base.takerSlippage,
     };
   }
-  return {
-    takerFee: num(overrides.equityTakerFee, base.takerFee),
-    makerFee: num(overrides.equityMakerFee, base.makerFee),
-    takerSlippage: base.takerSlippage,
-  };
+  // Crypto and equities are NOT TRADEABLE here — OANDA lists neither — but
+  // their rates stay in the table on purpose. forexEval.ts is the recorded
+  // evidence for choosing FX at all, and that argument ("an edge of this size
+  // survives FX costs and does not survive crypto costs") is only checkable
+  // while the thing it was measured against is still in the model. Deleting
+  // these would leave the conclusion with nothing to compare against.
+  return base;
 }
 
 /**

@@ -9,8 +9,9 @@ export type AssetClass = "crypto" | "stock" | "forex";
 
 /**
  * Crypto pairs are quoted with a slash ("BTC/USD", "ETH/USD"); equities are
- * bare tickers ("AAPL", "SPY"). That is exactly how Alpaca distinguishes them
- * in its own APIs, so it needs no configuration from the user.
+ * bare tickers ("AAPL", "SPY"). Neither is tradeable here — this platform
+ * trades spot FX only — but the classification still matters, because the
+ * comparison tools and the synthetic generator both run per asset class.
  *
  * FX BREAKS THAT TEST, which is why the currency check comes first. "EUR/USD"
  * is slash-separated too, so the original rule classified every FX pair as
@@ -25,37 +26,23 @@ export function assetClassOf(symbol: string): AssetClass {
 }
 
 /**
- * Alpaca spells the same instrument differently per endpoint. Crypto orders
- * and market data use "BTC/USD", but the positions endpoint wants "BTCUSD".
- * Equities use the bare ticker everywhere.
+ * The symbol without its separator ("BTCUSD"), which is how some venues key
+ * positions. Retained because the engine reconciles broker-reported position
+ * symbols against the configured universe through it.
  */
 export function positionSymbol(symbol: string): string {
   return assetClassOf(symbol) === "crypto" ? symbol.replace("/", "") : symbol;
 }
 
 /**
- * FX venues spell pairs with an underscore ("EUR_USD"), and always in the
- * MARKET'S conventional direction — there is no such instrument as JPY_USD.
- * Callers that talk to an FX broker must therefore translate both the
- * separator and, for inverted pairs, the direction. See forex.ts for why we
- * trade the inverted form internally.
+ * The instrument name OANDA expects: underscore-separated ("EUR_USD"), and
+ * always in the MARKET'S conventional direction — there is no such instrument
+ * as JPY_USD. Callers therefore translate both the separator and, for inverted
+ * pairs, the direction. See forex.ts for why we trade the inverted form.
  */
 export function venueSymbol(symbol: string): string {
   if (assetClassOf(symbol) !== "forex") return positionSymbol(symbol);
   return conventional(symbol).replace("/", "_");
-}
-
-/**
- * Market-data host path for this asset class.
- *
- * FX has no Alpaca endpoint at all — Alpaca does not offer it. Callers must
- * check the asset class before reaching for this; marketData.ts routes FX to
- * its own feed and never gets here.
- */
-export function barsUrl(symbol: string, params: URLSearchParams): string {
-  return assetClassOf(symbol) === "crypto"
-    ? `https://data.alpaca.markets/v1beta3/crypto/us/bars?${params}`
-    : `https://data.alpaca.markets/v2/stocks/bars?${params}`;
 }
 
 /**
@@ -123,12 +110,12 @@ export function volScaleFor(symbol: string): number {
 /**
  * Round a quantity to something the venue will accept.
  *
- * Crypto takes fractional units freely. Equities accept fractional shares too,
- * but ONLY as market orders — Alpaca rejects a fractional limit order. So when
- * a limit (maker) order is wanted on a stock we round down to whole shares,
- * and report whether that was possible. Falling back to whole shares keeps the
- * cheaper maker fill; if the position is smaller than one share, the caller
- * must use a market order instead.
+ * FX trades in whole units of the base currency and accepts a limit order at
+ * any size. The crypto and equity branches below are retained for the
+ * comparison tools, which backtest those classes to establish what FX costs
+ * are being measured against; equities notably could only rest a limit order
+ * at whole-share sizes, which is why that branch reports whether a limit was
+ * possible at all.
  */
 export function roundQtyFor(
   symbol: string,
@@ -158,7 +145,7 @@ export function roundQtyFor(
     return { qty: Math.floor(qty * 1e9) / 1e9, canUseLimit: wantLimit };
   }
   if (!wantLimit) {
-    // Fractional market order — Alpaca allows up to 9dp on notional-ish sizes.
+    // Fractional market order, to 6dp.
     return { qty: Math.floor(qty * 1e6) / 1e6, canUseLimit: false };
   }
   const whole = Math.floor(qty);

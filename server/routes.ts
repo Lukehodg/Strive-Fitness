@@ -18,6 +18,7 @@ import {
   eventsBetween, checkBlackout, isCalendarStale, calendarValidThrough,
 } from "./trading/events";
 import { currentRates, roundTripCost, setCostOverrides } from "./trading/costs";
+import { volScaleFor } from "./trading/assets";
 import { computeStats } from "./trading/backtester";
 import { improver } from "./ai/improver";
 import {
@@ -66,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (parsed.data.mode === "live" && !engine.liveKeysConfigured()) {
       return res.status(400).json({
         message:
-          "Live mode requires Alpaca API keys (ALPACA_KEY_ID / ALPACA_SECRET_KEY). Staying in paper mode.",
+          "Live mode requires OANDA credentials (OANDA_API_TOKEN / OANDA_ACCOUNT_ID). Staying in paper mode.",
       });
     }
     const wasLive = storage.getConfig().mode === "live";
@@ -321,13 +322,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // profit target only a small multiple of round-trip cost is arithmetic,
       // not trading.
       takeProfitPct: target,
-      byAsset: ["BTC/USD", "AAPL"].map((symbol) => ({
-        symbol,
-        takerRoundTrip: roundTripCost(symbol, false),
-        makerRoundTrip: roundTripCost(symbol, true),
-        takerShareOfTarget: target > 0 ? roundTripCost(symbol, false) / target : 0,
-        makerShareOfTarget: target > 0 ? roundTripCost(symbol, true) / target : 0,
-      })),
+      // The pairs actually in the configured universe, scaled the way the
+      // engine scales them — a fixed sample list would report cost against a
+      // take-profit the engine never uses on that instrument.
+      byAsset: [config.symbol, ...(config.extraSymbols ?? [])].slice(0, 8).map((symbol) => {
+        const scaled = target * (config.scaleRiskByAssetClass ? volScaleFor(symbol) : 1);
+        return {
+          symbol,
+          takerRoundTrip: roundTripCost(symbol, false),
+          makerRoundTrip: roundTripCost(symbol, true),
+          takerShareOfTarget: scaled > 0 ? roundTripCost(symbol, false) / scaled : 0,
+          makerShareOfTarget: scaled > 0 ? roundTripCost(symbol, true) / scaled : 0,
+        };
+      }),
     });
   });
 
