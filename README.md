@@ -605,6 +605,57 @@ adapter has not been run against the live API**: it was written from the v20
 spec, since the sandbox is unreachable from where it was built. Treat the first
 practice-account run as the real test and reconcile the first few fills by hand.
 
+#### Does the cheaper market actually change the outcome?
+
+```bash
+npx tsx server/trading/forexEval.ts
+```
+
+Same strategies, same path count, 40 paths × 6000 bars, each class with its own
+costs and volatility-scaled risk. **Taker fills** — crossing the spread every
+time, no fill-model assumptions:
+
+| strategy | crypto | equity | forex |
+|---|---|---|---|
+| SMA Trend Following | −5.61% ±0.10 | 0.01% ±0.05 | **+0.20% ±0.03** |
+| RSI Mean Reversion | −2.79% ±0.07 | −0.49% ±0.04 | −0.52% ±0.06 |
+| Breakout Momentum | −8.70% ±0.10 | −0.09% ±0.06 | **+0.49% ±0.05** |
+
+**Do not read that as "FX is profitable."** Two things had to be ruled out
+before the table meant anything at all, and both are in the file:
+
+1. *An earlier version of this reported the maker column* (+0.69% equity,
+   +0.57% FX) and looked like moving markets had made a losing system a winning
+   one. It hadn't. Equities and FX pay no commission, so a modelled maker fill
+   executes at the posted limit for free and the backtester credits ~2× the
+   offset in spread capture on every round trip — with **no adverse selection**,
+   because a resting order here fills whenever the bar's range touches it. In a
+   real book you get filled by someone who wanted that price. The maker column
+   is an upper bound; the taker column is the one to trust.
+
+2. *The FX column is positive, which on a driftless series would be an
+   artifact.* So: shuffle the bars in time, keeping every bar's shape and the
+   whole return distribution, destroying volatility clustering and the regime
+   blocks. Everything collapses:
+
+   | | original | shuffled |
+   |---|---|---|
+   | SMA Trend Following | +0.20% (t=5.9) | +0.04% (t=1.3) |
+   | RSI Mean Reversion | −0.52% (t=−8.7) | +0.02% (t=0.4) |
+   | Breakout Momentum | +0.49% (t=9.9) | +0.01% (t=0.2) |
+
+   The backtester is not inventing the returns — good. What the strategies are
+   reading is this generator's **regime drift**, a trend deliberately built into
+   `marketData.ts` so strategies have something to find. A real FX major has far
+   less of it.
+
+So the honest claim is narrow and worth stating exactly: **an edge of this size
+survives FX costs and does not survive crypto costs.** Same edge, same
+strategies, same paths — only the execution bill differs, and it accounts for
+the entire gap between the crypto column and the other two. Cheaper execution
+multiplies an edge; it never creates one. Whether a real edge exists is a
+question only real data can answer (`npm run train`).
+
 ### The day profile was fighting its own costs
 
 At a 1.5% take-profit target and a 0.60% round trip, **40% of the gross target

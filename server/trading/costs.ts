@@ -30,7 +30,7 @@
 
 import type { AssetClass } from "./assets";
 import { assetClassOf } from "./assets";
-import { halfSpreadFraction } from "./forex";
+import { halfSpreadFraction, pairSpec } from "./forex";
 
 export interface CostRates {
   /** Fee paid when crossing the spread (market/immediate order). */
@@ -108,15 +108,22 @@ export function ratesFor(symbol: string, price?: number): CostRates {
   if (cls === "forex") {
     // Half the quoted spread per side, so a round trip pays exactly one full
     // spread — the number the broker's spread table quotes.
-    const half = halfSpreadFraction(symbol, price);
     const commission = num(overrides.forexCommission, base.takerFee);
+    // "No spec" and "spread of zero" are DIFFERENT and must not share a
+    // branch. This used to read `half > 0 ? half : base.takerSlippage`, so
+    // configuring a pair's spread to 0 — which is what you would do to measure
+    // what costs are actually costing you — silently substituted the 0.01%
+    // fallback instead: more than double a real 1-pip spread. Removing the
+    // cost made trading look MORE expensive, which is exactly the kind of
+    // inverted result that sends you hunting for a bug in the wrong file.
+    const spec = pairSpec(symbol);
     return {
       takerFee: commission,
       // A resting limit order is filled AT ITS OWN PRICE, so it does not pay
       // the spread. It still pays commission on an ECN account, which is why
       // the maker fee tracks the commission rather than being hardcoded to 0.
       makerFee: commission,
-      takerSlippage: half > 0 ? half : base.takerSlippage,
+      takerSlippage: spec ? halfSpreadFraction(symbol, price) : base.takerSlippage,
     };
   }
   return {
