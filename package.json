@@ -17,6 +17,7 @@
     "sweep:margin": "tsx server/trading/marginEvalFast.ts",
     "facts": "tsx server/trading/factsCheck.ts",
     "check:oanda": "tsx server/trading/oandaCheck.ts",
+    "positioning": "tsx server/trading/positioningReport.ts",
     "eval:forex": "tsx server/trading/forexEval.ts",
     "test": "node scripts/verify.mjs"
   },

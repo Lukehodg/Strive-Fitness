@@ -111,6 +111,26 @@ outright when credentials are missing. Note the URL is what decides real money
 realised trades with positive expectancy and no strategy has that. That is the
 system working, not a bug — see [the no-trade gate](#the-no-trade-gate).
 
+### Other traders' positioning
+
+There is no legitimate API for other individual traders' private trading
+history. What OANDA does publish is an aggregate, anonymized snapshot of its
+own clients' current positions per instrument:
+
+```bash
+npm run positioning                          # current universe/symbol
+npm run positioning -- preset=majors
+npm run positioning -- symbols=EUR/USD,GBP/USD
+```
+
+Samples that snapshot at spaced points across roughly the last week (best
+effort — OANDA's retention for historical snapshots isn't documented) and
+reports the net long/short split, its range, and its trend, per symbol. This
+is one broker's client base, not "the market," and the retail-contrarian
+read it prints (a lopsided crowd is a caution, not a confirmation) is a
+common heuristic elsewhere — it is **not** something this project has
+measured, unlike the strategies below.
+
 ## The most important finding in this repository
 
 **Every performance number produced before this section was an artifact of the
