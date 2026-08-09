@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { api, type StatusResponse } from "@/lib/api";
 import { NAV, type DashboardPage } from "./Sidebar";
@@ -60,6 +60,7 @@ export function TopBar({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0 border-0">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
               <div className="px-5 py-5">
                 <p className="text-sm font-bold tracking-tight text-white">Auto&#8209;Trader</p>
               </div>
