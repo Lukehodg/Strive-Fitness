@@ -1,133 +1,86 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Terminal look: square corners, not rounded cards. */
-  --radius: 2px;
+/* ---------------------------------------------------------------------------
+   Design tokens.
 
-  /* Palette. Near-black ground with amber as the primary data colour and
-     cyan for labels — the classic terminal split, which keeps numbers
-     legible against dense text without relying on weight alone. */
-  --term-bg: #070809;
-  --term-panel: #0d0f11;
-  --term-panel-2: #121517;
-  --term-line: #1f262b;
-  --term-line-bright: #2c363d;
-  --term-amber: #ffb01f;
-  --term-cyan: #4fd2e8;
-  --term-text: #d7dee3;
-  --term-dim: #6b777f;
-  --term-up: #21d07a;
-  --term-down: #ff5964;
+   These are the variables shadcn/ui's own components (Card, Button, Badge,
+   Input, Switch, ...) read via Tailwind's `bg-background`, `text-foreground`,
+   etc. They were never defined before this file — every element in the old
+   dashboard hand-rolled its own hex color instead, which is a large part of
+   why it felt inconsistent. Defining them properly means the component
+   library's OWN styling does the right thing without per-element overrides.
+
+   Palette: light, neutral, a single accent (indigo) doing double duty as the
+   primary action color and the "active" state color, with semantic green/red
+   reserved strictly for gains/losses so they always mean the same thing.
+--------------------------------------------------------------------------- */
+:root {
+  --radius: 0.625rem;
+
+  --background: 220 20% 97%;
+  --foreground: 224 20% 12%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 224 20% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 224 20% 12%;
+
+  --primary: 243 72% 58%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 16% 93%;
+  --secondary-foreground: 224 20% 16%;
+
+  --muted: 220 16% 93%;
+  --muted-foreground: 220 9% 46%;
+
+  --accent: 220 16% 93%;
+  --accent-foreground: 224 20% 16%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Gains / losses. Kept separate from --primary/--destructive so a strategy
+     badge (indigo) and a loss (red) never accidentally share meaning. */
+  --gain: 152 60% 33%;
+  --loss: 0 68% 48%;
+  --gain-soft: 152 55% 95%;
+  --loss-soft: 0 65% 96%;
+
+  --border: 220 14% 89%;
+  --input: 220 14% 89%;
+  --ring: 243 72% 58%;
+
+  --chart-1: 243 72% 58%;
+  --chart-2: 152 60% 40%;
+  --chart-3: 35 92% 55%;
+  --chart-4: 0 68% 55%;
+  --chart-5: 200 80% 50%;
+
+  --sidebar-background: 224 24% 12%;
+  --sidebar-foreground: 220 20% 88%;
+  --sidebar-primary: 243 72% 62%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 224 20% 18%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 224 18% 20%;
+  --sidebar-ring: 243 72% 62%;
 }
 
 body {
-  background: var(--term-bg);
-  color: var(--term-text);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   min-height: 100vh;
-  /* Tabular figures stop numbers jittering as they tick. */
+}
+
+/* Tabular figures on every number so columns line up and digits don't jitter
+   sideways as values tick. Scoped to a class rather than the whole body,
+   since prose text reads better with proportional numerals. */
+.tabular {
   font-variant-numeric: tabular-nums;
-}
-
-/* --- Terminal primitives ------------------------------------------------ */
-
-/* Data font. Everything numeric is monospaced so columns line up and digits
-   keep a fixed width while values update. */
-.term-mono {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-.term-panel {
-  background: var(--term-panel);
-  border: 1px solid var(--term-line);
-  border-radius: 2px;
-}
-
-.term-inset {
-  background: var(--term-panel-2);
-  border: 1px solid var(--term-line);
-  border-radius: 2px;
-}
-
-/* Section and column headings: small, uppercase, letter-spaced, cyan. */
-.term-label {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-size: 0.68rem;
-  color: var(--term-cyan);
-}
-
-.term-dim {
-  color: var(--term-dim);
-}
-
-.term-value {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
-  font-variant-numeric: tabular-nums;
-  color: var(--term-amber);
-}
-
-.term-up { color: var(--term-up); }
-.term-down { color: var(--term-down); }
-
-/* Thin accent strip down the left of a panel header. */
-.term-rule {
-  border-left: 2px solid var(--term-amber);
-  padding-left: 0.5rem;
-}
-
-.glass-card {
-  @apply bg-[#2A2A2A]/90 backdrop-blur-sm border border-gray-800 shadow-md;
-}
-
-.section-header {
-  @apply text-2xl font-bold text-white mb-6;
-}
-
-.stats-card {
-  @apply glass-card rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow;
-}
-
-.dark-card {
-  @apply bg-[#2A2A2A] border border-gray-800 rounded-lg shadow-md;
-}
-
-.dark-input {
-  @apply bg-[#333333] border border-gray-700 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary;
-}
-
-.dark-button {
-  @apply bg-[#333333] text-white hover:bg-[#444444] transition-colors rounded-md px-4 py-2;
-}
-
-.dark-button-primary {
-  @apply bg-primary text-white hover:bg-primary/90 transition-colors rounded-md px-4 py-2;
-}
-
-.macronutrient-tag {
-  @apply inline-flex items-center justify-center w-6 h-6 text-xs font-bold rounded-full;
-}
-
-@keyframes scan {
-  0% {
-    top: 0;
-  }
-  50% {
-    top: 100%;
-  }
-  100% {
-    top: 0;
-  }
-}
-
-@layer utilities {
-  .animate-scan {
-    animation: scan 2s linear infinite;
-  }
 }
 
 @layer base {

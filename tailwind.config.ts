@@ -5,6 +5,19 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          "Inter",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -40,6 +53,20 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        // Gains/losses, as real Tailwind color tokens rather than hand-rolled
+        // CSS classes — registering them here is what makes `bg-gain/90`,
+        // `hover:bg-gain`, `border-gain/30` etc. actually generate. A plain
+        // `.bg-gain { background: ... }` utility has no opacity-modifier
+        // support at all, so `hover:bg-gain/90` on the Start button silently
+        // produced nothing and the button rendered with no background.
+        gain: {
+          DEFAULT: "hsl(var(--gain))",
+          soft: "hsl(var(--gain-soft))",
+        },
+        loss: {
+          DEFAULT: "hsl(var(--loss))",
+          soft: "hsl(var(--loss-soft))",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

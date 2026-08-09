@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
 import path, { dirname } from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { fileURLToPath } from "url";
@@ -12,7 +11,14 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    themePlugin(),
+    // @replit/vite-plugin-shadcn-theme-json used to run here. It injects its
+    // own :root CSS variables generated from theme.json, which collided with
+    // the ones index.css defines directly — same variable names
+    // (--background, --primary, ...), competing for the cascade, and with no
+    // way to express this app's custom --gain/--loss tokens at all. This
+    // project isn't hosted on Replit anymore, so the plugin has no host-side
+    // integration left to serve either. index.css is now the single source of
+    // truth for the theme.
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
