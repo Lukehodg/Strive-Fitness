@@ -97,7 +97,18 @@ async function fetchOanda(
   // Page BACKWARDS from now. Walking forward would need a start date we do not
   // have, and the natural request ("the most recent N bars") is exactly what
   // `to` + `count` expresses.
-  let to = new Date();
+  //
+  // OANDA validates `to` against ITS OWN clock, not the caller's. A literal
+  // `new Date()` bounces with "Time is in the future" the moment this
+  // machine's clock is ahead of OANDA's — an un-synced VM clock can be off
+  // by a lot more than a couple of minutes, not just typical NTP jitter. The
+  // margin is nearly free here (OANDA just returns the latest complete
+  // candles up to whatever boundary it's given, so "too far in the past" by
+  // an hour costs one hour of leeway out of a multi-year download) and it
+  // only has to cover the FIRST request: every later page's `to` comes from
+  // an already-returned candle timestamp, which is in OANDA's past by
+  // construction and can never trip this.
+  let to = new Date(Date.now() - 60 * 60 * 1000);
   while (out.length < bars) {
     const want = Math.min(MAX_PER_CALL, bars - out.length);
     const params = new URLSearchParams({
