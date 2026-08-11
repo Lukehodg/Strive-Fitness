@@ -1,7 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { loadScreen } from "./screener";
 import { UNIVERSE_PRESETS, getPreset, TRADING_PROFILES, getProfile } from "./trading/universes";
 import { engine } from "./trading/engine";
 import {
@@ -109,10 +108,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/equity", (req: Request, res: Response) => {
     const limit = Number(req.query.limit) || 500;
     res.json(storage.getEquity(limit));
-  });
-
-  app.get("/api/position", async (_req: Request, res: Response) => {
-    res.json(await engine.getPosition());
   });
 
   // Every open position, across the whole universe.
@@ -470,19 +465,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       symbol: updated.symbol,
       extraSymbols: updated.extraSymbols,
     });
-  });
-
-  // Fundamental stock screen (produced offline by screener/screen.py).
-  app.get("/api/screen", (_req: Request, res: Response) => {
-    const screen = loadScreen();
-    if (!screen) {
-      return res.json({
-        available: false,
-        message:
-          "No screen yet. Run: python screener/screen.py (set FMP_API_KEY for full coverage).",
-      });
-    }
-    res.json({ available: true, ...screen });
   });
 
   app.get("/api/alerts", (req: Request, res: Response) => {

@@ -1336,7 +1336,7 @@ the server resets paper balances and history.
 | --- | --- | --- |
 | GET | `/api/status` | Engine status, mode, active strategy, regime |
 | GET | `/api/equity` | Equity curve points |
-| GET | `/api/position` | Current open position |
+| GET | `/api/positions` | Every open position, across the whole universe |
 | GET | `/api/trades` | Completed trades |
 | GET | `/api/performance` | Win rate, P&L, drawdown |
 | GET | `/api/decisions` | Audit log |

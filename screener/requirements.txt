@@ -1,3 +1,0 @@
-# Fundamental screener dependencies.
-#   pip install -r screener/requirements.txt
-financetoolkit>=2.1.0

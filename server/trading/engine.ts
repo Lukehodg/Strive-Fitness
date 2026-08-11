@@ -1320,11 +1320,6 @@ class TradingEngine {
     };
   }
 
-  async getPosition(): Promise<Position | null> {
-    const config = storage.getConfig();
-    return this.broker.getPosition(config.symbol);
-  }
-
   /**
    * PANIC BUTTON. Sell everything at market and stand down.
    *

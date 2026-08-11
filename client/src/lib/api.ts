@@ -174,7 +174,6 @@ export const api = {
   status: () => json<StatusResponse>("/api/status"),
   config: () => json<BotConfig>("/api/config"),
   equity: () => json<EquityPoint[]>("/api/equity?limit=500"),
-  position: () => json<Position | null>("/api/position"),
   positions: () => json<Position[]>("/api/positions"),
   universes: () => json<UniversesResponse>("/api/universes"),
   profiles: () => json<ProfilesResponse>("/api/profiles"),

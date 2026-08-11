@@ -24,7 +24,7 @@ export function TopBar({
   const [confirmCashOut, setConfirmCashOut] = useState(false);
 
   const invalidateAll = () =>
-    ["/api/status", "/api/equity", "/api/position", "/api/positions", "/api/decisions", "/api/config"].forEach((k) =>
+    ["/api/status", "/api/equity", "/api/positions", "/api/decisions", "/api/config"].forEach((k) =>
       qc.invalidateQueries({ queryKey: [k] }),
     );
 
