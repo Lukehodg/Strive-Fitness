@@ -350,6 +350,7 @@ Each tick (every `intervalSeconds`), the engine:
 | RSI Mean Reversion | Buy oversold, sell recovered | Ranging markets |
 | Breakout Momentum | Enter on N-bar highs, exit on N-bar lows | Trends / volatility |
 | ML Signal Model | Learned classifier predicts P(price rises) | Any (when it beats chance) |
+| Kronos Forecast | External pretrained model forecasts future OHLCV | Any (unmeasured — see below) |
 
 The "AI" is deliberately **transparent and deterministic** — adaptive,
 data-driven *selection* between audited strategies. No opaque model and no
@@ -357,6 +358,40 @@ self-modifying code decides your trades.
 
 It is also **not where the value is**, and the section below shows the working.
 Pinning one strategy (`autoSelectStrategy: false`) is a defensible default.
+
+#### Kronos Forecast — an external model, held to the same bar
+
+[Kronos](https://github.com/shiyu-coder/Kronos) is an open-source pretrained
+Transformer for financial candlesticks, vendored as a git submodule
+(`vendor/kronos`) and run as a separate Python process — see
+`kronos_sidecar/README.md` for setup. Its public demo forecasts BTC/USDT;
+nothing in its own documentation claims it was trained or validated on spot
+FX. It gets **no special treatment** for being a fancier model than the other
+four: `kronosEnabled` defaults to **off**, and even switched on, the strategy
+only reaches live money after clearing `requireProvenEdge` on its own 30+
+trades, exactly like `sma_trend` or `ml_signal`.
+
+Architecturally, it can't be inlined the way the others are — a pretrained
+model has no place inside a synchronous, per-bar TypeScript `evaluate()`
+call, and even fast inference is too slow to run on every 5-30s engine tick.
+`server/trading/kronosClient.ts` handles this the same way `signalModel`
+handles training being slow: a background refresh (triggered from the
+engine's tick loop, throttled to roughly once per bar) fetches a forecast
+asynchronously into a cache, and `evaluate()` only ever does a synchronous
+cache read. If the sidecar isn't running, isn't configured, or a forecast is
+stale, the strategy holds — the same fail-safe every model-backed strategy
+here uses when its evidence isn't there.
+
+**Known limitation, by choice:** `kronos_forecast` is not backtestable today.
+Every other strategy backtests fast because it's pure arithmetic; Kronos
+requires a real model call per prediction, which the backtester's tight
+per-bar loop over thousands of candles can't afford. Building a proper
+walk-forward-safe precomputed forecast cache for backtesting is future work.
+Until then, `evaluate()` correctly holds when it has no live cache to read —
+so the backtester, optimizer, and AI selector all see it as a flat, 0-trade
+strategy rather than something dangerous or fabricated. It only actually
+trades live in paper mode, accumulating real (if slow) evidence the same way
+`requireProvenEdge` is designed to require.
 
 ### A known limitation of auto-selection
 

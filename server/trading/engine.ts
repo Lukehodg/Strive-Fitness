@@ -28,6 +28,7 @@ import {
 } from "./brokers";
 import { createMarketFeed, type MarketFeed } from "./marketData";
 import { getStrategy, STRATEGIES, type Strategy } from "./strategies";
+import { kronosClient } from "./kronosClient";
 import { selectStrategy, detectRegime } from "./aiSelector";
 import { selectStrategyOOS, DEFAULT_OOS } from "./selection";
 import { isDailyLossBreached, vetBuy, type RiskContext } from "./riskManager";
@@ -619,6 +620,10 @@ class TradingEngine {
       setSpreadOverrides(config.forexSpreadPips);
       setCarryRates(config.forexCarryByPair, config.forexCarryAnnual);
       await this.accrueForexCarry();
+      kronosClient.configure({
+        enabled: config.kronosEnabled,
+        sidecarUrl: config.kronosSidecarUrl,
+      });
 
       // Score conditions before deciding anything. This reads only realised
       // results — it cannot be talked into optimism by a strong-looking signal.
@@ -721,7 +726,8 @@ class TradingEngine {
           continue;
         }
 
-        const signal = this.activeStrategy.evaluate(candles, true);
+        kronosClient.maybeRefresh(symbol, candles);
+        const signal = this.activeStrategy.evaluate(candles, true, symbol);
         if (signal.action === "sell") {
           await this.handleSell(config, position, price, signal.reason, candles, false, symbol);
           exitedThisTick.add(symbol);
@@ -800,7 +806,11 @@ class TradingEngine {
             continue;
           }
         }
-        const signal = this.activeStrategy.evaluate(candlesBySymbol[symbol], false);
+        // Fire-and-forget, throttled internally — kept warm regardless of
+        // which strategy is currently active, so a later switch TO
+        // kronos_forecast starts from a cache rather than cold.
+        kronosClient.maybeRefresh(symbol, candlesBySymbol[symbol]);
+        const signal = this.activeStrategy.evaluate(candlesBySymbol[symbol], false, symbol);
         if (signal.action === "buy") {
           candidates.push({ symbol, strength: signal.strength, reason: signal.reason });
         }

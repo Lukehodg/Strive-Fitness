@@ -108,7 +108,7 @@ export function backtestStrategy(
       }
     }
 
-    const signal = strategy.evaluate(window, open !== null);
+    const signal = strategy.evaluate(window, open !== null, sizing?.symbol);
 
     if (!open && signal.action === "buy") {
       if (sizing) {

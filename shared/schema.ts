@@ -246,6 +246,18 @@ export interface BotConfig {
    */
   requireProvenEdge: boolean;
   /**
+   * Enables the kronos_forecast strategy's background sidecar polling (see
+   * server/trading/kronosClient.ts). Off by default: it depends on a
+   * separately-run Python process (kronos_sidecar/) that most installs won't
+   * have running, and — like every strategy here — it is unproven until it
+   * clears requireProvenEdge on its own trades. Turning this off does not
+   * remove kronos_forecast from the strategy list; it just means evaluate()
+   * always sees an empty cache and holds.
+   */
+  kronosEnabled: boolean;
+  /** Base URL of the running kronos_sidecar/ process. */
+  kronosSidecarUrl: string;
+  /**
    * How the AI selector scores strategies.
    *
    * "consistency" (default) scores each strategy across sub-periods with
@@ -442,6 +454,11 @@ export const DEFAULT_CONFIG: BotConfig = {
   // and that not trading beats all of them; defaulting this off would mean
   // shipping a system that knowingly ignores its own evidence.
   requireProvenEdge: true,
+  // OFF by default — depends on a separately-run Python process most
+  // installs won't have, and is unproven regardless (see the field's own
+  // doc comment above).
+  kronosEnabled: false,
+  kronosSidecarUrl: "http://127.0.0.1:8787",
   selectionMode: "consistency",
   portfolioVolTarget: true,
   // 0.06% per bar, measured rather than guessed. The first value here was
@@ -722,6 +739,8 @@ export const updateConfigSchema = z
     confidenceGovernor: z.boolean().optional(),
     makerOnlyEntries: z.boolean().optional(),
     requireProvenEdge: z.boolean().optional(),
+    kronosEnabled: z.boolean().optional(),
+    kronosSidecarUrl: z.string().min(1).max(200).optional(),
     selectionMode: z.enum(["consistency", "recent"]).optional(),
     portfolioVolTarget: z.boolean().optional(),
     // Floor was 0.001, which is ABOVE the ~0.0009 a fully-invested correlated

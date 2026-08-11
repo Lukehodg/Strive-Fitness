@@ -1,0 +1,13 @@
+# Matches vendor/kronos/requirements.txt exactly (that submodule is the
+# source of truth for what Kronos itself needs — see its own requirements.txt
+# if this ever needs re-syncing after an update). matplotlib is dropped: it's
+# only used by Kronos's own plotting examples, which this sidecar never
+# calls.
+numpy
+pandas==2.2.2
+torch>=2.0.0
+
+einops==0.8.1
+huggingface_hub==0.33.1
+tqdm==4.67.1
+safetensors==0.6.2

@@ -18,6 +18,8 @@
     "facts": "tsx server/trading/factsCheck.ts",
     "check:oanda": "tsx server/trading/oandaCheck.ts",
     "positioning": "tsx server/trading/positioningReport.ts",
+    "kronos:sidecar": "python kronos_sidecar/server.py",
+    "kronos:sidecar:stub": "cross-env KRONOS_STUB=1 python kronos_sidecar/server.py",
     "eval:forex": "tsx server/trading/forexEval.ts",
     "test": "node scripts/verify.mjs"
   },

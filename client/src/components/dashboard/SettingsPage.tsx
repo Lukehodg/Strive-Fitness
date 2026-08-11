@@ -276,6 +276,21 @@ export function SettingsPage() {
               This toggle will not actually enable live mode until OANDA credentials are configured — see .env.example.
             </p>
           )}
+          <ToggleRow
+            title="Kronos forecast sidecar"
+            description="Enables the kronos_forecast strategy, which reads from a separately-run Python process (kronos_sidecar/, see its README). Unproven on FX — like every strategy here, it only reaches live money after clearing requireProvenEdge on its own trades. Off leaves the strategy in the list but always holding."
+            checked={form.kronosEnabled}
+            onCheckedChange={(v) => upd({ kronosEnabled: v })}
+          >
+            <Field label="Sidecar URL" hint="Must match KRONOS_PORT the sidecar was started with.">
+              <Input
+                value={form.kronosSidecarUrl}
+                onChange={(e) => upd({ kronosSidecarUrl: e.target.value })}
+                disabled={!form.kronosEnabled}
+                placeholder="http://127.0.0.1:8787"
+              />
+            </Field>
+          </ToggleRow>
         </div>
       </SettingsSection>
 

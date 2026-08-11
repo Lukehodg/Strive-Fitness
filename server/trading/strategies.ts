@@ -20,17 +20,25 @@ import type {
 } from "@shared/schema";
 import { sma, rsi, highest, lowest } from "./indicators";
 import { signalModel } from "../ml/signalModel";
+import { kronosClient } from "./kronosClient";
 import { registerPersistence, schedulePersist } from "../persistence";
 
 export interface Strategy {
   meta: StrategyMeta;
-  /** Evaluate the newest bar using the strategy's current active params. */
-  evaluate(candles: Candle[], hasPosition: boolean): Signal;
+  /**
+   * Evaluate the newest bar using the strategy's current active params.
+   * `symbol` is optional and unused by every strategy that only needs the
+   * candles themselves — it exists for strategies (kronos_forecast) whose
+   * signal comes from a per-symbol cache keyed by something evaluate()
+   * otherwise has no way to know.
+   */
+  evaluate(candles: Candle[], hasPosition: boolean, symbol?: string): Signal;
   /** Evaluate with an explicit param set (used by the optimizer/backtester). */
   evaluateWith(
     params: StrategyParams,
     candles: Candle[],
     hasPosition: boolean,
+    symbol?: string,
   ): Signal;
   defaultParams: StrategyParams;
 }
@@ -39,6 +47,7 @@ type EvalFn = (
   p: StrategyParams,
   candles: Candle[],
   hasPosition: boolean,
+  symbol?: string,
 ) => Signal;
 
 const HOLD: Signal = { action: "hold", strength: 0, reason: "No setup" };
@@ -69,12 +78,12 @@ function defineStrategy(
   return {
     meta,
     defaultParams: defaults,
-    evaluate(candles, hasPosition) {
+    evaluate(candles, hasPosition, symbol) {
       const p = activeParams.get(meta.id) ?? defaults;
-      return evalFn(p, candles, hasPosition);
+      return evalFn(p, candles, hasPosition, symbol);
     },
-    evaluateWith(params, candles, hasPosition) {
-      return evalFn(params, candles, hasPosition);
+    evaluateWith(params, candles, hasPosition, symbol) {
+      return evalFn(params, candles, hasPosition, symbol);
     },
   };
 }
@@ -274,6 +283,78 @@ const mlSignal = defineStrategy(
 );
 
 // ---------------------------------------------------------------------------
+// 5. Kronos forecast (external pretrained model, via a Python sidecar)
+// ---------------------------------------------------------------------------
+
+// A cache entry older than this is treated as stale rather than acted on —
+// most likely the sidecar has been unreachable for a while, and trading on
+// a forecast built from data that old is worse than declining to trade.
+const KRONOS_MAX_FORECAST_AGE_MS = 3 * 60 * 60 * 1000;
+
+const kronosForecast = defineStrategy(
+  {
+    id: "kronos_forecast",
+    name: "Kronos Forecast",
+    description:
+      "Trades on a forecast from Kronos (github.com/shiyu-coder/Kronos), an open-source pretrained Transformer for financial candlesticks, run in a separate Python sidecar (see kronos_sidecar/). Its public demo forecasts crypto — nothing about it has been shown to work on spot FX. Runs through the same requireProvenEdge gate as every other strategy before it can touch real money; holds if the sidecar is unreachable or hasn't produced a forecast yet.",
+    bestRegimes: ["trending_up", "trending_down", "ranging", "volatile"],
+  },
+  [
+    {
+      key: "moveThresholdPct",
+      label: "Buy: forecast move up beyond",
+      min: 0.0002,
+      max: 0.01,
+      step: 0.0002,
+      default: 0.001,
+    },
+    {
+      key: "exitThresholdPct",
+      label: "Exit: forecast move down beyond",
+      min: -0.01,
+      max: -0.0002,
+      step: 0.0002,
+      default: -0.0005,
+    },
+  ],
+  (p, candles, hasPosition, symbol) => {
+    // No symbol (a caller that predates threading it through, or the legacy
+    // flat-sizing backtest path) or the sidecar isn't configured: nothing to
+    // read, so nothing to trade on.
+    if (!symbol || !kronosClient.isEnabled()) return HOLD;
+    const cached = kronosClient.getCached(symbol);
+    if (!cached || !cached.forecast.length) return HOLD;
+    if (Date.now() - cached.fetchedAt > KRONOS_MAX_FORECAST_AGE_MS) {
+      return { action: "hold", strength: 0, reason: "Kronos forecast is stale — sidecar may be unreachable" };
+    }
+    const lastClose = candles[candles.length - 1]?.close;
+    if (!lastClose) return HOLD;
+
+    // Average of the whole forecast path rather than just its last bar — a
+    // single endpoint from a stochastic sampling process is noisier than an
+    // average across it.
+    const avgForecastClose = cached.forecast.reduce((sum, f) => sum + f.close, 0) / cached.forecast.length;
+    const movePct = (avgForecastClose - lastClose) / lastClose;
+
+    if (!hasPosition && movePct >= p.moveThresholdPct) {
+      return {
+        action: "buy",
+        strength: Math.min(1, Math.max(0.3, (movePct / p.moveThresholdPct) * 0.5)),
+        reason: `Kronos forecasts ${(movePct * 100).toFixed(2)}% move up over the next ${cached.forecast.length} bars`,
+      };
+    }
+    if (hasPosition && movePct <= p.exitThresholdPct) {
+      return {
+        action: "sell",
+        strength: 1,
+        reason: `Kronos forecast turned ${(movePct * 100).toFixed(2)}%`,
+      };
+    }
+    return HOLD;
+  },
+);
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -282,6 +363,7 @@ export const STRATEGIES: Record<string, Strategy> = {
   [rsiReversion.meta.id]: rsiReversion,
   [breakout.meta.id]: breakout,
   [mlSignal.meta.id]: mlSignal,
+  [kronosForecast.meta.id]: kronosForecast,
 };
 
 export const STRATEGY_LIST: Strategy[] = Object.values(STRATEGIES);
@@ -353,8 +435,8 @@ export function strategyWithParams(
   return {
     meta: strategy.meta,
     defaultParams: strategy.defaultParams,
-    evaluate: (candles, hasPosition) =>
-      strategy.evaluateWith(params, candles, hasPosition),
+    evaluate: (candles, hasPosition, symbol) =>
+      strategy.evaluateWith(params, candles, hasPosition, symbol),
     evaluateWith: strategy.evaluateWith,
   };
 }
