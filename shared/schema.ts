@@ -246,6 +246,16 @@ export interface BotConfig {
    */
   requireProvenEdge: boolean;
   /**
+   * How many realised trades requireProvenEdge needs before it will call
+   * anything "proven" — see trading/expectancy.ts's MIN_TRADES (default 30,
+   * the floor below which the underlying t-test stops meaning anything: at
+   * n=1 its variance term is exactly zero, so a single lucky trade can read
+   * as statistically "proven"). Floored at 5 here for that reason — lower
+   * is not a stricter check, it is a broken one. Even at 5 the test is weak;
+   * this trades statistical confidence for speed deliberately, not by accident.
+   */
+  requireProvenEdgeMinTrades: number;
+  /**
    * Enables the kronos_forecast strategy's background sidecar polling (see
    * server/trading/kronosClient.ts). Off by default: it depends on a
    * separately-run Python process (kronos_sidecar/) that most installs won't
@@ -454,6 +464,7 @@ export const DEFAULT_CONFIG: BotConfig = {
   // and that not trading beats all of them; defaulting this off would mean
   // shipping a system that knowingly ignores its own evidence.
   requireProvenEdge: true,
+  requireProvenEdgeMinTrades: 30,
   // OFF by default — depends on a separately-run Python process most
   // installs won't have, and is unproven regardless (see the field's own
   // doc comment above).
@@ -739,6 +750,10 @@ export const updateConfigSchema = z
     confidenceGovernor: z.boolean().optional(),
     makerOnlyEntries: z.boolean().optional(),
     requireProvenEdge: z.boolean().optional(),
+    // Floor of 5, not lower: below that the underlying t-test's variance
+    // term can be exactly zero, so a single lucky trade reads as "proven" —
+    // a broken check, not a stricter one. See the field's schema doc comment.
+    requireProvenEdgeMinTrades: z.number().int().min(5).max(50).optional(),
     kronosEnabled: z.boolean().optional(),
     kronosSidecarUrl: z.string().min(1).max(200).optional(),
     selectionMode: z.enum(["consistency", "recent"]).optional(),

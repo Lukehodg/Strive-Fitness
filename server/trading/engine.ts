@@ -754,6 +754,7 @@ class TradingEngine {
           storage.allTrades(),
           this.activeStrategy.meta.id,
           config.symbol,
+          config.requireProvenEdgeMinTrades,
         );
         this.lastExpectancy = verdict;
         if (!verdict.proven) {
@@ -769,6 +770,7 @@ class TradingEngine {
           storage.allTrades(),
           this.activeStrategy.meta.id,
           config.symbol,
+          config.requireProvenEdgeMinTrades,
         );
       }
 

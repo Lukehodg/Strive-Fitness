@@ -178,10 +178,25 @@ export function SettingsPage() {
         <div className="grid md:grid-cols-2 gap-5">
           <ToggleRow
             title="Require proven edge (live only)"
-            description="Refuses to open LIVE positions until the active strategy shows a positive mean return per trade over at least 30 trades, significantly above zero. Paper is never blocked. Every measurement in this project says these strategies lose money — this is what stops that reaching your account."
+            description={`Refuses to open LIVE positions until the active strategy shows a positive mean return per trade over at least ${form.requireProvenEdgeMinTrades} trades, significantly above zero. Paper is never blocked. Every measurement in this project says these strategies lose money — this is what stops that reaching your account.`}
             checked={form.requireProvenEdge}
             onCheckedChange={(v) => upd({ requireProvenEdge: v })}
-          />
+          >
+            <Field
+              label={`Trades required before "proven": ${form.requireProvenEdgeMinTrades}`}
+              hint="Floored at 5 — lower isn't a stricter check, it's a broken one: at very small sample sizes the underlying t-test's variance term can be exactly zero, so a single lucky trade would read as 'proven'. Below 30 the test is genuinely weak, not just faster; know that trade-off before lowering it."
+            >
+              <Input
+                type="range"
+                min={5}
+                max={50}
+                step={1}
+                value={form.requireProvenEdgeMinTrades}
+                onChange={(e) => upd({ requireProvenEdgeMinTrades: Number(e.target.value) })}
+                disabled={!form.requireProvenEdge}
+              />
+            </Field>
+          </ToggleRow>
           <ToggleRow
             title="Maker-only entries"
             description="Skip an entry that would have to cross the spread rather than paying for it. Exits are never affected. On FX every order can rest as a limit at any size, so this is a straight choice between paying the spread and waiting for a better price."
