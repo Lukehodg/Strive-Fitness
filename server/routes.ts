@@ -502,6 +502,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(signalModel.status());
   });
 
+  // Set one strategy's tunable parameters (partial update — unset keys keep their current value).
+  app.post("/api/improve/params/:id", (req: Request, res: Response) => {
+    const strat = getStrategy(req.params.id);
+    if (!strat) {
+      return res.status(404).json({ message: "Strategy not found" });
+    }
+    const body = req.body as Record<string, unknown>;
+    const validKeys = new Set(strat.meta.params.map((p) => p.key));
+    const overrides: Record<string, number> = {};
+    for (const [key, value] of Object.entries(body ?? {})) {
+      if (!validKeys.has(key)) {
+        return res.status(400).json({ message: `Unknown parameter "${key}" for ${req.params.id}` });
+      }
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        return res.status(400).json({ message: `Parameter "${key}" must be a finite number` });
+      }
+      overrides[key] = value;
+    }
+    const merged = { ...getActiveParams(req.params.id), ...overrides };
+    const params = setActiveParams(req.params.id, merged);
+    storage.log("info", `Updated ${req.params.id} parameters: ${JSON.stringify(overrides)}`);
+    res.json({ strategyId: req.params.id, current: params });
+  });
+
   // Reset one strategy's parameters back to their audited defaults.
   app.post("/api/improve/params/:id/reset", (req: Request, res: Response) => {
     if (!getStrategy(req.params.id)) {

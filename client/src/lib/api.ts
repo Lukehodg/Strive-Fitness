@@ -212,4 +212,6 @@ export const api = {
     apiRequest("POST", `/api/improve/proposals/${id}/reject`),
   resetParams: (id: string) =>
     apiRequest("POST", `/api/improve/params/${id}/reset`),
+  setParams: (id: string, params: Partial<StrategyParams>) =>
+    apiRequest("POST", `/api/improve/params/${id}`, params),
 };

@@ -1,11 +1,13 @@
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { api, type ImprovementProposal } from "@/lib/api";
+import { api, type ImprovementProposal, type StrategyParamInfo, type StrategyParams } from "@/lib/api";
 import { timeAgo, pct, fmtNum } from "@/lib/format";
-import { Empty } from "./shared";
+import { Empty, Field } from "./shared";
 
 export function AiLabPage() {
   const qc = useQueryClient();
@@ -29,7 +31,6 @@ export function AiLabPage() {
   });
   const apply = useMutation({ mutationFn: (id: string) => api.applyProposal(id), onSuccess: invalidate });
   const reject = useMutation({ mutationFn: (id: string) => api.rejectProposal(id), onSuccess: invalidate });
-  const reset = useMutation({ mutationFn: (id: string) => api.resetParams(id), onSuccess: invalidate });
 
   const data = proposals.data;
   const pending = (data?.proposals ?? []).filter((p) => p.status === "pending");
@@ -96,30 +97,7 @@ export function AiLabPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {params.data?.map((s) => (
-            <div key={s.strategyId} className="border-t pt-3 first:border-0 first:pt-0">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{s.name}</span>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => reset.mutate(s.strategyId)} disabled={reset.isPending}>
-                  Reset to default
-                </Button>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {s.params.map((spec) => {
-                  const cur = s.current[spec.key];
-                  const def = s.defaults[spec.key];
-                  const changed = Math.abs((cur ?? 0) - (def ?? 0)) > 1e-9;
-                  return (
-                    <span key={spec.key}>
-                      {spec.label}:{" "}
-                      <span className={changed ? "text-primary font-medium" : "text-foreground"}>
-                        {Number.isInteger(cur) ? cur : cur?.toFixed(2)}
-                      </span>
-                      {changed && <span> (was {Number.isInteger(def) ? def : def?.toFixed(2)})</span>}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
+            <StrategyParamsRow key={s.strategyId} s={s} onSaved={invalidate} />
           ))}
         </CardContent>
       </Card>
@@ -146,6 +124,96 @@ export function AiLabPage() {
         Parameter tweaks are validated out-of-sample before they're trusted, and auto-apply only per your autonomy
         setting (Settings). Code-level suggestions are always review-only — the AI proposes, you decide.
       </p>
+    </div>
+  );
+}
+
+/** Kronos's thresholds live at 0.0002–0.01 — fmtNum's 2 decimals would round them all to 0.00. */
+function fmtParam(n: number): string {
+  if (Number.isInteger(n)) return String(n);
+  return Math.abs(n) < 0.01 ? n.toFixed(4) : n.toFixed(2);
+}
+
+function StrategyParamsRow({ s, onSaved }: { s: StrategyParamInfo; onSaved: () => void }) {
+  const { toast } = useToast();
+  const [draft, setDraft] = useState<StrategyParams>(s.current);
+  const [dirty, setDirty] = useState(false);
+
+  // Pick up server-side changes (reset, another tab, a save elsewhere) as long
+  // as there's no unsaved edit here to clobber — same pattern as Settings.
+  useEffect(() => {
+    if (!dirty) setDraft(s.current);
+  }, [s.current, dirty]);
+
+  const reset = useMutation({
+    mutationFn: () => api.resetParams(s.strategyId),
+    onSuccess: () => {
+      setDirty(false);
+      onSaved();
+    },
+  });
+  const save = useMutation({
+    mutationFn: () => api.setParams(s.strategyId, draft),
+    onSuccess: async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast({ title: "Couldn't save parameters", description: body?.message, variant: "destructive" });
+        return;
+      }
+      setDirty(false);
+      toast({ title: `${s.name} parameters updated` });
+      onSaved();
+    },
+  });
+
+  return (
+    <div className="border-t pt-3 first:border-0 first:pt-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{s.name}</span>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <Button
+              size="sm"
+              className="h-7 text-xs bg-gain hover:bg-gain/90"
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+            >
+              {save.isPending ? "Saving…" : "Save"}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => reset.mutate()}
+            disabled={reset.isPending}
+          >
+            Reset to default
+          </Button>
+        </div>
+      </div>
+      <div className="mt-2 grid sm:grid-cols-2 gap-3">
+        {s.params.map((spec) => {
+          const val = draft[spec.key] ?? spec.default;
+          const def = s.defaults[spec.key];
+          const changed = Math.abs(val - (def ?? 0)) > 1e-9;
+          return (
+            <Field key={spec.key} label={`${spec.label}: ${fmtParam(val)}${changed ? ` (default ${fmtParam(def)})` : ""}`}>
+              <Input
+                type="range"
+                min={spec.min}
+                max={spec.max}
+                step={spec.step}
+                value={val}
+                onChange={(e) => {
+                  setDirty(true);
+                  setDraft({ ...draft, [spec.key]: Number(e.target.value) });
+                }}
+              />
+            </Field>
+          );
+        })}
+      </div>
     </div>
   );
 }
