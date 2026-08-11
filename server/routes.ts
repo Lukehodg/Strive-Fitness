@@ -73,20 +73,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "Live mode requires OANDA credentials (OANDA_API_TOKEN / OANDA_ACCOUNT_ID). Staying in paper mode.",
       });
     }
-    // requireProvenEdge is the only thing standing between "unproven strategy"
-    // and "real orders" — every measurement in this project says these
-    // strategies currently lose money. Refusing to combine mode:"live" with
-    // requireProvenEdge:false in a single request (rather than just leaving
-    // this to a UI toggle) means a stale saved config or a scripted config
-    // patch can never silently enable live trading with the gate off.
+    // requireProvenEdge previously could not be turned off together with
+    // mode:"live" in one request — removed at explicit user request (see git
+    // history/commit message for this change). It is deliberately no longer
+    // a structural guard; the alert below is the only remaining record that
+    // this combination was ever chosen, on this specific account.
     const nextRequireProvenEdge = parsed.data.requireProvenEdge ?? current.requireProvenEdge;
-    if (nextMode === "live" && !nextRequireProvenEdge) {
-      return res.status(400).json({
-        message:
-          'Live mode requires "Require proven edge" to stay enabled. It blocks real orders until the active strategy shows a real, statistically significant edge over 30+ trades — turn it back on before enabling live mode.',
-      });
-    }
     const wasLive = current.mode === "live";
+    const wasGated = current.requireProvenEdge;
     const updated = storage.setConfig(parsed.data);
     storage.log("info", "Configuration updated");
     if (updated.mode === "live" && !wasLive) {
@@ -96,6 +90,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `Real orders will be sent to your broker for ${updated.symbol}. Risk limits: ` +
           `${(updated.maxPositionPct * 100).toFixed(0)}% max position, ` +
           `${(updated.dailyLossLimitPct * 100).toFixed(1)}% daily loss kill-switch.`,
+      );
+    }
+    if (nextMode === "live" && !nextRequireProvenEdge && wasGated) {
+      sendAlert(
+        "critical",
+        "Proof-of-edge requirement turned off while LIVE",
+        `${getStrategy(updated.activeStrategyId)?.meta.name ?? updated.activeStrategyId} can now place real orders with ` +
+          `no statistical check on whether it has ever been profitable. This was a deliberate choice, ` +
+          `not a default — turn "Require proven edge" back on in Settings to restore it.`,
       );
     }
     res.json(updated);
