@@ -79,6 +79,49 @@ export function SettingsPage() {
           <Field label={`Take-profit (${(form.takeProfitPct * 100).toFixed(1)}%)`}>
             <Input type="range" min={0.01} max={0.5} step={0.01} value={form.takeProfitPct} onChange={(e) => upd({ takeProfitPct: Number(e.target.value) })} />
           </Field>
+          <Field label={`Max concurrent positions (${form.maxConcurrentPositions})`}>
+            <Input
+              type="range"
+              min={1}
+              max={10}
+              step={1}
+              value={form.maxConcurrentPositions}
+              onChange={(e) => upd({ maxConcurrentPositions: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label={`Max orders per minute (${form.maxOrdersPerMinute})`}>
+            <Input
+              type="range"
+              min={1}
+              max={20}
+              step={1}
+              value={form.maxOrdersPerMinute}
+              onChange={(e) => upd({ maxOrdersPerMinute: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label={`Max total exposure (${(form.maxTotalExposurePct * 100).toFixed(0)}% of equity)`}>
+            <Input
+              type="range"
+              min={0.05}
+              max={1}
+              step={0.05}
+              value={form.maxTotalExposurePct}
+              onChange={(e) => upd({ maxTotalExposurePct: Number(e.target.value) })}
+            />
+          </Field>
+          <Field
+            label={`Max correlated exposure (${(form.maxCorrelatedExposurePct * 100).toFixed(0)}% of equity)`}
+            hint="Caps positions that move together (e.g. several USD majors at once), weighted by their correlation — separate from the flat total-exposure cap above."
+          >
+            <Input
+              type="range"
+              min={0.05}
+              max={1}
+              step={0.05}
+              value={form.maxCorrelatedExposurePct}
+              onChange={(e) => upd({ maxCorrelatedExposurePct: Number(e.target.value) })}
+            />
+          </Field>
         </div>
       </SettingsSection>
 
@@ -275,7 +318,41 @@ export function SettingsPage() {
             description="Automatically selects the best-fit strategy for current conditions."
             checked={form.autoSelectStrategy}
             onCheckedChange={(v) => upd({ autoSelectStrategy: v })}
-          />
+          >
+            <div className="space-y-2">
+              <p className="text-sm text-foreground">Selection method</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {(
+                  [
+                    {
+                      v: "consistency",
+                      label: "Consistency (default)",
+                      desc: "Scores across sub-periods with shrinkage — rewards steady performance, not one lucky window.",
+                    },
+                    {
+                      v: "recent",
+                      label: "Recent",
+                      desc: "Total return over the whole lookback window. Simpler, more prone to picking whichever strategy got lucky.",
+                    },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => upd({ selectionMode: o.v })}
+                    disabled={!form.autoSelectStrategy}
+                    className={cn(
+                      "text-left rounded-lg border p-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                      form.selectionMode === o.v ? "border-primary bg-primary/5" : "bg-muted/40 hover:border-muted-foreground/30",
+                    )}
+                  >
+                    <p className="text-sm font-medium">{o.label}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{o.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </ToggleRow>
           <ToggleRow
             title="Live trading (real money)"
             description={
