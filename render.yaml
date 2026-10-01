@@ -8,6 +8,7 @@ services:
     branch: codex/overhaul-foundation
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    dockerCommand: node scripts/start-render.mjs
     autoDeployTrigger: off
     healthCheckPath: /readyz
     preDeployCommand: node dist/migrate.js
@@ -28,8 +29,8 @@ services:
       # Deliberately blocks all real addresses until the invite list is set.
       - key: BETA_ALLOWED_EMAILS
         value: signup-disabled@invalid.example
-      - key: INTEGRATION_ENCRYPTION_KEY
-        sync: false
+      - key: RENDER_INTEGRATION_KEY_BASE64
+        generateValue: true
 
 databases:
   - name: strive-beta-db

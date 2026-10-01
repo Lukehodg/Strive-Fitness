@@ -13,6 +13,7 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/migrations ./migrations
 COPY --from=build --chown=node:node /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/scripts/start-render.mjs ./scripts/start-render.mjs
 USER node
 EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:5000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
