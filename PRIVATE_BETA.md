@@ -1,6 +1,6 @@
 # Strive private beta
 
-Target: installable iPhone and Android internal builds for invited testers. No hosting service has been provisioned and no signing credentials have been created by this work.
+Target: installable iPhone and Android internal builds for invited testers. The HTTPS backend is now hosted at https://strive-beta-api.onrender.com with managed PostgreSQL and a verified recovery test; see RENDER_DEPLOYMENT.md. No signing credentials or installed phone builds have been created by this work.
 
 ## Backend deployment
 
@@ -33,7 +33,7 @@ Reference: [Expo internal distribution](https://docs.expo.dev/build/internal-dis
 
 Local verification on 30 September 2026: all 46 backend tests passed, followed by a passing 13-test coach suite after the Today schedule update. Root/mobile typechecks, mobile lint and the production web/server build passed. Android and iOS Hermes exports passed from an identical source copy outside OneDrive (`%LOCALAPPDATA%\StriveFitness-build-check\mobile`). The synced checkout's directory entries incorrectly reported regular dependency files as symbolic links, causing Metro resolution failures. Use a checkout outside OneDrive and run `npm ci` at the root and in `mobile/` for reliable local builds; no Metro workaround is required.
 
-The CI container job builds this Dockerfile, migrates disposable PostgreSQL and probes the production service. That new job has not been run here. Docker and physical devices are unavailable on this workstation. Successful bundle exports do not constitute signed binaries or device tests.
+The CI container job builds this Dockerfile, migrates disposable PostgreSQL and probes the production service. This job and the backend/mobile jobs passed on GitHub on 1 October 2026. Render deployment and database recovery verification also passed; evidence is in RENDER_DEPLOYMENT.md. Docker and physical devices are unavailable on this workstation. Successful bundle exports do not constitute signed binaries or device tests.
 
 Run `node --env-file-if-exists=.env scripts/beta-preflight.mjs` with deployment and public mobile configuration supplied in the process environment. It prints presence/validity only, never secrets. It intentionally fails until required setup exists.
 
