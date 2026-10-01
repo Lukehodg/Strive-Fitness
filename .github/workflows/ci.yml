@@ -55,6 +55,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      # Shared schemas resolve their dependencies from the repository root.
+      - run: npm ci
+        working-directory: .
       - run: npm ci
       - run: npm run check
       - run: npm run lint
