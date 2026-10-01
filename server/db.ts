@@ -12,7 +12,12 @@ import * as schema from "../shared/schema";
 if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL)
   throw new Error("Production requires DATABASE_URL.");
 const remote = process.env.DATABASE_URL
-  ? postgres(process.env.DATABASE_URL, { max: 10 })
+  ? postgres(process.env.DATABASE_URL, {
+      max: 10,
+      // Render's private endpoints use provider-managed, self-signed TLS.
+      // "require" encrypts transport without falling back to plaintext.
+      ssl: process.env.DATABASE_SSL_MODE === "require" ? "require" : undefined,
+    })
   : undefined;
 const localPath = resolve(process.env.LOCAL_DATABASE_PATH || "./.data/strive");
 if (!remote) mkdirSync(dirname(localPath), { recursive: true });

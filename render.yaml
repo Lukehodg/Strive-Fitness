@@ -26,6 +26,8 @@ services:
         fromDatabase:
           name: strive-beta-db
           property: connectionString
+      - key: DATABASE_SSL_MODE
+        value: require
       # Deliberately blocks all real addresses until the invite list is set.
       - key: BETA_ALLOWED_EMAILS
         value: signup-disabled@invalid.example
