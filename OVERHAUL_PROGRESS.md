@@ -1,5 +1,13 @@
 # Overhaul progress — 29 September 2026
 
+## Hosted backend — 1 October 2026
+
+- Deployed the overhaul branch to https://strive-beta-api.onrender.com with paid Render API/PostgreSQL services in Frankfurt. Base cost $13.30/month before taxes/extra usage; owner approved up to $20 for the first month including temporary recovery verification.
+- HTTPS health/readiness passed; HTTP redirects to HTTPS; protected routes return 401; uninvited signup returns 403. Database external access is blocked and the private database transport uses TLS 1.3.
+- All GitHub jobs passed, including Docker/PostgreSQL, backend tests/build and native checks/exports. Fixed mobile CI's missing root dependency installation for shared schemas. Added validated Render startup with a provider-generated encryption key, retained without copying it into chat or Git.
+- A real backup export and isolated point-in-time restore passed: the restored 9 migrations, 28 tables and 87 exercise records matched the live checksums. No health records were imported. See RENDER_DEPLOYMENT.md for evidence and cleanup status.
+- The owner's beta invitation is stored privately in Render. Native signed builds, actual device callback tests and provider configuration remain separate next steps; hosting alone does not connect WHOOP/Oura/mail.
+
 ## Direction
 
 The confirmed product is a native iOS and Android app using React Native/Expo. `mobile/` is the primary client. `client/` is a temporary browser companion; its desktop layout is not the mobile product.
