@@ -35,3 +35,9 @@ Home A: https://expo.dev/accounts/lukehodg/projects/strive-fitness/builds/633703
 Barcode/workout update: https://expo.dev/accounts/lukehodg/projects/strive-fitness/builds/6b96a233-1b18-4dc6-9fd0-df8b9b5d3d6a
 
 These include Open Food Facts barcode lookup and compact workout set rows. The newer food-logging concept and AI workout creation are separate pending work.
+
+## Latest health-overview build
+
+Submitted: https://expo.dev/accounts/lukehodg/projects/strive-fitness/builds/cd88e264-0a7c-45c4-85a3-696c0e1e8cd9
+Source commit: 82c1936. Build completion and phone acceptance remain to be verified.
+Backend e62c16c deployed successfully on Render (dep-dava33t9fdbs73bfoou0); migration completed, readiness returned HTTP 200, and anonymous health-overview access returned HTTP 401.

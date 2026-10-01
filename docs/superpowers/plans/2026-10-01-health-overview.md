@@ -42,7 +42,8 @@ Files: mobile/src/components/health-overview.tsx; mobile/src/components/home-sum
 ## Task 3: Release
 
 - [x] Run the backend regression suite/build after all changes. Review diff for data exposure and backward compatibility.
-- [ ] Commit and deploy tested backend changes with its migration; verify Render readiness.
-- [ ] Submit the iOS preview using existing signing credentials and return the verified build status/link. A submitted build is not an installed-device test.
+- [x] Commit and deploy tested backend changes with its migration; verify Render readiness.
+- [x] Submit the iOS preview using existing signing credentials and return the verified build status/link. A submitted build is not an installed-device test.
 - [x] Document phone acceptance: fresh sync backfills RHR, compare WHOOP values, refresh/return from background, open metric history, check-in update and missing-provider state.
+
 
