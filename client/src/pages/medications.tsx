@@ -4,14 +4,47 @@ import { getQueryFn, apiRequest } from "@/lib/queryClient";
 import { MedicationIcon } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +52,14 @@ import { format } from "date-fns";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CalendarIcon, CheckCircle, Clock, Edit, Plus, Trash } from "lucide-react";
+import {
+  CalendarIcon,
+  CheckCircle,
+  Clock,
+  Edit,
+  Plus,
+  Trash,
+} from "lucide-react";
 
 // Define types for our medication data
 interface Medication {
@@ -60,7 +100,7 @@ const medicationTypes = [
   "topical",
   "patch",
   "inhaler",
-  "other"
+  "other",
 ];
 
 // Define injection sites
@@ -73,7 +113,7 @@ const injectionSites = [
   "dorsogluteal",
   "vastus lateralis",
   "rectus femoris",
-  "other"
+  "other",
 ];
 
 // Create schema for medication form
@@ -85,7 +125,7 @@ const medicationSchema = z.object({
   startDate: z.date(),
   endDate: z.date().nullable(),
   notes: z.string().nullable(),
-  isActive: z.boolean().default(true)
+  isActive: z.boolean().default(true),
 });
 
 // Create schema for medication schedule form
@@ -93,7 +133,7 @@ const scheduleSchema = z.object({
   medicationId: z.number(),
   scheduledTime: z.date(),
   notes: z.string().nullable(),
-  injectionSite: z.string().nullable()
+  injectionSite: z.string().nullable(),
 });
 
 export default function MedicationsPage() {
@@ -102,7 +142,8 @@ export default function MedicationsPage() {
   const [activeTab, setActiveTab] = useState("active");
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
-  const [selectedMedication, setSelectedMedication] = useState<Medication | null>(null);
+  const [selectedMedication, setSelectedMedication] =
+    useState<Medication | null>(null);
 
   // Create form for adding/editing medications
   const medicationForm = useForm<z.infer<typeof medicationSchema>>({
@@ -115,8 +156,8 @@ export default function MedicationsPage() {
       startDate: new Date(),
       endDate: null,
       notes: "",
-      isActive: true
-    }
+      isActive: true,
+    },
   });
 
   // Create form for adding schedules
@@ -126,39 +167,43 @@ export default function MedicationsPage() {
       medicationId: 0,
       scheduledTime: new Date(),
       notes: "",
-      injectionSite: null
-    }
+      injectionSite: null,
+    },
   });
 
   // Query for medications
-  const { data: medications = [], isLoading: isMedicationsLoading } = useQuery<MedicationsResponse>({
-    queryKey: ['/api/users/1/medications'],
-    queryFn: getQueryFn({
-      on401: "throw"
-    })
-  });
+  const { data: medications = [], isLoading: isMedicationsLoading } =
+    useQuery<MedicationsResponse>({
+      queryKey: ["/api/users/me/medications"],
+      queryFn: getQueryFn({
+        on401: "throw",
+      }),
+    });
 
   // Query for today's medication schedules
   const today = new Date();
-  const formattedDate = format(today, 'yyyy-MM-dd');
-  
-  const { data: schedules = [], isLoading: isSchedulesLoading } = useQuery<SchedulesResponse>({
-    queryKey: ['/api/users/1/medication-schedules', formattedDate],
-    queryFn: getQueryFn({
-      on401: "throw"
-    })
-  });
+  const formattedDate = format(today, "yyyy-MM-dd");
+
+  const { data: schedules = [], isLoading: isSchedulesLoading } =
+    useQuery<SchedulesResponse>({
+      queryKey: ["/api/users/me/medication-schedules", formattedDate],
+      queryFn: getQueryFn({
+        on401: "throw",
+      }),
+    });
 
   // Mutation to add a medication
   const addMedicationMutation = useMutation({
     mutationFn: async (data: z.infer<typeof medicationSchema>) => {
-      return await apiRequest('POST', '/api/medications', {
+      return await apiRequest("POST", "/api/medications", {
         ...data,
-        userId: 1
+        userId: 1,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/medications'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/medications"],
+      });
       setIsMedicationDialogOpen(false);
       medicationForm.reset();
       toast({
@@ -167,22 +212,31 @@ export default function MedicationsPage() {
       });
     },
     onError: (error) => {
-      console.error('Error adding medication:', error);
+      console.error("Error adding medication:", error);
       toast({
         title: "Error",
         description: "Failed to add medication",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Mutation to update a medication
   const updateMedicationMutation = useMutation({
-    mutationFn: async (data: { id: number; medication: Partial<Medication> }) => {
-      return await apiRequest('PATCH', `/api/medications/${data.id}`, data.medication);
+    mutationFn: async (data: {
+      id: number;
+      medication: Partial<Medication>;
+    }) => {
+      return await apiRequest(
+        "PATCH",
+        `/api/medications/${data.id}`,
+        data.medication,
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/medications'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/medications"],
+      });
       setIsMedicationDialogOpen(false);
       medicationForm.reset();
       toast({
@@ -191,22 +245,24 @@ export default function MedicationsPage() {
       });
     },
     onError: (error) => {
-      console.error('Error updating medication:', error);
+      console.error("Error updating medication:", error);
       toast({
         title: "Error",
         description: "Failed to update medication",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Mutation to add a medication schedule
   const addScheduleMutation = useMutation({
     mutationFn: async (data: z.infer<typeof scheduleSchema>) => {
-      return await apiRequest('POST', '/api/medication-schedules', data);
+      return await apiRequest("POST", "/api/medication-schedules", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/medication-schedules'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/medication-schedules"],
+      });
       setIsScheduleDialogOpen(false);
       scheduleForm.reset();
       toast({
@@ -215,38 +271,40 @@ export default function MedicationsPage() {
       });
     },
     onError: (error) => {
-      console.error('Error adding schedule:', error);
+      console.error("Error adding schedule:", error);
       toast({
         title: "Error",
         description: "Failed to add schedule",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Mutation to mark a schedule as taken
   const markScheduleTakenMutation = useMutation({
     mutationFn: async (data: { id: number; isTaken: boolean }) => {
-      return await apiRequest('PATCH', `/api/medication-schedules/${data.id}`, {
+      return await apiRequest("PATCH", `/api/medication-schedules/${data.id}`, {
         isTaken: data.isTaken,
-        takenTime: data.isTaken ? new Date() : null
+        takenTime: data.isTaken ? new Date() : null,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/medication-schedules'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/medication-schedules"],
+      });
       toast({
         title: "Success",
         description: "Schedule updated successfully",
       });
     },
     onError: (error) => {
-      console.error('Error updating schedule:', error);
+      console.error("Error updating schedule:", error);
       toast({
         title: "Error",
         description: "Failed to update schedule",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Handle medication form submission
@@ -254,7 +312,7 @@ export default function MedicationsPage() {
     if (selectedMedication) {
       updateMedicationMutation.mutate({
         id: selectedMedication.id,
-        medication: values
+        medication: values,
       });
     } else {
       addMedicationMutation.mutate(values);
@@ -277,7 +335,7 @@ export default function MedicationsPage() {
       startDate: new Date(medication.startDate),
       endDate: medication.endDate ? new Date(medication.endDate) : null,
       notes: medication.notes,
-      isActive: medication.isActive === null ? true : medication.isActive
+      isActive: medication.isActive === null ? true : medication.isActive,
     });
     setIsMedicationDialogOpen(true);
   };
@@ -288,14 +346,14 @@ export default function MedicationsPage() {
       medicationId: medication.id,
       scheduledTime: new Date(),
       notes: "",
-      injectionSite: medication.type === "injection" ? "thigh" : null
+      injectionSite: medication.type === "injection" ? "thigh" : null,
     });
     setIsScheduleDialogOpen(true);
   };
 
   // Filter active or all medications
-  const filteredMedications = medications.filter((med: Medication) => 
-    activeTab === "active" ? med.isActive !== false : true
+  const filteredMedications = medications.filter((med: Medication) =>
+    activeTab === "active" ? med.isActive !== false : true,
   );
 
   // Group schedules by medication
@@ -314,26 +372,32 @@ export default function MedicationsPage() {
           <MedicationIcon className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Medications & Supplements</h1>
         </div>
-        <Button onClick={() => {
-          setSelectedMedication(null);
-          medicationForm.reset({
-            name: "",
-            type: "tablet",
-            dosage: "",
-            frequency: "",
-            startDate: new Date(),
-            endDate: null,
-            notes: "",
-            isActive: true
-          });
-          setIsMedicationDialogOpen(true);
-        }}>
+        <Button
+          onClick={() => {
+            setSelectedMedication(null);
+            medicationForm.reset({
+              name: "",
+              type: "tablet",
+              dosage: "",
+              frequency: "",
+              startDate: new Date(),
+              endDate: null,
+              notes: "",
+              isActive: true,
+            });
+            setIsMedicationDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Medication
         </Button>
       </div>
 
-      <Tabs defaultValue="active" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        defaultValue="active"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
         <TabsList>
           <TabsTrigger value="active">Active Medications</TabsTrigger>
           <TabsTrigger value="all">All Medications</TabsTrigger>
@@ -342,24 +406,37 @@ export default function MedicationsPage() {
 
         <TabsContent value="active" className="pt-4">
           {isMedicationsLoading ? (
-            <div className="flex justify-center">Loading active medications...</div>
+            <div className="flex justify-center">
+              Loading active medications...
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredMedications?.length ? (
                 filteredMedications.map((medication: Medication) => (
-                  <MedicationCard 
-                    key={medication.id} 
-                    medication={medication} 
+                  <MedicationCard
+                    key={medication.id}
+                    medication={medication}
                     onEdit={() => handleEditMedication(medication)}
                     onAddSchedule={() => handleAddSchedule(medication)}
                     schedules={groupedSchedules[medication.id] || []}
-                    onMarkTaken={(scheduleId, isTaken) => markScheduleTakenMutation.mutate({ id: scheduleId, isTaken })}
+                    onMarkTaken={(scheduleId, isTaken) =>
+                      markScheduleTakenMutation.mutate({
+                        id: scheduleId,
+                        isTaken,
+                      })
+                    }
                   />
                 ))
               ) : (
                 <div className="col-span-full text-center py-10">
-                  <p className="text-muted-foreground">No active medications found</p>
-                  <Button variant="outline" onClick={() => setIsMedicationDialogOpen(true)} className="mt-4">
+                  <p className="text-muted-foreground">
+                    No active medications found
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsMedicationDialogOpen(true)}
+                    className="mt-4"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Medication
                   </Button>
@@ -376,19 +453,28 @@ export default function MedicationsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {medications?.length ? (
                 medications.map((medication: Medication) => (
-                  <MedicationCard 
-                    key={medication.id} 
-                    medication={medication} 
+                  <MedicationCard
+                    key={medication.id}
+                    medication={medication}
                     onEdit={() => handleEditMedication(medication)}
                     onAddSchedule={() => handleAddSchedule(medication)}
                     schedules={groupedSchedules[medication.id] || []}
-                    onMarkTaken={(scheduleId, isTaken) => markScheduleTakenMutation.mutate({ id: scheduleId, isTaken })}
+                    onMarkTaken={(scheduleId, isTaken) =>
+                      markScheduleTakenMutation.mutate({
+                        id: scheduleId,
+                        isTaken,
+                      })
+                    }
                   />
                 ))
               ) : (
                 <div className="col-span-full text-center py-10">
                   <p className="text-muted-foreground">No medications found</p>
-                  <Button variant="outline" onClick={() => setIsMedicationDialogOpen(true)} className="mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsMedicationDialogOpen(true)}
+                    className="mt-4"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Medication
                   </Button>
@@ -400,27 +486,40 @@ export default function MedicationsPage() {
 
         <TabsContent value="schedule" className="pt-4">
           {isSchedulesLoading ? (
-            <div className="flex justify-center">Loading today's schedule...</div>
+            <div className="flex justify-center">
+              Loading today's schedule...
+            </div>
           ) : (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold">{format(today, 'EEEE, MMMM do, yyyy')}</h2>
-              
+              <h2 className="text-xl font-semibold">
+                {format(today, "EEEE, MMMM do, yyyy")}
+              </h2>
+
               <div className="space-y-4">
                 {schedules?.length ? (
                   schedules.map((schedule: MedicationSchedule) => {
-                    const medication = medications.find((med: Medication) => med.id === schedule.medicationId);
+                    const medication = medications.find(
+                      (med: Medication) => med.id === schedule.medicationId,
+                    );
                     return (
-                      <ScheduleItem 
+                      <ScheduleItem
                         key={schedule.id}
                         schedule={schedule}
                         medication={medication}
-                        onMarkTaken={(isTaken) => markScheduleTakenMutation.mutate({ id: schedule.id, isTaken })}
+                        onMarkTaken={(isTaken) =>
+                          markScheduleTakenMutation.mutate({
+                            id: schedule.id,
+                            isTaken,
+                          })
+                        }
                       />
                     );
                   })
                 ) : (
                   <div className="text-center py-10">
-                    <p className="text-muted-foreground">No medications scheduled for today</p>
+                    <p className="text-muted-foreground">
+                      No medications scheduled for today
+                    </p>
                   </div>
                 )}
               </div>
@@ -430,17 +529,25 @@ export default function MedicationsPage() {
       </Tabs>
 
       {/* Medication Dialog */}
-      <Dialog open={isMedicationDialogOpen} onOpenChange={setIsMedicationDialogOpen}>
+      <Dialog
+        open={isMedicationDialogOpen}
+        onOpenChange={setIsMedicationDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>{selectedMedication ? 'Edit Medication' : 'Add New Medication'}</DialogTitle>
+            <DialogTitle>
+              {selectedMedication ? "Edit Medication" : "Add New Medication"}
+            </DialogTitle>
             <DialogDescription>
               Enter the details of your medication or supplement.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...medicationForm}>
-            <form onSubmit={medicationForm.handleSubmit(handleMedicationSubmit)} className="space-y-4">
+            <form
+              onSubmit={medicationForm.handleSubmit(handleMedicationSubmit)}
+              className="space-y-4"
+            >
               <FormField
                 control={medicationForm.control}
                 name="name"
@@ -454,21 +561,24 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="type"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {medicationTypes.map(type => (
+                        {medicationTypes.map((type) => (
                           <SelectItem key={type} value={type}>
                             {type.charAt(0).toUpperCase() + type.slice(1)}
                           </SelectItem>
@@ -479,7 +589,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="dosage"
@@ -493,7 +603,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="frequency"
@@ -507,7 +617,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="startDate"
@@ -543,7 +653,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="endDate"
@@ -573,7 +683,8 @@ export default function MedicationsPage() {
                           onSelect={field.onChange}
                           initialFocus
                           disabled={(date) => {
-                            const startDate = medicationForm.getValues("startDate");
+                            const startDate =
+                              medicationForm.getValues("startDate");
                             return date < startDate;
                           }}
                         />
@@ -583,7 +694,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="notes"
@@ -591,13 +702,17 @@ export default function MedicationsPage() {
                   <FormItem>
                     <FormLabel>Notes (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Take with food" {...field} value={field.value || ""} />
+                      <Input
+                        placeholder="e.g., Take with food"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={medicationForm.control}
                 name="isActive"
@@ -618,7 +733,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                 <Button type="submit">
                   {selectedMedication ? "Update Medication" : "Add Medication"}
@@ -630,7 +745,10 @@ export default function MedicationsPage() {
       </Dialog>
 
       {/* Schedule Dialog */}
-      <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+      <Dialog
+        open={isScheduleDialogOpen}
+        onOpenChange={setIsScheduleDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add Schedule</DialogTitle>
@@ -638,9 +756,12 @@ export default function MedicationsPage() {
               Add a schedule for this medication.
             </DialogDescription>
           </DialogHeader>
-          
+
           <Form {...scheduleForm}>
-            <form onSubmit={scheduleForm.handleSubmit(handleScheduleSubmit)} className="space-y-4">
+            <form
+              onSubmit={scheduleForm.handleSubmit(handleScheduleSubmit)}
+              className="space-y-4"
+            >
               <FormField
                 control={scheduleForm.control}
                 name="scheduledTime"
@@ -679,7 +800,7 @@ export default function MedicationsPage() {
                           initialFocus
                         />
                         <div className="border-t border-border p-3 flex justify-between">
-                          <Select 
+                          <Select
                             defaultValue={field.value.getHours().toString()}
                             onValueChange={(value) => {
                               const date = new Date(field.value);
@@ -693,13 +814,13 @@ export default function MedicationsPage() {
                             <SelectContent>
                               {Array.from({ length: 24 }, (_, i) => (
                                 <SelectItem key={i} value={i.toString()}>
-                                  {i.toString().padStart(2, '0')}
+                                  {i.toString().padStart(2, "0")}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                           <span className="text-xl">:</span>
-                          <Select 
+                          <Select
                             defaultValue={field.value.getMinutes().toString()}
                             onValueChange={(value) => {
                               const date = new Date(field.value);
@@ -713,7 +834,7 @@ export default function MedicationsPage() {
                             <SelectContent>
                               {Array.from({ length: 60 }, (_, i) => (
                                 <SelectItem key={i} value={i.toString()}>
-                                  {i.toString().padStart(2, '0')}
+                                  {i.toString().padStart(2, "0")}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -725,7 +846,7 @@ export default function MedicationsPage() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={scheduleForm.control}
                 name="notes"
@@ -733,13 +854,17 @@ export default function MedicationsPage() {
                   <FormItem>
                     <FormLabel>Notes (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Take after breakfast" {...field} value={field.value || ""} />
+                      <Input
+                        placeholder="e.g., Take after breakfast"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
+
               {selectedMedication?.type === "injection" && (
                 <FormField
                   control={scheduleForm.control}
@@ -747,14 +872,17 @@ export default function MedicationsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Injection Site</FormLabel>
-                      <Select onValueChange={(value) => field.onChange(value)} defaultValue={field.value || undefined}>
+                      <Select
+                        onValueChange={(value) => field.onChange(value)}
+                        defaultValue={field.value || undefined}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select injection site" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {injectionSites.map(site => (
+                          {injectionSites.map((site) => (
                             <SelectItem key={site} value={site}>
                               {site.charAt(0).toUpperCase() + site.slice(1)}
                             </SelectItem>
@@ -766,7 +894,7 @@ export default function MedicationsPage() {
                   )}
                 />
               )}
-              
+
               <DialogFooter>
                 <Button type="submit">Add Schedule</Button>
               </DialogFooter>
@@ -787,8 +915,14 @@ interface MedicationCardProps {
   onMarkTaken: (scheduleId: number, isTaken: boolean) => void;
 }
 
-function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTaken }: MedicationCardProps) {
-  const todaySchedules = schedules.filter(schedule => {
+function MedicationCard({
+  medication,
+  onEdit,
+  onAddSchedule,
+  schedules,
+  onMarkTaken,
+}: MedicationCardProps) {
+  const todaySchedules = schedules.filter((schedule) => {
     const scheduleDate = new Date(schedule.scheduledTime);
     const today = new Date();
     return (
@@ -802,7 +936,9 @@ function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTa
     <Card className={medication.isActive === false ? "opacity-70" : ""}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-semibold">{medication.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold">
+            {medication.name}
+          </CardTitle>
           <Button variant="ghost" size="icon" onClick={onEdit}>
             <Edit className="h-4 w-4" />
           </Button>
@@ -828,12 +964,16 @@ function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTa
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Start Date:</span>
-            <span className="font-medium">{format(new Date(medication.startDate), "MMM d, yyyy")}</span>
+            <span className="font-medium">
+              {format(new Date(medication.startDate), "MMM d, yyyy")}
+            </span>
           </div>
           {medication.endDate && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">End Date:</span>
-              <span className="font-medium">{format(new Date(medication.endDate), "MMM d, yyyy")}</span>
+              <span className="font-medium">
+                {format(new Date(medication.endDate), "MMM d, yyyy")}
+              </span>
             </div>
           )}
           {medication.notes && (
@@ -848,22 +988,25 @@ function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTa
           <div className="mt-4">
             <h4 className="text-sm font-semibold mb-2">Today's Schedule</h4>
             <div className="space-y-2">
-              {todaySchedules.map(schedule => (
-                <div 
-                  key={schedule.id} 
+              {todaySchedules.map((schedule) => (
+                <div
+                  key={schedule.id}
                   className={`flex items-center justify-between p-2 rounded-md text-sm
                     ${schedule.isTaken ? "bg-primary/10" : "bg-secondary/20"}`}
                 >
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{format(new Date(schedule.scheduledTime), "h:mm a")}</span>
+                    <span>
+                      {format(new Date(schedule.scheduledTime), "h:mm a")}
+                    </span>
                     {schedule.injectionSite && (
                       <Badge variant="outline" className="ml-1">
-                        {schedule.injectionSite.charAt(0).toUpperCase() + schedule.injectionSite.slice(1)}
+                        {schedule.injectionSite.charAt(0).toUpperCase() +
+                          schedule.injectionSite.slice(1)}
                       </Badge>
                     )}
                   </div>
-                  <Button 
+                  <Button
                     variant={schedule.isTaken ? "ghost" : "outline"}
                     size="sm"
                     onClick={() => onMarkTaken(schedule.id, !schedule.isTaken)}
@@ -874,7 +1017,9 @@ function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTa
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Taken
                       </>
-                    ) : "Mark Taken"}
+                    ) : (
+                      "Mark Taken"
+                    )}
                   </Button>
                 </div>
               ))}
@@ -883,8 +1028,13 @@ function MedicationCard({ medication, onEdit, onAddSchedule, schedules, onMarkTa
         )}
       </CardContent>
       <CardFooter className="pt-2">
-        <Button variant="outline" size="sm" className="w-full" onClick={onAddSchedule}>
-          <Plus className="h-4 w-4 mr-1" /> 
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={onAddSchedule}
+        >
+          <Plus className="h-4 w-4 mr-1" />
           Add Schedule
         </Button>
       </CardFooter>
@@ -899,7 +1049,11 @@ interface ScheduleItemProps {
   onMarkTaken: (isTaken: boolean) => void;
 }
 
-function ScheduleItem({ schedule, medication, onMarkTaken }: ScheduleItemProps) {
+function ScheduleItem({
+  schedule,
+  medication,
+  onMarkTaken,
+}: ScheduleItemProps) {
   if (!medication) return null;
 
   return (
@@ -916,16 +1070,15 @@ function ScheduleItem({ schedule, medication, onMarkTaken }: ScheduleItemProps) 
                 <>
                   <span>•</span>
                   <Badge variant="outline">
-                    {schedule.injectionSite.charAt(0).toUpperCase() + schedule.injectionSite.slice(1)}
+                    {schedule.injectionSite.charAt(0).toUpperCase() +
+                      schedule.injectionSite.slice(1)}
                   </Badge>
                 </>
               )}
             </div>
-            {schedule.notes && (
-              <p className="text-sm mt-1">{schedule.notes}</p>
-            )}
+            {schedule.notes && <p className="text-sm mt-1">{schedule.notes}</p>}
           </div>
-          <Button 
+          <Button
             variant={schedule.isTaken ? "ghost" : "outline"}
             onClick={() => onMarkTaken(!schedule.isTaken)}
             className={schedule.isTaken ? "text-primary" : ""}
@@ -935,7 +1088,9 @@ function ScheduleItem({ schedule, medication, onMarkTaken }: ScheduleItemProps) 
                 <CheckCircle className="h-4 w-4 mr-1" />
                 Taken
               </>
-            ) : "Mark Taken"}
+            ) : (
+              "Mark Taken"
+            )}
           </Button>
         </div>
       </CardContent>

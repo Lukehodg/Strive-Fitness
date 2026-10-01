@@ -1,66 +1,81 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format, subDays, parseISO } from 'date-fns';
-import { ChevronLeftIcon } from 'lucide-react';
-import { useLocation } from 'wouter';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { apiRequest } from '../lib/queryClient';
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format, subDays, parseISO } from "date-fns";
+import { ChevronLeftIcon } from "lucide-react";
+import { useLocation } from "wouter";
+import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { apiRequest } from "../lib/queryClient";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 // Helper functions to format dates for chart
 function formatDate(date: Date): string {
-  return format(date, 'MMM d');
+  return format(date, "MMM d");
 }
 
 function formatChartDate(date: Date | string): string {
-  if (typeof date === 'string') {
+  if (typeof date === "string") {
     try {
-      return format(parseISO(date), 'MM/dd');
+      return format(parseISO(date), "MM/dd");
     } catch {
       return date;
     }
   }
-  return format(date, 'MM/dd');
+  return format(date, "MM/dd");
 }
 
 export default function WaterPage() {
   const [_, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const [timeRange, setTimeRange] = useState('week');
-  const [activeButton, setActiveButton] = useState<string>('week');
+  const [timeRange, setTimeRange] = useState("week");
+  const [activeButton, setActiveButton] = useState<string>("week");
 
   // Fetch user data to get water target
   const { data: user } = useQuery<any>({
-    queryKey: ['/api/user/1'],
+    queryKey: ["/api/user/me"],
     staleTime: 60000, // 1 minute
   });
 
   // Fetch daily stats to get current water intake
   const { data: dailyStats } = useQuery<any>({
-    queryKey: ['/api/users/1/daily-stats'],
+    queryKey: ["/api/users/me/daily-stats"],
     staleTime: 60000, // 1 minute
   });
 
   // Fetch historical health metrics for water intake (mock data for now)
   const { data: healthMetrics = [] } = useQuery<any[]>({
-    queryKey: ['/api/users/1/health-metrics'],
+    queryKey: ["/api/users/me/health-metrics"],
     staleTime: 60000, // 1 minute
   });
 
   // Create mutation for updating daily stats (water intake)
   const updateDailyStatsMutation = useMutation({
     mutationFn: async (newWaterIntake: number) => {
-      return await apiRequest('PATCH', `/api/daily-stats/${dailyStats?.id}`, {
-        waterIntake: newWaterIntake
+      return await apiRequest("PATCH", `/api/daily-stats/${dailyStats?.id}`, {
+        waterIntake: newWaterIntake,
       });
     },
     onSuccess: () => {
       // Invalidate daily stats to refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/daily-stats'] });
-    }
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/daily-stats"],
+      });
+    },
   });
 
   // Handle adding water
@@ -82,9 +97,9 @@ export default function WaterPage() {
     const today = new Date();
     let days = 7;
 
-    if (timeRange === 'month') {
+    if (timeRange === "month") {
       days = 30;
-    } else if (timeRange === 'year') {
+    } else if (timeRange === "year") {
       days = 365;
     }
 
@@ -92,13 +107,13 @@ export default function WaterPage() {
     // In a real app, this would come from real health metrics
     return Array.from({ length: days }).map((_, index) => {
       const date = subDays(today, days - index - 1);
-      
+
       // Random value between 1.5 and 3.5 liters
       const waterIntake = Math.round((1.5 + Math.random() * 2) * 10) / 10;
-      
+
       return {
-        date: format(date, 'yyyy-MM-dd'),
-        waterIntake
+        date: format(date, "yyyy-MM-dd"),
+        waterIntake,
       };
     });
   };
@@ -106,14 +121,17 @@ export default function WaterPage() {
   const chartData = generateChartData();
   const waterTarget = user?.dailyWaterTarget || 3; // Default 3L if not set
   const currentWaterIntake = dailyStats?.waterIntake || 0;
-  const waterPercentage = Math.min(Math.round((currentWaterIntake / waterTarget) * 100), 100);
+  const waterPercentage = Math.min(
+    Math.round((currentWaterIntake / waterTarget) * 100),
+    100,
+  );
 
   return (
     <div className="p-4 space-y-6 bg-gray-900 text-white min-h-screen">
       {/* Header with back button */}
       <div className="flex items-center gap-2 mb-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           className="p-0 h-9 w-9"
           onClick={() => navigate("/")}
@@ -127,16 +145,16 @@ export default function WaterPage() {
       <Card className="dark-card">
         <CardHeader>
           <CardTitle>Today's Water Intake</CardTitle>
-          <CardDescription>Your daily hydration goal is {waterTarget}L</CardDescription>
+          <CardDescription>
+            Your daily hydration goal is {waterTarget}L
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center text-center">
             <div className="text-5xl font-bold text-blue-400 mb-2">
               {currentWaterIntake}L
             </div>
-            <div className="text-sm text-gray-400">
-              of {waterTarget}L goal
-            </div>
+            <div className="text-sm text-gray-400">of {waterTarget}L goal</div>
             <div className="w-full mt-4">
               <Progress value={waterPercentage} className="h-3" />
             </div>
@@ -174,27 +192,27 @@ export default function WaterPage() {
         <CardHeader>
           <CardTitle>Water History</CardTitle>
           <div className="flex space-x-2 my-2">
-            <Button 
-              variant={activeButton === 'week' ? 'default' : 'outline'} 
+            <Button
+              variant={activeButton === "week" ? "default" : "outline"}
               size="sm"
-              onClick={() => handleTimeRangeChange('week')}
-              className={activeButton === 'week' ? 'bg-blue-600' : ''}
+              onClick={() => handleTimeRangeChange("week")}
+              className={activeButton === "week" ? "bg-blue-600" : ""}
             >
               Week
             </Button>
-            <Button 
-              variant={activeButton === 'month' ? 'default' : 'outline'} 
+            <Button
+              variant={activeButton === "month" ? "default" : "outline"}
               size="sm"
-              onClick={() => handleTimeRangeChange('month')}
-              className={activeButton === 'month' ? 'bg-blue-600' : ''}
+              onClick={() => handleTimeRangeChange("month")}
+              className={activeButton === "month" ? "bg-blue-600" : ""}
             >
               Month
             </Button>
-            <Button 
-              variant={activeButton === 'year' ? 'default' : 'outline'} 
+            <Button
+              variant={activeButton === "year" ? "default" : "outline"}
               size="sm"
-              onClick={() => handleTimeRangeChange('year')}
-              className={activeButton === 'year' ? 'bg-blue-600' : ''}
+              onClick={() => handleTimeRangeChange("year")}
+              className={activeButton === "year" ? "bg-blue-600" : ""}
             >
               Year
             </Button>
@@ -218,13 +236,15 @@ export default function WaterPage() {
                   stroke="#6b7280"
                   fontSize={12}
                 />
-                <Tooltip 
-                  labelFormatter={(label) => `Date: ${formatChartDate(label as string)}`}
-                  formatter={(value) => [`${value}L`, 'Water Intake']}
-                  contentStyle={{ 
-                    backgroundColor: '#1f2937', 
-                    borderColor: '#374151',
-                    color: 'white'
+                <Tooltip
+                  labelFormatter={(label) =>
+                    `Date: ${formatChartDate(label as string)}`
+                  }
+                  formatter={(value) => [`${value}L`, "Water Intake"]}
+                  contentStyle={{
+                    backgroundColor: "#1f2937",
+                    borderColor: "#374151",
+                    color: "white",
                   }}
                 />
                 <Line
@@ -232,8 +252,13 @@ export default function WaterPage() {
                   dataKey="waterIntake"
                   stroke="#3b82f6"
                   strokeWidth={2}
-                  dot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: '#3b82f6', stroke: '#1f2937', strokeWidth: 2 }}
+                  dot={{ r: 4, fill: "#3b82f6", strokeWidth: 0 }}
+                  activeDot={{
+                    r: 6,
+                    fill: "#3b82f6",
+                    stroke: "#1f2937",
+                    strokeWidth: 2,
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -247,11 +272,21 @@ export default function WaterPage() {
           <CardTitle>Hydration Tips</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-sm text-gray-300">• Drink water first thing in the morning to rehydrate</p>
-          <p className="text-sm text-gray-300">• Carry a water bottle with you throughout the day</p>
-          <p className="text-sm text-gray-300">• Set reminders to drink water every hour</p>
-          <p className="text-sm text-gray-300">• Eat water-rich foods like cucumber and watermelon</p>
-          <p className="text-sm text-gray-300">• Increase water intake during and after exercise</p>
+          <p className="text-sm text-gray-300">
+            • Drink water first thing in the morning to rehydrate
+          </p>
+          <p className="text-sm text-gray-300">
+            • Carry a water bottle with you throughout the day
+          </p>
+          <p className="text-sm text-gray-300">
+            • Set reminders to drink water every hour
+          </p>
+          <p className="text-sm text-gray-300">
+            • Eat water-rich foods like cucumber and watermelon
+          </p>
+          <p className="text-sm text-gray-300">
+            • Increase water intake during and after exercise
+          </p>
         </CardContent>
       </Card>
     </div>

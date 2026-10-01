@@ -1,26 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'wouter';
-import { useToast } from '@/hooks/use-toast';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '../lib/queryClient';
-import { 
-  ChevronLeft, 
-  ShieldAlert, 
-  Save, 
-  Eye, 
-  EyeOff, 
-  Database, 
-  Share2, 
-  Trash2, 
-  Download
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { 
+import React, { useState, useEffect } from "react";
+import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "../lib/queryClient";
+import {
+  ChevronLeft,
+  ShieldAlert,
+  Save,
+  Eye,
+  EyeOff,
+  Database,
+  Share2,
+  Trash2,
+  Download,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -35,84 +41,88 @@ import {
 const PrivacySettings = () => {
   const { toast } = useToast();
   const [privacySettings, setPrivacySettings] = useState({
-    profileVisibility: 'friends',
+    profileVisibility: "friends",
     activitySharing: true,
     dataCollection: true,
     locationTracking: false,
-    analyticsSharing: true
+    analyticsSharing: true,
   });
-  
+
   // Fetch user data
   const { data: userData, isLoading } = useQuery({
-    queryKey: ['/api/user/1'],
+    queryKey: ["/api/user/me"],
     queryFn: async () => {
-      const response = await fetch('/api/user/1');
+      const response = await fetch("/api/user/me");
       return response.json();
-    }
+    },
   });
-  
+
   // Update user settings on the server
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
-      const res = await apiRequest('PATCH', '/api/user/1', { privacySettings: settings });
+      const res = await apiRequest("PATCH", "/api/user/me", {
+        privacySettings: settings,
+      });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/1'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/me"] });
       toast({
-        title: 'Privacy Settings Saved',
-        description: 'Your privacy settings have been updated successfully.',
+        title: "Privacy Settings Saved",
+        description: "Your privacy settings have been updated successfully.",
       });
     },
     onError: (error) => {
       toast({
-        title: 'Error Saving Settings',
-        description: error.message || 'Something went wrong. Please try again.',
-        variant: 'destructive'
+        title: "Error Saving Settings",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
       });
-    }
+    },
   });
-  
+
   // Load user data when available
   useEffect(() => {
     if (userData && userData.privacySettings) {
       setPrivacySettings(userData.privacySettings);
     }
   }, [userData]);
-  
+
   const handleSaveChanges = () => {
     updateSettingsMutation.mutate(privacySettings);
   };
-  
+
   const handleSwitchChange = (name: string, checked: boolean) => {
-    setPrivacySettings(prev => ({
+    setPrivacySettings((prev) => ({
       ...prev,
-      [name]: checked
+      [name]: checked,
     }));
   };
-  
+
   const handleRadioChange = (value: string) => {
-    setPrivacySettings(prev => ({
+    setPrivacySettings((prev) => ({
       ...prev,
-      profileVisibility: value
+      profileVisibility: value,
     }));
   };
-  
+
   const handleExportData = () => {
     toast({
-      title: 'Exporting Data',
-      description: 'Your data export has started. You will receive an email when it is ready.',
+      title: "Exporting Data",
+      description:
+        "Your data export has started. You will receive an email when it is ready.",
     });
   };
-  
+
   const handleDeleteAccount = () => {
     toast({
-      title: 'Account Deletion Requested',
-      description: 'Your account deletion request has been submitted. You will receive an email with further instructions.',
-      variant: 'destructive'
+      title: "Account Deletion Requested",
+      description:
+        "Your account deletion request has been submitted. You will receive an email with further instructions.",
+      variant: "destructive",
     });
   };
-  
+
   return (
     <div className="p-4 space-y-6 pb-24 max-w-2xl mx-auto">
       <div className="flex items-center mb-6">
@@ -126,11 +136,13 @@ const PrivacySettings = () => {
           <h1 className="text-xl font-semibold">Privacy Settings</h1>
         </div>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Profile Visibility</CardTitle>
-          <CardDescription>Control who can see your profile and activity information</CardDescription>
+          <CardDescription>
+            Control who can see your profile and activity information
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
@@ -142,21 +154,30 @@ const PrivacySettings = () => {
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="public" id="public" />
-                <Label htmlFor="public" className="flex items-center gap-2 cursor-pointer">
+                <Label
+                  htmlFor="public"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Eye className="h-4 w-4 text-primary" />
                   <span>Everyone (Public)</span>
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="friends" id="friends" />
-                <Label htmlFor="friends" className="flex items-center gap-2 cursor-pointer">
+                <Label
+                  htmlFor="friends"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <Share2 className="h-4 w-4 text-primary" />
                   <span>Friends Only</span>
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="private" id="private" />
-                <Label htmlFor="private" className="flex items-center gap-2 cursor-pointer">
+                <Label
+                  htmlFor="private"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
                   <EyeOff className="h-4 w-4 text-primary" />
                   <span>Only Me (Private)</span>
                 </Label>
@@ -165,11 +186,13 @@ const PrivacySettings = () => {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Activity & Data Sharing</CardTitle>
-          <CardDescription>Manage how your activities and data are shared</CardDescription>
+          <CardDescription>
+            Manage how your activities and data are shared
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
@@ -184,12 +207,14 @@ const PrivacySettings = () => {
             </div>
             <Switch
               checked={privacySettings.activitySharing}
-              onCheckedChange={(checked) => handleSwitchChange('activitySharing', checked)}
+              onCheckedChange={(checked) =>
+                handleSwitchChange("activitySharing", checked)
+              }
             />
           </div>
-          
+
           <Separator />
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="flex items-center gap-2">
@@ -197,15 +222,18 @@ const PrivacySettings = () => {
                 Data Collection
               </Label>
               <p className="text-sm text-muted-foreground">
-                Allow the app to collect anonymized usage data to improve features
+                Allow the app to collect anonymized usage data to improve
+                features
               </p>
             </div>
             <Switch
               checked={privacySettings.dataCollection}
-              onCheckedChange={(checked) => handleSwitchChange('dataCollection', checked)}
+              onCheckedChange={(checked) =>
+                handleSwitchChange("dataCollection", checked)
+              }
             />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Location Tracking</Label>
@@ -215,10 +243,12 @@ const PrivacySettings = () => {
             </div>
             <Switch
               checked={privacySettings.locationTracking}
-              onCheckedChange={(checked) => handleSwitchChange('locationTracking', checked)}
+              onCheckedChange={(checked) =>
+                handleSwitchChange("locationTracking", checked)
+              }
             />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Analytics Sharing</Label>
@@ -228,12 +258,14 @@ const PrivacySettings = () => {
             </div>
             <Switch
               checked={privacySettings.analyticsSharing}
-              onCheckedChange={(checked) => handleSwitchChange('analyticsSharing', checked)}
+              onCheckedChange={(checked) =>
+                handleSwitchChange("analyticsSharing", checked)
+              }
             />
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Data Management</CardTitle>
@@ -241,19 +273,19 @@ const PrivacySettings = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleExportData}
               className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
               <span>Export Your Data</span>
             </Button>
-            
+
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   className="flex items-center gap-2"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -264,13 +296,13 @@ const PrivacySettings = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your
-                    account and remove all your data from our servers.
+                    This action cannot be undone. This will permanently delete
+                    your account and remove all your data from our servers.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
+                  <AlertDialogAction
                     onClick={handleDeleteAccount}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
@@ -282,9 +314,9 @@ const PrivacySettings = () => {
           </div>
         </CardContent>
       </Card>
-      
+
       <div className="flex justify-center mt-6">
-        <Button 
+        <Button
           onClick={handleSaveChanges}
           className="flex items-center gap-2 w-full max-w-xs"
           disabled={updateSettingsMutation.isPending || isLoading}

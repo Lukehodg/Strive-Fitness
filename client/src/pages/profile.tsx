@@ -1,41 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
-import { useLocation } from 'wouter';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { 
+import React, { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
   Bell,
-  Settings as SettingsIcon, 
-  LogOut, 
+  Settings as SettingsIcon,
+  LogOut,
   Network,
   Loader2,
-  CreditCard
-} from 'lucide-react';
+  CreditCard,
+} from "lucide-react";
 
-import ProfileHeader from '@/components/profile/profile-header';
-import ProfileStats from '@/components/profile/profile-stats';
-import Settings from '@/components/profile/settings';
-import Integrations from '@/components/profile/integrations';
-import NotificationSettings from '@/components/profile/notification-settings';
-import SubscriptionManagement from '@/components/profile/subscription-management';
+import ProfileHeader from "@/components/profile/profile-header";
+import ProfileStats from "@/components/profile/profile-stats";
+import Settings from "@/components/profile/settings";
+import Integrations from "@/components/profile/integrations";
+import NotificationSettings from "@/components/profile/notification-settings";
+import SubscriptionManagement from "@/components/profile/subscription-management";
 
 const Profile = () => {
   const { toast } = useToast();
   const { signOut } = useAuth();
   const [, setLocation] = useLocation();
   const [user, setUser] = useState<any>(null);
-  
+
   // Fetch user data
   const { data: userData, isLoading } = useQuery({
-    queryKey: ['/api/user/1'],
+    queryKey: ["/api/user/me"],
     staleTime: 60000, // 1 minute
   });
-  
+
   // Calculate BMI
   const calculateBMI = (height: number, weight: number) => {
     if (!height || !weight) return 0;
@@ -43,12 +43,12 @@ const Profile = () => {
     const heightInMeters = height / 100;
     return weight / (heightInMeters * heightInMeters);
   };
-  
+
   // Handle settings actions and navigation
   const handleSettingsNavigation = (path: string) => {
     setLocation(path);
   };
-  
+
   // Handle settings actions for features not yet implemented
   const handleSettingsAction = (setting: string) => {
     toast({
@@ -56,86 +56,86 @@ const Profile = () => {
       description: "This feature is coming soon!",
     });
   };
-  
+
   // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut();
-      setLocation('/auth');
+      setLocation("/auth");
       toast({
         title: "Signed out successfully",
         description: "You have been signed out of your account",
       });
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
       toast({
         title: "Error signing out",
         description: "There was a problem signing you out. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
-  
+
   useEffect(() => {
     if (userData) {
       setUser(userData);
     }
   }, [userData]);
-  
+
   // Define settings items
   const settingsItems = [
     {
-      icon: 'fitness_center',
-      label: 'Workout Settings',
-      action: () => handleSettingsNavigation('/workouts')
+      icon: "fitness_center",
+      label: "Workout Settings",
+      action: () => handleSettingsNavigation("/workouts"),
     },
     {
-      icon: 'restaurant',
-      label: 'Nutrition Settings',
-      action: () => handleSettingsNavigation('/nutrition')
+      icon: "restaurant",
+      label: "Nutrition Settings",
+      action: () => handleSettingsNavigation("/nutrition"),
     },
     {
-      icon: 'health_and_safety',
-      label: 'Health Settings',
-      action: () => handleSettingsNavigation('/health')
+      icon: "health_and_safety",
+      label: "Health Settings",
+      action: () => handleSettingsNavigation("/health"),
     },
     {
-      icon: 'monitoring_health',
-      label: 'Analytics',
-      action: () => handleSettingsNavigation('/analytics')
+      icon: "monitoring_health",
+      label: "Analytics",
+      action: () => handleSettingsNavigation("/analytics"),
     },
     {
-      icon: 'water_drop',
-      label: 'Water Tracking',
-      action: () => handleSettingsNavigation('/water')
+      icon: "water_drop",
+      label: "Water Tracking",
+      action: () => handleSettingsNavigation("/water"),
     },
     {
-      icon: 'directions_walk',
-      label: 'Steps Tracking',
-      action: () => handleSettingsNavigation('/steps')
+      icon: "directions_walk",
+      label: "Steps Tracking",
+      action: () => handleSettingsNavigation("/steps"),
     },
     {
-      icon: 'medication',
-      label: 'Medications',
-      action: () => handleSettingsNavigation('/medications')
+      icon: "medication",
+      label: "Medications",
+      action: () => handleSettingsNavigation("/medications"),
     },
     {
-      icon: 'account_circle',
-      label: 'Account',
-      action: () => handleSettingsNavigation('/account-settings')
+      icon: "account_circle",
+      label: "Account",
+      action: () => handleSettingsNavigation("/account-settings"),
     },
     {
-      icon: 'lock',
-      label: 'Privacy Settings',
-      action: () => handleSettingsNavigation('/privacy-settings')
+      icon: "lock",
+      label: "Privacy Settings",
+      action: () => handleSettingsNavigation("/privacy-settings"),
     },
     {
-      icon: 'help',
-      label: 'Help & Support',
-      action: () => handleSettingsNavigation('/help-support')
-    }
+      icon: "help",
+      label: "Help & Support",
+      action: () => handleSettingsNavigation("/help-support"),
+    },
   ];
-  
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-6">
@@ -167,7 +167,7 @@ const Profile = () => {
       </div>
     );
   }
-  
+
   if (!user) {
     return (
       <div className="p-4 flex flex-col items-center justify-center h-[80vh] space-y-4">
@@ -176,30 +176,30 @@ const Profile = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="p-4 space-y-6 pb-24 max-w-3xl mx-auto">
       <div className="flex flex-col">
-        <ProfileHeader 
-          name={user.displayName}
-          profileType={user.profileType}
-        />
+        <ProfileHeader name={user.displayName} profileType={user.profileType} />
       </div>
-      
-      <ProfileStats 
+
+      <ProfileStats
         height={user.height}
         weight={user.weight}
         bmi={calculateBMI(user.height, user.weight)}
         bodyFat={user.bodyFat}
       />
-      
+
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full grid grid-cols-4 mb-6">
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <SettingsIcon className="h-4 w-4" />
             <span>Settings</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
+          <TabsTrigger
+            value="notifications"
+            className="flex items-center gap-2"
+          >
             <Bell className="h-4 w-4" />
             <span>Notifications</span>
           </TabsTrigger>
@@ -212,15 +212,15 @@ const Profile = () => {
             <span>Subscription</span>
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="settings" className="mt-0">
           <Settings settings={settingsItems} />
         </TabsContent>
-        
+
         <TabsContent value="notifications" className="mt-0">
           <NotificationSettings />
         </TabsContent>
-        
+
         <TabsContent value="integrations" className="mt-0">
           <Integrations />
         </TabsContent>
@@ -229,13 +229,13 @@ const Profile = () => {
           <SubscriptionManagement />
         </TabsContent>
       </Tabs>
-      
+
       <Separator className="my-6" />
-      
+
       {/* Sign Out Button - moved to bottom */}
       <div className="flex justify-center">
-        <Button 
-          variant="destructive" 
+        <Button
+          variant="destructive"
           onClick={handleSignOut}
           className="flex items-center gap-2 w-full max-w-xs"
           size="lg"
@@ -244,10 +244,12 @@ const Profile = () => {
           <span>Sign Out</span>
         </Button>
       </div>
-      
+
       <div className="text-center mt-6">
         <p className="text-sm text-muted-foreground">Strive Fitness v1.0.0</p>
-        <p className="text-xs text-muted-foreground mt-1">© {new Date().getFullYear()} Strive. All rights reserved.</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          © {new Date().getFullYear()} Strive. All rights reserved.
+        </p>
       </div>
     </div>
   );

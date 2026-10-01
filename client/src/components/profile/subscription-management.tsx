@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -13,16 +20,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Loader2, Check, Crown, AlertTriangle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Loader2, Check, Crown, AlertTriangle } from "lucide-react";
 
 // Types
 interface SubscriptionPlan {
   id: number;
   name: string;
-  planType: 'basic' | 'advanced' | 'trial';
+  planType: "basic" | "advanced" | "trial";
   description: string;
   price: number;
   billingCycle: string;
@@ -49,20 +56,20 @@ interface PaymentInfo {
 }
 
 const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 2,
   }).format(price);
 };
 
 const formatDate = (dateString: string | null): string => {
-  if (!dateString) return 'Never';
+  if (!dateString) return "Never";
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
 };
 
@@ -77,40 +84,45 @@ const processMockPayment = async (): Promise<boolean> => {
 
 const getGradientColor = (planType: string): string => {
   switch (planType) {
-    case 'basic':
-      return 'from-blue-500 to-blue-700';
-    case 'advanced':
-      return 'from-purple-500 to-purple-800';
-    case 'trial':
-      return 'from-green-500 to-green-700';
+    case "basic":
+      return "from-blue-500 to-blue-700";
+    case "advanced":
+      return "from-purple-500 to-purple-800";
+    case "trial":
+      return "from-green-500 to-green-700";
     default:
-      return 'from-gray-500 to-gray-700';
+      return "from-gray-500 to-gray-700";
   }
 };
 
 export default function SubscriptionManagement() {
   const { toast } = useToast();
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
+    null,
+  );
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvc: '',
-    name: '',
+    cardNumber: "",
+    cardExpiry: "",
+    cardCvc: "",
+    name: "",
   });
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Query to get subscription plans
-  const { data: plans, isLoading: isLoadingPlans } = useQuery<SubscriptionPlan[]>({
-    queryKey: ['/api/subscription-plans'],
+  const { data: plans, isLoading: isLoadingPlans } = useQuery<
+    SubscriptionPlan[]
+  >({
+    queryKey: ["/api/subscription-plans"],
     staleTime: 1000 * 60 * 60, // 1 hour
   });
 
   // Query to get user's current subscription
-  const { data: subscription, isLoading: isLoadingSubscription } = useQuery<SubscriptionDetails>({
-    queryKey: ['/api/users/1/subscription'],
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
+  const { data: subscription, isLoading: isLoadingSubscription } =
+    useQuery<SubscriptionDetails>({
+      queryKey: ["/api/users/me/subscription"],
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    });
 
   // Mutation to update subscription
   const updateSubscriptionMutation = useMutation({
@@ -118,21 +130,19 @@ export default function SubscriptionManagement() {
       // Calculate expiry date 1 month from now for monthly plans
       const expiryDate = new Date();
       expiryDate.setMonth(expiryDate.getMonth() + 1);
-      
-      const res = await apiRequest(
-        'POST',
-        '/api/users/1/subscription',
-        {
-          planType: data.planType,
-          expiryDate: expiryDate.toISOString(),
-        }
-      );
+
+      const res = await apiRequest("POST", "/api/users/me/subscription", {
+        planType: data.planType,
+        expiryDate: expiryDate.toISOString(),
+      });
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/subscription'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/subscription"],
+      });
       toast({
-        title: 'Subscription Updated',
+        title: "Subscription Updated",
         description: `You are now subscribed to the ${selectedPlan?.name} plan.`,
       });
       setIsPaymentDialogOpen(false);
@@ -141,12 +151,12 @@ export default function SubscriptionManagement() {
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to update subscription: ${error.message}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       setIsProcessingPayment(false);
-    }
+    },
   });
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
@@ -155,7 +165,7 @@ export default function SubscriptionManagement() {
       updateSubscriptionMutation.mutate({ planType: plan.planType });
       return;
     }
-    
+
     setSelectedPlan(plan);
     setIsPaymentDialogOpen(true);
   };
@@ -163,9 +173,9 @@ export default function SubscriptionManagement() {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlan) return;
-    
+
     setIsProcessingPayment(true);
-    
+
     // This would be replaced with an actual payment processor in a real app
     try {
       const paymentSuccess = await processMockPayment();
@@ -173,17 +183,18 @@ export default function SubscriptionManagement() {
         updateSubscriptionMutation.mutate({ planType: selectedPlan.planType });
       } else {
         toast({
-          title: 'Payment Failed',
-          description: 'There was an issue processing your payment. Please try again.',
-          variant: 'destructive',
+          title: "Payment Failed",
+          description:
+            "There was an issue processing your payment. Please try again.",
+          variant: "destructive",
         });
         setIsProcessingPayment(false);
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
       });
       setIsProcessingPayment(false);
     }
@@ -193,7 +204,9 @@ export default function SubscriptionManagement() {
     return (
       <div className="flex flex-col items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Loading subscription information...</p>
+        <p className="text-muted-foreground">
+          Loading subscription information...
+        </p>
       </div>
     );
   }
@@ -216,7 +229,9 @@ export default function SubscriptionManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl">Current Plan</CardTitle>
-                <CardDescription>Your current subscription details</CardDescription>
+                <CardDescription>
+                  Your current subscription details
+                </CardDescription>
               </div>
               <Badge variant="outline" className="text-primary border-primary">
                 Active
@@ -236,13 +251,23 @@ export default function SubscriptionManagement() {
               </div>
               <div className="grid grid-cols-2 gap-y-2 text-sm">
                 <div className="text-muted-foreground">Plan Type:</div>
-                <div className="font-medium capitalize">{currentPlan.planType}</div>
+                <div className="font-medium capitalize">
+                  {currentPlan.planType}
+                </div>
                 <div className="text-muted-foreground">Expiry Date:</div>
-                <div className="font-medium">{formatDate(subscription?.expiryDate)}</div>
-                <div className="text-muted-foreground">Max Workout Templates:</div>
-                <div className="font-medium">{currentPlan.maxWorkoutTemplates || 'Unlimited'}</div>
+                <div className="font-medium">
+                  {formatDate(subscription?.expiryDate)}
+                </div>
+                <div className="text-muted-foreground">
+                  Max Workout Templates:
+                </div>
+                <div className="font-medium">
+                  {currentPlan.maxWorkoutTemplates || "Unlimited"}
+                </div>
                 <div className="text-muted-foreground">Max Health Metrics:</div>
-                <div className="font-medium">{currentPlan.maxHealthMetrics || 'Unlimited'}</div>
+                <div className="font-medium">
+                  {currentPlan.maxHealthMetrics || "Unlimited"}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -259,20 +284,26 @@ export default function SubscriptionManagement() {
         <h3 className="text-xl font-semibold">Available Plans</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {plans?.map((plan) => (
-            <Card 
-              key={plan.id} 
+            <Card
+              key={plan.id}
               className={`border-2 ${
-                currentPlan?.id === plan.id ? 'border-primary' : 'border-border'
+                currentPlan?.id === plan.id ? "border-primary" : "border-border"
               } transition-all hover:shadow-md`}
             >
-              <CardHeader 
+              <CardHeader
                 className={`bg-gradient-to-r ${getGradientColor(plan.planType)} text-white`}
               >
                 <CardTitle>{plan.name}</CardTitle>
-                <CardDescription className="text-white/80">{plan.description}</CardDescription>
+                <CardDescription className="text-white/80">
+                  {plan.description}
+                </CardDescription>
                 <div className="flex items-baseline mt-2">
-                  <span className="text-2xl font-bold">{formatPrice(plan.price)}</span>
-                  <span className="ml-1 text-sm text-white/90">/{plan.billingCycle}</span>
+                  <span className="text-2xl font-bold">
+                    {formatPrice(plan.price)}
+                  </span>
+                  <span className="ml-1 text-sm text-white/90">
+                    /{plan.billingCycle}
+                  </span>
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
@@ -286,13 +317,13 @@ export default function SubscriptionManagement() {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Button 
-                  className="w-full" 
+                <Button
+                  className="w-full"
                   variant={currentPlan?.id === plan.id ? "outline" : "default"}
                   onClick={() => handleSelectPlan(plan)}
                   disabled={currentPlan?.id === plan.id}
                 >
-                  {currentPlan?.id === plan.id ? 'Current Plan' : 'Select Plan'}
+                  {currentPlan?.id === plan.id ? "Current Plan" : "Select Plan"}
                 </Button>
               </CardFooter>
             </Card>
@@ -306,8 +337,10 @@ export default function SubscriptionManagement() {
           <DialogHeader>
             <DialogTitle>Subscribe to {selectedPlan?.name}</DialogTitle>
             <DialogDescription>
-              Enter your payment information to subscribe to the {selectedPlan?.name} plan
-              for {formatPrice(selectedPlan?.price || 0)}/{selectedPlan?.billingCycle}.
+              Enter your payment information to subscribe to the{" "}
+              {selectedPlan?.name} plan for{" "}
+              {formatPrice(selectedPlan?.price || 0)}/
+              {selectedPlan?.billingCycle}.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePaymentSubmit}>
@@ -321,10 +354,12 @@ export default function SubscriptionManagement() {
                   placeholder="John Doe"
                   required
                   value={paymentInfo.name}
-                  onChange={(e) => setPaymentInfo({...paymentInfo, name: e.target.value})}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, name: e.target.value })
+                  }
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="cardNumber">Card Number</Label>
                 <input
@@ -336,7 +371,12 @@ export default function SubscriptionManagement() {
                   placeholder="4242 4242 4242 4242"
                   required
                   value={paymentInfo.cardNumber}
-                  onChange={(e) => setPaymentInfo({...paymentInfo, cardNumber: e.target.value})}
+                  onChange={(e) =>
+                    setPaymentInfo({
+                      ...paymentInfo,
+                      cardNumber: e.target.value,
+                    })
+                  }
                 />
               </div>
 
@@ -350,7 +390,12 @@ export default function SubscriptionManagement() {
                     placeholder="MM/YY"
                     required
                     value={paymentInfo.cardExpiry}
-                    onChange={(e) => setPaymentInfo({...paymentInfo, cardExpiry: e.target.value})}
+                    onChange={(e) =>
+                      setPaymentInfo({
+                        ...paymentInfo,
+                        cardExpiry: e.target.value,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -364,7 +409,12 @@ export default function SubscriptionManagement() {
                     placeholder="123"
                     required
                     value={paymentInfo.cardCvc}
-                    onChange={(e) => setPaymentInfo({...paymentInfo, cardCvc: e.target.value})}
+                    onChange={(e) =>
+                      setPaymentInfo({
+                        ...paymentInfo,
+                        cardCvc: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -377,9 +427,9 @@ export default function SubscriptionManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsPaymentDialogOpen(false)}
                 disabled={isProcessingPayment}
               >

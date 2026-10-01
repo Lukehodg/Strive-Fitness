@@ -1,0 +1,17 @@
+node_modules
+mobile
+.git
+.data
+.test-data
+.env
+.env.*
+dist
+tests
+attached_assets
+*.log
+*.pem
+*.key
+*.p12
+*.p8
+*.jks
+*.mobileprovision

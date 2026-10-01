@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient, apiRequest } from '@/lib/queryClient';
-import { Sparkles } from 'lucide-react';
-import { AddIcon, ProgressIcon } from '@/lib/icons';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Sparkles } from "lucide-react";
+import { AddIcon, ProgressIcon } from "@/lib/icons";
+import { useToast } from "@/hooks/use-toast";
 
-import WorkoutStats from '@/components/workouts/workout-stats';
-import WorkoutTemplates from '@/components/workouts/workout-templates';
-import CurrentWorkout from '@/components/workouts/current-workout';
-import ExerciseProgressList from '@/components/workouts/exercise-progress-list';
-import { AIWorkoutGenerator } from '@/components/workouts/ai-workout-generator';
+import WorkoutStats from "@/components/workouts/workout-stats";
+import WorkoutTemplates from "@/components/workouts/workout-templates";
+import CurrentWorkout from "@/components/workouts/current-workout";
+import ExerciseProgressList from "@/components/workouts/exercise-progress-list";
+import { AIWorkoutGenerator } from "@/components/workouts/ai-workout-generator";
 
 // Define interfaces
 interface WorkoutTemplate {
@@ -67,77 +67,96 @@ const Workouts = () => {
   const [_, setLocation] = useLocation();
   const [showProgressList, setShowProgressList] = useState(false);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
-  
+
   // Fetch workout templates
   const { data: workoutTemplates } = useQuery<WorkoutTemplate[]>({
-    queryKey: ['/api/users/1/workout-templates'],
+    queryKey: ["/api/users/me/workout-templates"],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/users/1/workout-templates');
+      const response = await apiRequest(
+        "GET",
+        "/api/users/me/workout-templates",
+      );
       return await response.json();
     },
     staleTime: 60000, // 1 minute
   });
-  
+
   // Fetch completed workouts
   const { data: completedWorkouts } = useQuery<CompletedWorkout[]>({
-    queryKey: ['/api/users/1/completed-workouts'],
+    queryKey: ["/api/users/me/completed-workouts"],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/users/1/completed-workouts');
+      const response = await apiRequest(
+        "GET",
+        "/api/users/me/completed-workouts",
+      );
       return await response.json();
     },
     staleTime: 60000, // 1 minute
   });
-  
+
   // Find current workout (last incomplete workout)
-  const currentWorkout = (Array.isArray(completedWorkouts) && completedWorkouts.length > 0)
-    ? completedWorkouts.find((workout: CompletedWorkout) => !workout.isCompleted)
-    : null;
-  
+  const currentWorkout =
+    Array.isArray(completedWorkouts) && completedWorkouts.length > 0
+      ? completedWorkouts.find(
+          (workout: CompletedWorkout) => !workout.isCompleted,
+        )
+      : null;
+
   // Fetch template exercises for current workout
   const { data: templateExercises } = useQuery<TemplateExercise[]>({
-    queryKey: ['/api/workout-templates', currentWorkout?.workoutTemplateId, 'exercises'],
+    queryKey: [
+      "/api/workout-templates",
+      currentWorkout?.workoutTemplateId,
+      "exercises",
+    ],
     queryFn: async () => {
       if (!currentWorkout?.workoutTemplateId) return [];
-      const response = await apiRequest('GET', `/api/workout-templates/${currentWorkout.workoutTemplateId}/exercises`);
+      const response = await apiRequest(
+        "GET",
+        `/api/workout-templates/${currentWorkout.workoutTemplateId}/exercises`,
+      );
       return await response.json();
     },
     staleTime: 60000, // 1 minute
     enabled: !!currentWorkout?.workoutTemplateId,
   });
-  
+
   // Fetch workout sets for current workout
   const { data: workoutSets } = useQuery<WorkoutSet[]>({
-    queryKey: ['/api/completed-workouts', currentWorkout?.id, 'sets'],
+    queryKey: ["/api/completed-workouts", currentWorkout?.id, "sets"],
     queryFn: async () => {
       if (!currentWorkout?.id) return [];
-      const response = await apiRequest('GET', `/api/completed-workouts/${currentWorkout.id}/sets`);
+      const response = await apiRequest(
+        "GET",
+        `/api/completed-workouts/${currentWorkout.id}/sets`,
+      );
       return await response.json();
     },
     staleTime: 60000, // 1 minute
     enabled: !!currentWorkout?.id,
   });
-  
+
   // Fetch exercises data
   const { data: exercises } = useQuery<Exercise[]>({
-    queryKey: ['/api/exercises'],
+    queryKey: ["/api/exercises"],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/exercises');
+      const response = await apiRequest("GET", "/api/exercises");
       return await response.json();
     },
     staleTime: 60000, // 1 minute
   });
-  
+
   const handleCreateWorkout = () => {
-    setLocation('/workouts/create');
+    setLocation("/workouts/create");
   };
-  
+
   const handleEditTemplates = () => {
     toast({
       title: "Edit Templates",
       description: "This feature will be available soon!",
     });
   };
-  
+
   const handleContinueWorkout = () => {
     if (currentWorkout) {
       console.log("Continuing existing workout with ID:", currentWorkout.id);
@@ -145,57 +164,71 @@ const Workouts = () => {
       window.location.href = `/workouts/active/${currentWorkout.id}`;
     } else if (workoutTemplates && workoutTemplates.length > 0) {
       // If no current workout, create one from the first template
-      console.log("Creating new workout from template:", workoutTemplates[0].id);
+      console.log(
+        "Creating new workout from template:",
+        workoutTemplates[0].id,
+      );
       startWorkoutMutation.mutate(workoutTemplates[0].id);
     } else {
       // Handle the case where no templates are available
       toast({
         title: "No Workout Templates",
         description: "Please create a workout template first.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
-  
+
   const handleViewProgress = () => {
     setShowProgressList(true);
   };
-  
+
   const handleCloseProgress = () => {
     setShowProgressList(false);
   };
-  
+
   const handleOpenAIGenerator = () => {
     setShowAIGenerator(true);
   };
-  
+
   const handleCloseAIGenerator = () => {
     setShowAIGenerator(false);
   };
-  
+
   // Mutation for starting a new workout
   const startWorkoutMutation = useMutation({
     mutationFn: async (templateId: number) => {
       console.log("Starting workout with template ID:", templateId);
-      
+
       try {
         const payload = {
-          userId: 1, // In a real app, we would get this from auth
+          userId: undefined, // In a real app, we would get this from auth
           workoutTemplateId: templateId,
-          startTime: new Date().toISOString()
+          startTime: new Date().toISOString(),
         };
         console.log("Sending payload:", payload);
-        
-        const response = await apiRequest('POST', '/api/completed-workouts', payload);
+
+        const response = await apiRequest(
+          "POST",
+          "/api/completed-workouts",
+          payload,
+        );
         console.log("Raw response:", response);
-        
+
         if (!response.ok) {
-          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+          throw new Error(
+            `Server returned ${response.status}: ${response.statusText}`,
+          );
         }
-        
+
         const data = await response.json();
         console.log("Response data from creating workout:", data);
-        console.log("Workout ID from response:", data?.id, "Type:", typeof data?.id);
+        console.log(
+          "Workout ID from response:",
+          data?.id,
+          "Type:",
+          typeof data?.id,
+        );
         return data;
       } catch (error) {
         console.error("Error in mutation:", error);
@@ -208,15 +241,17 @@ const Workouts = () => {
         title: "Workout Started",
         description: "Your workout has been started",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/completed-workouts"],
+      });
+
       // Make sure we have a valid ID
       if (data && data.id && !isNaN(data.id)) {
         // Navigate to the active workout page
         console.log("Navigating to workout:", data.id);
         // Force numeric conversion and ensure it's a valid integer
         const numericId = Math.floor(Number(data.id));
-        
+
         if (numericId > 0) {
           console.log(`Navigating to /workouts/active/${numericId}`);
           setLocation(`/workouts/active/${numericId}`);
@@ -225,15 +260,19 @@ const Workouts = () => {
           toast({
             title: "Error",
             description: "Could not navigate to the workout page - invalid ID",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       } else {
-        console.error("Missing or invalid workout ID in the response data:", data);
+        console.error(
+          "Missing or invalid workout ID in the response data:",
+          data,
+        );
         toast({
           title: "Error",
-          description: "Could not navigate to the workout page - missing or invalid ID",
-          variant: "destructive"
+          description:
+            "Could not navigate to the workout page - missing or invalid ID",
+          variant: "destructive",
         });
       }
     },
@@ -241,29 +280,31 @@ const Workouts = () => {
       toast({
         title: "Error",
         description: "Failed to start workout",
-        variant: "destructive"
+        variant: "destructive",
       });
       console.error(error);
-    }
+    },
   });
-  
+
   // Prepare data for CurrentWorkout component
   const prepareCurrentWorkoutData = () => {
     if (!exercises || !templateExercises || !workoutSets) return [];
-    
+
     // Ensure templateExercises is an array before calling map
-    const exercisesArray = Array.isArray(templateExercises) ? templateExercises : [];
-    
-    return exercisesArray.map(te => {
+    const exercisesArray = Array.isArray(templateExercises)
+      ? templateExercises
+      : [];
+
+    return exercisesArray.map((te) => {
       // Check if exercises is an array
       const exercisesArray = Array.isArray(exercises) ? exercises : [];
-      const exercise = exercisesArray.find(ex => ex.id === te.exerciseId);
-      
+      const exercise = exercisesArray.find((ex) => ex.id === te.exerciseId);
+
       // Check if workoutSets is an array
       const setsArray = Array.isArray(workoutSets) ? workoutSets : [];
-      const sets = setsArray.filter(set => set.exerciseId === te.exerciseId);
+      const sets = setsArray.filter((set) => set.exerciseId === te.exerciseId);
       const isCompleted = sets.length >= te.sets;
-      
+
       return {
         id: te.id,
         exerciseId: te.exerciseId,
@@ -272,17 +313,17 @@ const Workouts = () => {
         repsMin: te.repsMin,
         repsMax: te.repsMax,
         weight: sets.length > 0 ? sets[0].weight : 0,
-        isCompleted
+        isCompleted,
       };
     });
   };
-  
-  const isDataLoaded = 
-    workoutTemplates && 
-    Array.isArray(workoutTemplates) && 
-    completedWorkouts && 
+
+  const isDataLoaded =
+    workoutTemplates &&
+    Array.isArray(workoutTemplates) &&
+    completedWorkouts &&
     Array.isArray(completedWorkouts);
-    
+
   if (!isDataLoaded) {
     return (
       <div className="p-4 flex items-center justify-center h-[90vh] bg-gray-900 text-white">
@@ -290,27 +331,29 @@ const Workouts = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="p-4 space-y-6 bg-gray-900 min-h-screen text-white">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">Workouts</h2>
+        <h2 className="font-['Inter',sans-serif] text-2xl font-bold text-white">
+          Workouts
+        </h2>
         <div className="flex gap-2">
-          <button 
+          <button
             className="bg-gray-800 hover:bg-gray-700 text-white rounded-full p-2 transition-colors"
             onClick={handleViewProgress}
             title="View Exercise Progress"
           >
             <ProgressIcon className="w-6 h-6" />
           </button>
-          <button 
+          <button
             className="bg-gray-800 hover:bg-gray-700 text-white rounded-full p-2 transition-colors"
             onClick={handleOpenAIGenerator}
             title="Generate Workout with AI"
           >
             <Sparkles className="w-6 h-6" />
           </button>
-          <button 
+          <button
             className="bg-primary hover:bg-primary/90 text-white rounded-full p-2 transition-colors"
             onClick={handleCreateWorkout}
             title="Create New Workout"
@@ -319,39 +362,43 @@ const Workouts = () => {
           </button>
         </div>
       </div>
-      
-      <WorkoutStats 
+
+      <WorkoutStats
         weeklyWorkouts={4}
         weeklyWorkoutsChange={20}
         totalTime="5h 45m"
         totalTimeChange={15}
       />
-      
-      <WorkoutTemplates 
+
+      <WorkoutTemplates
         templates={workoutTemplates}
         onEdit={handleEditTemplates}
       />
-      
+
       {currentWorkout && exercises && templateExercises && workoutSets && (
-        <CurrentWorkout 
-          workoutName={workoutTemplates.find(t => t.id === currentWorkout.workoutTemplateId)?.name || 'Current Workout'}
+        <CurrentWorkout
+          workoutName={
+            workoutTemplates.find(
+              (t) => t.id === currentWorkout.workoutTemplateId,
+            )?.name || "Current Workout"
+          }
           exercises={prepareCurrentWorkoutData()}
           onContinueWorkout={handleContinueWorkout}
         />
       )}
-      
+
       {/* Progress Panel (Full Screen Overlay) */}
       {showProgressList && (
         <div className="fixed inset-0 z-50 bg-gray-900 overflow-y-auto">
           <ExerciseProgressList onClose={handleCloseProgress} />
         </div>
       )}
-      
+
       {/* AI Workout Generator */}
-      <AIWorkoutGenerator 
-        open={showAIGenerator} 
-        onClose={handleCloseAIGenerator} 
-        userId={1} 
+      <AIWorkoutGenerator
+        open={showAIGenerator}
+        onClose={handleCloseAIGenerator}
+        userId={"me"}
       />
     </div>
   );

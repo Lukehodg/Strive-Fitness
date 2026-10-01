@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Strive Fitness",
+    "slug": "strive-fitness",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lukehodg.strivefitness"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0e1618",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.lukehodg.strivefitness"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "scheme": "strivefitness",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1e56a59e-2a56-482a-bf57-43e8dee25ba6"
+      }
+    },
+    "owner": "lukehodg"
+  }
+}

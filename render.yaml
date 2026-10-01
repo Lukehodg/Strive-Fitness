@@ -1,0 +1,42 @@
+# Review paid resources before applying. See RENDER_DEPLOYMENT.md.
+services:
+  - type: web
+    name: strive-beta-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    branch: codex/overhaul-foundation
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /readyz
+    preDeployCommand: node dist/migrate.js
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "5000"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: strive-beta-db
+          property: connectionString
+      # Deliberately blocks all real addresses until the invite list is set.
+      - key: BETA_ALLOWED_EMAILS
+        value: signup-disabled@invalid.example
+      - key: INTEGRATION_ENCRYPTION_KEY
+        sync: false
+
+databases:
+  - name: strive-beta-db
+    databaseName: strive
+    plan: 0.1c-256mb
+    region: frankfurt
+    postgresMajorVersion: "16"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
+    ipAllowList: []

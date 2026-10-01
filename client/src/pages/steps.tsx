@@ -1,90 +1,105 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { Loader2 } from 'lucide-react';
-import { queryClient, apiRequest } from '@/lib/queryClient';
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
+import { Loader2 } from "lucide-react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 // Helper function to format date for display
 function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
   }).format(date);
 }
 
 function formatChartDate(date: Date | string): string {
-  if (typeof date === 'string') {
+  if (typeof date === "string") {
     date = new Date(date);
   }
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
   }).format(date);
 }
 
 export default function StepsPage() {
   const { toast } = useToast();
   const [stepGoal, setStepGoal] = useState<number>(0);
-  const [timeRange, setTimeRange] = useState<string>('week'); // day, week, month, 6months, year
-  
+  const [timeRange, setTimeRange] = useState<string>("week"); // day, week, month, 6months, year
+
   // Fetch user data
   const { data: user, isLoading: isLoadingUser } = useQuery({
-    queryKey: ['/api/user/1'],
+    queryKey: ["/api/user/me"],
     queryFn: async () => {
-      const res = await fetch('/api/user/1');
-      if (!res.ok) throw new Error('Failed to fetch user data');
+      const res = await fetch("/api/user/me");
+      if (!res.ok) throw new Error("Failed to fetch user data");
       return res.json();
-    }
+    },
   });
 
   // Fetch daily stats
   const { data: dailyStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['/api/users/1/daily-stats'],
+    queryKey: ["/api/users/me/daily-stats"],
     queryFn: async () => {
-      const res = await fetch('/api/users/1/daily-stats');
-      if (!res.ok) throw new Error('Failed to fetch daily stats');
+      const res = await fetch("/api/users/me/daily-stats");
+      if (!res.ok) throw new Error("Failed to fetch daily stats");
       return res.json();
-    }
+    },
   });
 
   // Fetch step history data based on selected time range
   const { data: stepHistory, isLoading: isLoadingHistory } = useQuery({
-    queryKey: ['/api/users/1/step-history', timeRange],
+    queryKey: ["/api/users/me/step-history", timeRange],
     queryFn: async () => {
       // This would normally fetch step history for the selected time range
       // For now, we'll generate sample data
-      
+
       const today = new Date();
       const data = [];
-      
+
       let days = 7;
-      if (timeRange === 'day') days = 1;
-      if (timeRange === 'week') days = 7;
-      if (timeRange === 'month') days = 30;
-      if (timeRange === '6months') days = 180;
-      if (timeRange === 'year') days = 365;
-      
+      if (timeRange === "day") days = 1;
+      if (timeRange === "week") days = 7;
+      if (timeRange === "month") days = 30;
+      if (timeRange === "6months") days = 180;
+      if (timeRange === "year") days = 365;
+
       for (let i = days - 1; i >= 0; i--) {
         const date = new Date();
         date.setDate(today.getDate() - i);
-        
+
         // Generate realistic step data with some variation
         // Base it on the user's daily step target
         const target = user?.dailyStepTarget || 10000;
         const variance = Math.random() * 0.5 + 0.75; // Between 75% and 125%
         const steps = Math.round(target * variance);
-        
+
         data.push({
           date: formatChartDate(date),
           steps,
         });
       }
-      
+
       return data;
     },
     enabled: !!user,
@@ -93,13 +108,13 @@ export default function StepsPage() {
   // Update step goal mutation
   const updateStepGoalMutation = useMutation({
     mutationFn: async (newGoal: number) => {
-      const res = await apiRequest('PATCH', `/api/user/1`, {
-        dailyStepTarget: newGoal
+      const res = await apiRequest("PATCH", `/api/user/me`, {
+        dailyStepTarget: newGoal,
       });
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/1'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/me"] });
       toast({
         title: "Goal updated",
         description: "Your daily step goal has been updated.",
@@ -111,7 +126,7 @@ export default function StepsPage() {
         description: error.message,
         variant: "destructive",
       });
-    }
+    },
   });
 
   useEffect(() => {
@@ -146,7 +161,7 @@ export default function StepsPage() {
   return (
     <div className="p-4 space-y-6">
       <h1 className="text-2xl font-bold text-white">Step Tracking</h1>
-      
+
       {/* Step Goal Setting Card */}
       <Card className="bg-gray-800 border border-gray-700">
         <CardHeader>
@@ -155,36 +170,46 @@ export default function StepsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2">
-            <Input 
-              type="number" 
+            <Input
+              type="number"
               value={stepGoal}
               onChange={(e) => setStepGoal(parseInt(e.target.value) || 0)}
               className="bg-gray-700 border-gray-600 text-white"
             />
-            <Button 
+            <Button
               onClick={handleSaveGoal}
               disabled={updateStepGoalMutation.isPending}
               className="bg-primary hover:bg-primary/90"
             >
-              {updateStepGoalMutation.isPending ? 
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {updateStepGoalMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Save
             </Button>
           </div>
         </CardContent>
         <CardFooter>
           <p className="text-sm text-gray-400">
-            Current progress: {dailyStats?.stepsCount || 0} / {user?.dailyStepTarget || 0} steps
-            ({Math.round(((dailyStats?.stepsCount || 0) / (user?.dailyStepTarget || 1)) * 100)}%)
+            Current progress: {dailyStats?.stepsCount || 0} /{" "}
+            {user?.dailyStepTarget || 0} steps (
+            {Math.round(
+              ((dailyStats?.stepsCount || 0) / (user?.dailyStepTarget || 1)) *
+                100,
+            )}
+            %)
           </p>
         </CardFooter>
       </Card>
-      
+
       {/* Step History Graph */}
       <Card className="bg-gray-800 border border-gray-700">
         <CardHeader>
           <CardTitle className="text-white">Step History</CardTitle>
-          <Tabs defaultValue="week" className="w-full" onValueChange={setTimeRange}>
+          <Tabs
+            defaultValue="week"
+            className="w-full"
+            onValueChange={setTimeRange}
+          >
             <TabsList className="bg-gray-700">
               <TabsTrigger value="day">Day</TabsTrigger>
               <TabsTrigger value="week">Week</TabsTrigger>
@@ -213,28 +238,25 @@ export default function StepsPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fill: '#aaa' }} 
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: "#aaa" }}
                     tickMargin={10}
                   />
-                  <YAxis 
-                    tick={{ fill: '#aaa' }} 
-                    tickMargin={10}
+                  <YAxis tick={{ fill: "#aaa" }} tickMargin={10} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#333",
+                      border: "1px solid #555",
+                      color: "#fff",
+                    }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#333', 
-                      border: '1px solid #555',
-                      color: '#fff'
-                    }} 
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="steps" 
-                    stroke="#3B82F6" 
-                    fillOpacity={1} 
-                    fill="url(#colorSteps)" 
+                  <Area
+                    type="monotone"
+                    dataKey="steps"
+                    stroke="#3B82F6"
+                    fillOpacity={1}
+                    fill="url(#colorSteps)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -243,14 +265,22 @@ export default function StepsPage() {
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-gray-400">
-            Average: <span className="text-primary font-medium">{calculateAverageSteps().toLocaleString()}</span> steps
+            Average:{" "}
+            <span className="text-primary font-medium">
+              {calculateAverageSteps().toLocaleString()}
+            </span>{" "}
+            steps
           </div>
           <div className="text-sm text-gray-400">
-            Total: <span className="text-primary font-medium">{calculateTotalSteps().toLocaleString()}</span> steps
+            Total:{" "}
+            <span className="text-primary font-medium">
+              {calculateTotalSteps().toLocaleString()}
+            </span>{" "}
+            steps
           </div>
         </CardFooter>
       </Card>
-      
+
       {/* Health Insights */}
       <Card className="bg-gray-800 border border-gray-700">
         <CardHeader>
@@ -260,14 +290,17 @@ export default function StepsPage() {
           <div className="p-4 bg-gray-700 rounded-lg border border-gray-600">
             <h3 className="font-medium text-white mb-2">Health Benefits</h3>
             <p className="text-gray-300 text-sm">
-              Walking 10,000 steps can burn approximately 300-500 calories, improve cardiovascular health, 
-              and reduce the risk of chronic diseases. Regular walking also strengthens muscles, improves 
-              mood, and enhances sleep quality.
+              Walking 10,000 steps can burn approximately 300-500 calories,
+              improve cardiovascular health, and reduce the risk of chronic
+              diseases. Regular walking also strengthens muscles, improves mood,
+              and enhances sleep quality.
             </p>
           </div>
-          
+
           <div className="p-4 bg-gray-700 rounded-lg border border-gray-600">
-            <h3 className="font-medium text-white mb-2">Tips to Increase Steps</h3>
+            <h3 className="font-medium text-white mb-2">
+              Tips to Increase Steps
+            </h3>
             <ul className="text-gray-300 text-sm list-disc list-inside space-y-1">
               <li>Take the stairs instead of elevators</li>
               <li>Park farther away from entrances</li>

@@ -1,42 +1,49 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient, apiRequest } from '@/lib/queryClient';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { 
-  Timer as TimerIcon, 
-  Plus, 
-  Minus, 
+import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import {
+  Timer as TimerIcon,
+  Plus,
+  Minus,
   Flame as FireIcon,
   Dumbbell,
-  ChevronDown, 
+  ChevronDown,
   ChevronUp,
-  Bike
-} from 'lucide-react';
-import EnduranceWorkoutSet from '@/components/workouts/endurance-workout-set';
+  Bike,
+} from "lucide-react";
+import EnduranceWorkoutSet from "@/components/workouts/endurance-workout-set";
 
 interface ActiveWorkoutProps {
   workoutId: number | string;
 }
 
-const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }) => {
+const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({
+  workoutId: rawWorkoutId,
+}) => {
   // Make sure the workout ID is a number
-  const workoutId = typeof rawWorkoutId === 'string' ? parseInt(rawWorkoutId, 10) : rawWorkoutId;
+  const workoutId =
+    typeof rawWorkoutId === "string"
+      ? parseInt(rawWorkoutId, 10)
+      : rawWorkoutId;
   const { toast } = useToast();
   const [_, setLocation] = useLocation();
   const [timer, setTimer] = useState<number>(0);
   const [timerActive, setTimerActive] = useState<boolean>(true);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
-  const [exerciseSets, setExerciseSets] = useState<Map<number, any[]>>(new Map());
+  const [exerciseSets, setExerciseSets] = useState<Map<number, any[]>>(
+    new Map(),
+  );
   const [restTimer, setRestTimer] = useState<number | null>(null);
   const [restTimerActive, setRestTimerActive] = useState<boolean>(false);
   const [showAllExercises, setShowAllExercises] = useState<boolean>(false);
   const restTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Fetch workout data
   const { data: workout, isLoading: isLoadingWorkout } = useQuery({
-    queryKey: ['/api/completed-workouts', workoutId],
+    queryKey: ["/api/completed-workouts", workoutId],
     queryFn: async () => {
       console.log("Fetching workout with ID:", workoutId);
       try {
@@ -44,43 +51,52 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
           console.error("Invalid workout ID:", workoutId);
           throw new Error("Invalid workout ID");
         }
-        
-        const response = await apiRequest('GET', `/api/completed-workouts/${workoutId}`);
-        
+
+        const response = await apiRequest(
+          "GET",
+          `/api/completed-workouts/${workoutId}`,
+        );
+
         if (!response.ok) {
           console.error(`API error: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch workout: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         console.log("Workout data:", data);
-        
+
         if (!data || data.message === "Completed workout not found") {
           console.error("Workout not found:", data);
           throw new Error("Workout not found");
         }
-        
+
         return data;
       } catch (error) {
         console.error("Error fetching workout:", error);
         toast({
           title: "Error",
           description: "Failed to load workout data",
-          variant: "destructive"
+          variant: "destructive",
         });
         throw error;
       }
     },
     staleTime: 60000, // 1 minute
   });
-  
+
   // Fetch workout template data
   const { data: workoutTemplate, isLoading: isLoadingTemplate } = useQuery({
-    queryKey: ['/api/workout-templates', workout?.workoutTemplateId],
+    queryKey: ["/api/workout-templates", workout?.workoutTemplateId],
     queryFn: async () => {
       if (!workout?.workoutTemplateId) return null;
-      console.log("Fetching workout template with ID:", workout.workoutTemplateId);
-      const response = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}`);
+      console.log(
+        "Fetching workout template with ID:",
+        workout.workoutTemplateId,
+      );
+      const response = await apiRequest(
+        "GET",
+        `/api/workout-templates/${workout.workoutTemplateId}`,
+      );
       const data = await response.json();
       console.log("Workout template data:", data);
       return data;
@@ -88,14 +104,24 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
     staleTime: 60000, // 1 minute
     enabled: !!workout?.workoutTemplateId,
   });
-  
+
   // Fetch template exercises
   const { data: templateExercises, isLoading: isLoadingExercises } = useQuery({
-    queryKey: ['/api/workout-templates', workout?.workoutTemplateId, 'exercises'],
+    queryKey: [
+      "/api/workout-templates",
+      workout?.workoutTemplateId,
+      "exercises",
+    ],
     queryFn: async () => {
       if (!workout?.workoutTemplateId) return null;
-      console.log("Fetching exercises for template ID:", workout.workoutTemplateId);
-      const response = await apiRequest('GET', `/api/workout-templates/${workout.workoutTemplateId}/exercises`);
+      console.log(
+        "Fetching exercises for template ID:",
+        workout.workoutTemplateId,
+      );
+      const response = await apiRequest(
+        "GET",
+        `/api/workout-templates/${workout.workoutTemplateId}/exercises`,
+      );
       const data = await response.json();
       console.log("Template exercises:", data);
       return data;
@@ -103,107 +129,116 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
     staleTime: 60000, // 1 minute
     enabled: !!workout?.workoutTemplateId,
   });
-  
+
   // Fetch exercise details
   const { data: exercises } = useQuery({
-    queryKey: ['/api/exercises'],
+    queryKey: ["/api/exercises"],
     queryFn: async () => {
       console.log("Fetching all exercises");
-      const response = await apiRequest('GET', '/api/exercises');
+      const response = await apiRequest("GET", "/api/exercises");
       const data = await response.json();
       console.log("All exercises:", data);
       return data;
     },
     staleTime: 60000, // 1 minute
   });
-  
+
   // Start timer when component loads
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
+
     if (timerActive) {
       interval = setInterval(() => {
         setTimer((prevTimer) => prevTimer + 1);
       }, 1000);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [timerActive]);
-  
+
   // Format timer display
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
-  
+
   // Initialize exercise sets when template exercises load
   useEffect(() => {
     if (templateExercises && templateExercises.length > 0 && exercises) {
       const setsMap = new Map<number, any[]>();
-      
+
       templateExercises.forEach((exercise: any) => {
-        const exerciseDetails = exercises.find((e: any) => e.id === exercise.exerciseId);
-        const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
-                                    exerciseDetails?.category === 'endurance' ||
-                                    workoutTemplate?.workoutType === 'cardio' ||
-                                    workoutTemplate?.workoutType === 'endurance';
-        
+        const exerciseDetails = exercises.find(
+          (e: any) => e.id === exercise.exerciseId,
+        );
+        const isEnduranceExercise =
+          exerciseDetails?.category === "cardio" ||
+          exerciseDetails?.category === "endurance" ||
+          workoutTemplate?.workoutType === "cardio" ||
+          workoutTemplate?.workoutType === "endurance";
+
         // Determine measurement type
-        let measurementType = 'weight_reps'; // default
+        let measurementType = "weight_reps"; // default
         if (exerciseDetails?.measurementType) {
           measurementType = exerciseDetails.measurementType;
         } else if (isEnduranceExercise) {
           // Default endurance measurement type based on exercise name/category
-          if (exerciseDetails?.name?.includes('Running') || 
-              exerciseDetails?.name?.includes('Cycling') ||
-              exerciseDetails?.name?.includes('Swimming')) {
-            measurementType = 'distance_time';
-          } else if (exerciseDetails?.name?.includes('Rowing') ||
-                    exerciseDetails?.name?.includes('Ski Erg')) {
-            measurementType = 'calories';
+          if (
+            exerciseDetails?.name?.includes("Running") ||
+            exerciseDetails?.name?.includes("Cycling") ||
+            exerciseDetails?.name?.includes("Swimming")
+          ) {
+            measurementType = "distance_time";
+          } else if (
+            exerciseDetails?.name?.includes("Rowing") ||
+            exerciseDetails?.name?.includes("Ski Erg")
+          ) {
+            measurementType = "calories";
           } else {
-            measurementType = 'time_only';
+            measurementType = "time_only";
           }
         }
-        
-        const sets = Array(exercise.sets).fill(null).map((_, index) => {
-          if (isEnduranceExercise) {
-            // Create endurance-specific set
-            return {
-              setNumber: index + 1,
-              measurementType,
-              distance: 0,
-              duration: 0, // in seconds
-              laps: 0,
-              calories: 0,
-              heartRate: 0,
-              perceivedEffort: 0,
-              pace: '',
-              notes: '',
-              isCompleted: false
-            };
-          } else {
-            // Create standard strength training set
-            return {
-              setNumber: index + 1,
-              weight: 0,
-              reps: 0,
-              type: index === 0 ? 'warmup' : 'working',
-              isCompleted: false
-            };
-          }
-        });
-        
+
+        const sets = Array(exercise.sets)
+          .fill(null)
+          .map((_, index) => {
+            if (isEnduranceExercise) {
+              // Create endurance-specific set
+              return {
+                setNumber: index + 1,
+                measurementType,
+                distance: 0,
+                duration: 0, // in seconds
+                laps: 0,
+                calories: 0,
+                heartRate: 0,
+                perceivedEffort: 0,
+                pace: "",
+                notes: "",
+                isCompleted: false,
+              };
+            } else {
+              // Create standard strength training set
+              return {
+                setNumber: index + 1,
+                weight: 0,
+                reps: 0,
+                type: index === 0 ? "warmup" : "working",
+                isCompleted: false,
+              };
+            }
+          });
+
         setsMap.set(exercise.exerciseId, sets);
       });
-      
+
       setExerciseSets(setsMap);
     }
   }, [templateExercises, exercises, workoutTemplate]);
-  
+
   // Rest timer effect
   useEffect(() => {
     if (restTimerActive && restTimer !== null && restTimer > 0) {
@@ -227,14 +262,14 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
       setRestTimerActive(false);
       setRestTimer(null);
     }
-    
+
     return () => {
       if (restTimerRef.current) {
         clearInterval(restTimerRef.current);
       }
     };
   }, [restTimerActive, restTimer, toast]);
-  
+
   // Create workout set mutation
   const createSetMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -246,86 +281,104 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         reps: data.reps,
         rpe: data.rpe || 7,
         setNumber: data.setNumber,
-        setType: data.setType || 'working',
+        setType: data.setType || "working",
         isCompleted: true,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
-      
+
       console.log("Sending workout set data:", payload);
-      const response = await apiRequest('POST', '/api/workout-sets', payload);
+      const response = await apiRequest("POST", "/api/workout-sets", payload);
       const responseData = await response.json();
       return responseData;
     },
     onSuccess: (data) => {
       console.log("Set created successfully:", data);
-      queryClient.invalidateQueries({ queryKey: [`/api/completed-workouts/${workoutId}/sets`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/completed-workouts/${workoutId}/sets`],
+      });
     },
     onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to save workout set",
-        variant: "destructive"
+        variant: "destructive",
       });
       console.error("Error creating set:", error);
-    }
+    },
   });
-  
+
   // Update workout completion mutation
   const completeWorkoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('PATCH', `/api/completed-workouts/${workoutId}`, {
-        endTime: new Date().toISOString(),
-        isCompleted: true
-      });
+      const response = await apiRequest(
+        "PATCH",
+        `/api/completed-workouts/${workoutId}`,
+        {
+          endTime: new Date().toISOString(),
+          isCompleted: true,
+        },
+      );
       const responseData = await response.json();
       return responseData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/users/1/completed-workouts'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users/me/completed-workouts"],
+      });
       toast({
         title: "Workout Complete",
-        description: "Great job! Your workout has been saved."
+        description: "Great job! Your workout has been saved.",
       });
-      setLocation('/workouts');
+      setLocation("/workouts");
     },
     onError: (error) => {
       toast({
         title: "Error",
         description: "Failed to complete workout",
-        variant: "destructive"
+        variant: "destructive",
       });
       console.error(error);
-    }
+    },
   });
-  
+
   // Update set data
-  const updateSetValue = (exerciseId: number, setIndex: number, field: string, value: number | string | boolean) => {
+  const updateSetValue = (
+    exerciseId: number,
+    setIndex: number,
+    field: string,
+    value: number | string | boolean,
+  ) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const updatedSets = [...currentSets];
     updatedSets[setIndex] = { ...updatedSets[setIndex], [field]: value };
-    
+
     const newSetsMap = new Map(exerciseSets);
     newSetsMap.set(exerciseId, updatedSets);
     setExerciseSets(newSetsMap);
   };
-  
+
   // Add a new set
   const addSet = (exerciseId: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const newSetNumber = currentSets.length + 1;
     const exerciseDetails = exercises?.find((e: any) => e.id === exerciseId);
-    const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
-                              exerciseDetails?.category === 'endurance' ||
-                              workoutTemplate?.workoutType === 'cardio' ||
-                              workoutTemplate?.workoutType === 'endurance';
-    
+    const isEnduranceExercise =
+      exerciseDetails?.category === "cardio" ||
+      exerciseDetails?.category === "endurance" ||
+      workoutTemplate?.workoutType === "cardio" ||
+      workoutTemplate?.workoutType === "endurance";
+
     let newSet: any;
-    
-    if (isEnduranceExercise && currentSets.length > 0 && currentSets[0].measurementType) {
+
+    if (
+      isEnduranceExercise &&
+      currentSets.length > 0 &&
+      currentSets[0].measurementType
+    ) {
       // Create endurance-specific set by copying values from previous set
       const prevSet = currentSets[currentSets.length - 1];
       const measurementType = prevSet.measurementType;
-      
+
       newSet = {
         setNumber: newSetNumber,
         measurementType,
@@ -335,28 +388,32 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         calories: prevSet.calories || 0,
         heartRate: prevSet.heartRate || 0,
         perceivedEffort: prevSet.perceivedEffort || 0,
-        pace: prevSet.pace || '',
-        notes: '',
-        isCompleted: false
+        pace: prevSet.pace || "",
+        notes: "",
+        isCompleted: false,
       };
     } else if (isEnduranceExercise) {
       // Create a new endurance set with default measurement type
-      let measurementType = 'time_only'; // default
-      
+      let measurementType = "time_only"; // default
+
       if (exerciseDetails?.measurementType) {
         measurementType = exerciseDetails.measurementType;
       } else {
         // Default endurance measurement type based on exercise name/category
-        if (exerciseDetails?.name?.includes('Running') || 
-            exerciseDetails?.name?.includes('Cycling') ||
-            exerciseDetails?.name?.includes('Swimming')) {
-          measurementType = 'distance_time';
-        } else if (exerciseDetails?.name?.includes('Rowing') ||
-                  exerciseDetails?.name?.includes('Ski Erg')) {
-          measurementType = 'calories';
+        if (
+          exerciseDetails?.name?.includes("Running") ||
+          exerciseDetails?.name?.includes("Cycling") ||
+          exerciseDetails?.name?.includes("Swimming")
+        ) {
+          measurementType = "distance_time";
+        } else if (
+          exerciseDetails?.name?.includes("Rowing") ||
+          exerciseDetails?.name?.includes("Ski Erg")
+        ) {
+          measurementType = "calories";
         }
       }
-      
+
       newSet = {
         setNumber: newSetNumber,
         measurementType,
@@ -366,141 +423,155 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         calories: 0,
         heartRate: 0,
         perceivedEffort: 0,
-        pace: '',
-        notes: '',
-        isCompleted: false
+        pace: "",
+        notes: "",
+        isCompleted: false,
       };
     } else {
       // Create standard strength training set
       newSet = {
         setNumber: newSetNumber,
-        weight: currentSets.length > 0 ? currentSets[currentSets.length - 1].weight : 0,
-        reps: currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0,
-        type: 'working',
-        isCompleted: false
+        weight:
+          currentSets.length > 0
+            ? currentSets[currentSets.length - 1].weight
+            : 0,
+        reps:
+          currentSets.length > 0 ? currentSets[currentSets.length - 1].reps : 0,
+        type: "working",
+        isCompleted: false,
       };
     }
-    
+
     const updatedSets = [...currentSets, newSet];
     const newSetsMap = new Map(exerciseSets);
     newSetsMap.set(exerciseId, updatedSets);
     setExerciseSets(newSetsMap);
-    
+
     toast({
       title: "Set Added",
       description: `Set ${newSetNumber} added to exercise`,
     });
   };
-  
+
   // Remove the last set
   const removeSet = (exerciseId: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
-    
+
     if (currentSets.length <= 1) {
       toast({
         title: "Cannot Remove",
         description: "You need at least one set for the exercise",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    
+
     // Check if the last set is completed
     if (currentSets[currentSets.length - 1].isCompleted) {
       toast({
         title: "Cannot Remove",
         description: "Cannot remove a completed set",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    
+
     const updatedSets = currentSets.slice(0, -1);
     const newSetsMap = new Map(exerciseSets);
     newSetsMap.set(exerciseId, updatedSets);
     setExerciseSets(newSetsMap);
-    
+
     toast({
       title: "Set Removed",
       description: `Set ${currentSets.length} removed from exercise`,
     });
   };
-  
+
   // Start rest timer
   const startRestTimer = (seconds: number) => {
     if (restTimerActive) {
       clearInterval(restTimerRef.current as NodeJS.Timeout);
     }
-    
+
     setRestTimer(seconds);
     setRestTimerActive(true);
-    
+
     toast({
       title: "Rest Timer Started",
       description: `${seconds} seconds rest timer started`,
     });
   };
-  
+
   // Save completed set
   const saveSet = (exerciseId: number, setIndex: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const set = currentSets[setIndex];
     const exerciseDetails = exercises?.find((e: any) => e.id === exerciseId);
-    const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
-                              exerciseDetails?.category === 'endurance' ||
-                              workoutTemplate?.workoutType === 'cardio' ||
-                              workoutTemplate?.workoutType === 'endurance';
-    
+    const isEnduranceExercise =
+      exerciseDetails?.category === "cardio" ||
+      exerciseDetails?.category === "endurance" ||
+      workoutTemplate?.workoutType === "cardio" ||
+      workoutTemplate?.workoutType === "endurance";
+
     // Validate required fields based on measurement type
     if (isEnduranceExercise) {
       // For endurance exercises, validate based on measurement type
-      if (set.measurementType === 'distance_time' && (!set.distance || !set.duration)) {
+      if (
+        set.measurementType === "distance_time" &&
+        (!set.distance || !set.duration)
+      ) {
         toast({
           title: "Missing Data",
           description: "Please enter both distance and time",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'time_only' && !set.duration) {
+      } else if (set.measurementType === "time_only" && !set.duration) {
         toast({
           title: "Missing Data",
           description: "Please enter time/duration",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'distance_only' && !set.distance) {
+      } else if (set.measurementType === "distance_only" && !set.distance) {
         toast({
           title: "Missing Data",
           description: "Please enter distance",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'calories' && !set.calories) {
+      } else if (set.measurementType === "calories" && !set.calories) {
         toast({
           title: "Missing Data",
           description: "Please enter calories",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'laps' && (!set.laps || !set.duration)) {
+      } else if (
+        set.measurementType === "laps" &&
+        (!set.laps || !set.duration)
+      ) {
         toast({
           title: "Missing Data",
           description: "Please enter both laps and time",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'height' && (!set.height || !set.reps)) {
+      } else if (
+        set.measurementType === "height" &&
+        (!set.height || !set.reps)
+      ) {
         toast({
           title: "Missing Data",
           description: "Please enter both height and reps",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
-      } else if (set.measurementType === 'reps_only' && !set.reps) {
+      } else if (set.measurementType === "reps_only" && !set.reps) {
         toast({
           title: "Missing Data",
           description: "Please enter reps",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
@@ -510,12 +581,12 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         toast({
           title: "Missing Data",
           description: "Please enter weight and reps",
-          variant: "destructive"
+          variant: "destructive",
         });
         return;
       }
     }
-    
+
     try {
       // Format the workout set data according to the schema required by the API
       let setData: any = {
@@ -523,9 +594,9 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
         exerciseId,
         setNumber: set.setNumber,
         isCompleted: true,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
-      
+
       // Add fields based on the type of exercise
       if (isEnduranceExercise) {
         // Endurance exercise fields
@@ -540,7 +611,7 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
           perceivedEffort: set.perceivedEffort || null,
           pace: set.pace || null,
           elevationGain: set.elevationGain || null,
-          notes: set.notes || null
+          notes: set.notes || null,
         };
       } else {
         // Standard strength training fields
@@ -549,98 +620,99 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
           weight: parseFloat(String(set.weight)),
           reps: parseInt(String(set.reps)),
           rpe: 7, // Default RPE
-          setType: set.type || 'working'
+          setType: set.type || "working",
         };
       }
-      
+
       console.log("Sending workout set data:", setData);
-      
+
       // Use apiRequest directly for more control
-      apiRequest(
-        'POST', 
-        `/api/workout-sets`, 
-        setData
-      )
-      .then(async response => {
-        const data = await response.json();
-        console.log("Set saved successfully:", data);
-        
-        // Mark as completed locally
-        updateSetValue(exerciseId, setIndex, 'isCompleted', true);
-        
-        // Show different toast based on exercise type
-        if (isEnduranceExercise) {
-          let description = '';
-          if (set.measurementType === 'distance_time') {
-            description = `${set.distance}m in ${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, '0')}`;
-          } else if (set.measurementType === 'time_only') {
-            description = `${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, '0')}`;
-          } else if (set.measurementType === 'distance_only') {
-            description = `${set.distance}m`;
-          } else if (set.measurementType === 'calories') {
-            description = `${set.calories} kcal`;
-          } else if (set.measurementType === 'laps') {
-            description = `${set.laps} laps`;
-          } else if (set.measurementType === 'reps_only') {
-            description = `${set.reps} reps`;
+      apiRequest("POST", `/api/workout-sets`, setData)
+        .then(async (response) => {
+          const data = await response.json();
+          console.log("Set saved successfully:", data);
+
+          // Mark as completed locally
+          updateSetValue(exerciseId, setIndex, "isCompleted", true);
+
+          // Show different toast based on exercise type
+          if (isEnduranceExercise) {
+            let description = "";
+            if (set.measurementType === "distance_time") {
+              description = `${set.distance}m in ${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, "0")}`;
+            } else if (set.measurementType === "time_only") {
+              description = `${Math.floor(set.duration / 60)}:${(set.duration % 60).toString().padStart(2, "0")}`;
+            } else if (set.measurementType === "distance_only") {
+              description = `${set.distance}m`;
+            } else if (set.measurementType === "calories") {
+              description = `${set.calories} kcal`;
+            } else if (set.measurementType === "laps") {
+              description = `${set.laps} laps`;
+            } else if (set.measurementType === "reps_only") {
+              description = `${set.reps} reps`;
+            }
+
+            toast({
+              title: "Set Saved",
+              description,
+            });
+          } else {
+            toast({
+              title: "Set Saved",
+              description: `${set.weight}kg x ${set.reps} reps`,
+            });
           }
-          
-          toast({
-            title: "Set Saved",
-            description,
+
+          // Start a rest timer if not the last set
+          if (setIndex < currentSets.length - 1) {
+            // Get rest time from the template exercise
+            const restSeconds = currentTemplateExercise.restSeconds || 90;
+            startRestTimer(restSeconds);
+          }
+
+          // Invalidate queries to refresh data
+          queryClient.invalidateQueries({
+            queryKey: [`/api/completed-workouts/${workoutId}/sets`],
           });
-        } else {
+        })
+        .catch((error) => {
+          console.error("Error creating set:", error);
           toast({
-            title: "Set Saved",
-            description: `${set.weight}kg x ${set.reps} reps`,
+            title: "Error",
+            description: "Failed to save set data. Please try again.",
+            variant: "destructive",
           });
-        }
-        
-        // Start a rest timer if not the last set
-        if (setIndex < currentSets.length - 1) {
-          // Get rest time from the template exercise
-          const restSeconds = currentTemplateExercise.restSeconds || 90;
-          startRestTimer(restSeconds);
-        }
-        
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({queryKey: [`/api/completed-workouts/${workoutId}/sets`]});
-      })
-      .catch(error => {
-        console.error("Error creating set:", error);
-        toast({
-          title: "Error",
-          description: "Failed to save set data. Please try again.",
-          variant: "destructive"
         });
-      });
     } catch (error) {
       console.error("Error preparing set data:", error);
       toast({
         title: "Error",
         description: "Failed to prepare set data. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
-  
+
   // Toggle set type between warmup and working
   const toggleSetType = (exerciseId: number, setIndex: number) => {
     const currentSets = exerciseSets.get(exerciseId) || [];
     const currentType = currentSets[setIndex].type;
-    const newType = currentType === 'warmup' ? 'working' : 'warmup';
-    
-    updateSetValue(exerciseId, setIndex, 'type', newType);
+    const newType = currentType === "warmup" ? "working" : "warmup";
+
+    updateSetValue(exerciseId, setIndex, "type", newType);
   };
-  
+
   // Move to next exercise
   const moveToNextExercise = () => {
-    if (templateExercises && currentExerciseIndex < templateExercises.length - 1) {
+    if (
+      templateExercises &&
+      currentExerciseIndex < templateExercises.length - 1
+    ) {
       setCurrentExerciseIndex(currentExerciseIndex + 1);
       window.scrollTo(0, 0);
     }
   };
-  
+
   // Move to previous exercise
   const moveToPrevExercise = () => {
     if (currentExerciseIndex > 0) {
@@ -648,35 +720,43 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
       window.scrollTo(0, 0);
     }
   };
-  
+
   // Complete workout
   const handleFinishWorkout = () => {
     // Check if all sets are completed
     let allSetsCompleted = true;
     exerciseSets.forEach((sets) => {
-      if (sets.some(set => !set.isCompleted)) {
+      if (sets.some((set) => !set.isCompleted)) {
         allSetsCompleted = false;
       }
     });
-    
+
     if (!allSetsCompleted) {
-      if (confirm("You have uncompleted sets. Are you sure you want to finish the workout?")) {
+      if (
+        confirm(
+          "You have uncompleted sets. Are you sure you want to finish the workout?",
+        )
+      ) {
         completeWorkoutMutation.mutate();
       }
     } else {
       completeWorkoutMutation.mutate();
     }
-    
+
     setTimerActive(false);
   };
-  
+
   // Cancel workout
   const handleCancelWorkout = () => {
-    if (confirm("Are you sure you want to cancel this workout? Your progress will not be saved.")) {
-      setLocation('/workouts');
+    if (
+      confirm(
+        "Are you sure you want to cancel this workout? Your progress will not be saved.",
+      )
+    ) {
+      setLocation("/workouts");
     }
   };
-  
+
   if (isLoadingWorkout || isLoadingTemplate || isLoadingExercises) {
     return (
       <div className="p-4 flex items-center justify-center h-[90vh]">
@@ -684,56 +764,73 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
       </div>
     );
   }
-  
-  if (!workout || !workoutTemplate || !templateExercises || templateExercises.length === 0) {
+
+  if (
+    !workout ||
+    !workoutTemplate ||
+    !templateExercises ||
+    templateExercises.length === 0
+  ) {
     return (
       <div className="p-4">
         <h2 className="text-xl font-bold mb-4">Workout Not Found</h2>
-        <button 
+        <button
           className="bg-primary text-white py-2 px-4 rounded-lg"
-          onClick={() => setLocation('/workouts')}
+          onClick={() => setLocation("/workouts")}
         >
           Back to Workouts
         </button>
       </div>
     );
   }
-  
+
   const currentTemplateExercise = templateExercises[currentExerciseIndex];
-  const currentExercise = exercises?.find((e: any) => e.id === currentTemplateExercise.exerciseId);
-  const currentSets = exerciseSets.get(currentTemplateExercise.exerciseId) || [];
+  const currentExercise = exercises?.find(
+    (e: any) => e.id === currentTemplateExercise.exerciseId,
+  );
+  const currentSets =
+    exerciseSets.get(currentTemplateExercise.exerciseId) || [];
   const startTime = new Date(workout.startTime);
-  
+
   return (
     <div className="p-4 space-y-6 bg-gray-900 min-h-screen text-white">
       <div className="bg-gray-800 rounded-xl shadow-md p-4 sticky top-0 z-10 border border-gray-700">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="font-['Inter',sans-serif] text-xl font-bold text-white">{workoutTemplate.name}</h2>
-          <div className="text-lg font-medium text-white bg-gray-700 px-3 py-1 rounded-lg">{formatTime(timer)}</div>
+          <h2 className="font-['Inter',sans-serif] text-xl font-bold text-white">
+            {workoutTemplate.name}
+          </h2>
+          <div className="text-lg font-medium text-white bg-gray-700 px-3 py-1 rounded-lg">
+            {formatTime(timer)}
+          </div>
         </div>
         <div className="text-sm text-gray-400">
-          Started at {format(startTime, 'h:mm a')} · {templateExercises.length} exercises
+          Started at {format(startTime, "h:mm a")} · {templateExercises.length}{" "}
+          exercises
         </div>
         <div className="mt-2 h-1 w-full bg-gray-700 rounded-full">
-          <div 
-            className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full" 
-            style={{ 
-              width: `${((currentExerciseIndex + 1) / templateExercises.length) * 100}%` 
-            }} 
+          <div
+            className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
+            style={{
+              width: `${((currentExerciseIndex + 1) / templateExercises.length) * 100}%`,
+            }}
           />
         </div>
-        
+
         {/* Rest Timer */}
         {restTimerActive && restTimer !== null && (
           <div className="mt-3 bg-blue-900/30 p-3 rounded-lg border border-blue-800 flex items-center justify-between">
             <div className="flex items-center">
               <TimerIcon className="text-blue-400 mr-2" size={20} />
               <div>
-                <div className="text-sm font-medium text-gray-300">Rest Timer</div>
-                <div className="text-lg font-bold text-blue-400">{restTimer}s</div>
+                <div className="text-sm font-medium text-gray-300">
+                  Rest Timer
+                </div>
+                <div className="text-lg font-bold text-blue-400">
+                  {restTimer}s
+                </div>
               </div>
             </div>
-            <button 
+            <button
               className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors"
               onClick={() => {
                 clearInterval(restTimerRef.current as NodeJS.Timeout);
@@ -745,35 +842,41 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
             </button>
           </div>
         )}
-        
+
         {/* Exercise List Toggle */}
-        <button 
+        <button
           className="flex items-center justify-between w-full mt-3 text-sm font-medium text-gray-300 bg-gray-700 p-2 rounded-lg border border-gray-600 hover:bg-gray-600 transition-colors"
           onClick={() => setShowAllExercises(!showAllExercises)}
         >
           <span>All Exercises</span>
-          {showAllExercises ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          {showAllExercises ? (
+            <ChevronUp size={16} />
+          ) : (
+            <ChevronDown size={16} />
+          )}
         </button>
-        
+
         {/* Exercise List */}
         {showAllExercises && (
           <div className="mt-2 max-h-48 overflow-y-auto bg-gray-700 rounded-lg p-2 border border-gray-600">
             {templateExercises.map((exercise: any, index: number) => {
-              const ex = exercises?.find((e: any) => e.id === exercise.exerciseId);
+              const ex = exercises?.find(
+                (e: any) => e.id === exercise.exerciseId,
+              );
               const sets = exerciseSets.get(exercise.exerciseId) || [];
-              const completedSets = sets.filter(s => s.isCompleted).length;
-              
+              const completedSets = sets.filter((s) => s.isCompleted).length;
+
               return (
-                <div 
-                  key={exercise.id} 
+                <div
+                  key={exercise.id}
                   className={`p-2 rounded-lg mb-1 border cursor-pointer hover:bg-gray-600 transition-colors ${
-                    index === currentExerciseIndex 
-                      ? 'bg-blue-900/50 border-blue-800' 
-                      : 'bg-gray-800 border-gray-700'
+                    index === currentExerciseIndex
+                      ? "bg-blue-900/50 border-blue-800"
+                      : "bg-gray-800 border-gray-700"
                   } ${
                     completedSets === sets.length && sets.length > 0
-                      ? 'border-green-700 bg-green-900/30'
-                      : ''
+                      ? "border-green-700 bg-green-900/30"
+                      : ""
                   }`}
                   onClick={() => {
                     setCurrentExerciseIndex(index);
@@ -781,8 +884,12 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                   }}
                 >
                   <div className="flex justify-between">
-                    <div className="font-medium text-sm text-white">{ex?.name || 'Exercise'}</div>
-                    <div className="text-xs text-gray-400">{completedSets}/{sets.length} sets</div>
+                    <div className="font-medium text-sm text-white">
+                      {ex?.name || "Exercise"}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {completedSets}/{sets.length} sets
+                    </div>
                   </div>
                 </div>
               );
@@ -790,31 +897,39 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
           </div>
         )}
       </div>
-      
+
       <div className="bg-gray-800 rounded-xl shadow-md p-4 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="font-['Inter',sans-serif] text-lg font-medium text-white">{currentExercise?.name || 'Exercise'}</h3>
-            <p className="text-sm text-gray-400">{currentExercise?.muscleGroup || 'Muscle Group'}</p>
+            <h3 className="font-['Inter',sans-serif] text-lg font-medium text-white">
+              {currentExercise?.name || "Exercise"}
+            </h3>
+            <p className="text-sm text-gray-400">
+              {currentExercise?.muscleGroup || "Muscle Group"}
+            </p>
           </div>
           <div className="bg-blue-900/30 text-blue-400 text-sm font-medium px-3 py-1 rounded-full border border-blue-800">
             {currentExerciseIndex + 1} / {templateExercises.length}
           </div>
         </div>
-        
+
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-medium text-white">Sets</h4>
             <div className="flex items-center gap-2">
               <div className="text-sm text-gray-400">
-                {currentSets.filter(s => s.isCompleted).length} / {currentSets.length} completed
+                {currentSets.filter((s) => s.isCompleted).length} /{" "}
+                {currentSets.length} completed
               </div>
               <div className="flex border border-gray-600 rounded-md bg-gray-700">
                 <button
                   className="p-1 text-gray-400 hover:text-blue-400 transition-colors"
                   onClick={() => removeSet(currentTemplateExercise.exerciseId)}
                   title="Remove a set"
-                  disabled={currentSets.length <= 1 || currentSets[currentSets.length - 1].isCompleted}
+                  disabled={
+                    currentSets.length <= 1 ||
+                    currentSets[currentSets.length - 1].isCompleted
+                  }
                 >
                   <Minus size={16} />
                 </button>
@@ -828,16 +943,19 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             {currentSets.map((set, setIndex) => {
               // Check if this is an endurance exercise
-              const exerciseDetails = exercises?.find((e: any) => e.id === currentTemplateExercise.exerciseId);
-              const isEnduranceExercise = exerciseDetails?.category === 'cardio' || 
-                                         exerciseDetails?.category === 'endurance' ||
-                                         workoutTemplate?.workoutType === 'cardio' ||
-                                         workoutTemplate?.workoutType === 'endurance';
-              
+              const exerciseDetails = exercises?.find(
+                (e: any) => e.id === currentTemplateExercise.exerciseId,
+              );
+              const isEnduranceExercise =
+                exerciseDetails?.category === "cardio" ||
+                exerciseDetails?.category === "endurance" ||
+                workoutTemplate?.workoutType === "cardio" ||
+                workoutTemplate?.workoutType === "endurance";
+
               // Render endurance workout set component if this is an endurance exercise
               if (isEnduranceExercise && set.measurementType) {
                 return (
@@ -854,78 +972,100 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                   />
                 );
               }
-              
+
               // Otherwise render standard strength training set
               return (
-                <div 
+                <div
                   key={setIndex}
                   className={`border rounded-lg p-3 ${
-                    set.isCompleted 
-                      ? 'border-green-700 bg-green-900/30' 
-                      : 'border-gray-700 bg-gray-700'
+                    set.isCompleted
+                      ? "border-green-700 bg-green-900/30"
+                      : "border-gray-700 bg-gray-700"
                   } ${
-                    set.type === 'warmup'
-                      ? 'border-yellow-700 bg-yellow-900/30'
-                      : ''
+                    set.type === "warmup"
+                      ? "border-yellow-700 bg-yellow-900/30"
+                      : ""
                   }`}
                 >
                   <div className="flex justify-between items-center mb-3">
-                    <h5 className="font-medium text-white">Set {set.setNumber}</h5>
-                    <button 
+                    <h5 className="font-medium text-white">
+                      Set {set.setNumber}
+                    </h5>
+                    <button
                       className={`text-xs px-2 py-1 rounded transition-colors ${
-                        set.type === 'warmup'
-                          ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-800' 
-                          : 'bg-blue-900/50 text-blue-400 border border-blue-800'
+                        set.type === "warmup"
+                          ? "bg-yellow-900/50 text-yellow-400 border border-yellow-800"
+                          : "bg-blue-900/50 text-blue-400 border border-blue-800"
                       }`}
-                      onClick={() => toggleSetType(currentTemplateExercise.exerciseId, setIndex)}
+                      onClick={() =>
+                        toggleSetType(
+                          currentTemplateExercise.exerciseId,
+                          setIndex,
+                        )
+                      }
                       disabled={set.isCompleted}
                     >
-                      {set.type === 'warmup' ? 'Warm-up' : 'Working'}
+                      {set.type === "warmup" ? "Warm-up" : "Working"}
                     </button>
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-3 mb-3">
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Weight (kg)</label>
-                      <input 
-                        type="number" 
-                        value={set.weight || ''} 
-                        onChange={(e) => updateSetValue(
-                          currentTemplateExercise.exerciseId, 
-                          setIndex, 
-                          'weight', 
-                          e.target.value
-                        )}
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Weight (kg)
+                      </label>
+                      <input
+                        type="number"
+                        value={set.weight || ""}
+                        onChange={(e) =>
+                          updateSetValue(
+                            currentTemplateExercise.exerciseId,
+                            setIndex,
+                            "weight",
+                            e.target.value,
+                          )
+                        }
                         disabled={set.isCompleted}
-                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
+                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Reps</label>
-                      <input 
-                        type="number" 
-                        value={set.reps || ''} 
-                        onChange={(e) => updateSetValue(
-                          currentTemplateExercise.exerciseId, 
-                          setIndex, 
-                          'reps', 
-                          e.target.value
-                        )}
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Reps
+                      </label>
+                      <input
+                        type="number"
+                        value={set.reps || ""}
+                        onChange={(e) =>
+                          updateSetValue(
+                            currentTemplateExercise.exerciseId,
+                            setIndex,
+                            "reps",
+                            e.target.value,
+                          )
+                        }
                         disabled={set.isCompleted}
-                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white" 
+                        className="bg-gray-900 border border-gray-600 rounded-lg p-2 w-full text-center text-white"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">Action</label>
+                      <label className="text-xs text-gray-400 mb-1 block">
+                        Action
+                      </label>
                       {!set.isCompleted ? (
-                        <button 
+                        <button
                           className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white w-full py-2 rounded-lg text-sm transition-colors"
-                          onClick={() => saveSet(currentTemplateExercise.exerciseId, setIndex)}
+                          onClick={() =>
+                            saveSet(
+                              currentTemplateExercise.exerciseId,
+                              setIndex,
+                            )
+                          }
                         >
                           Save
                         </button>
                       ) : (
-                        <button 
+                        <button
                           className="bg-gradient-to-r from-green-600 to-green-700 text-white w-full py-2 rounded-lg text-sm"
                           disabled
                         >
@@ -934,72 +1074,76 @@ const ActiveWorkout: React.FC<ActiveWorkoutProps> = ({ workoutId: rawWorkoutId }
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Manual rest timer buttons */}
-                  {set.isCompleted && setIndex < currentSets.length - 1 && !currentSets[setIndex + 1].isCompleted && (
-                    <div className="flex justify-between items-center">
-                      <div className="text-xs text-gray-400">Need a break before next set?</div>
-                      <div className="flex gap-2">
-                        <button 
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                          onClick={() => startRestTimer(30)}
-                        >
-                          <TimerIcon size={12} /> 30s
-                        </button>
-                        <button 
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                          onClick={() => startRestTimer(60)}
-                        >
-                          <TimerIcon size={12} /> 60s
-                        </button>
-                        <button 
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
-                          onClick={() => startRestTimer(90)}
-                        >
-                          <TimerIcon size={12} /> 90s
-                        </button>
+                  {set.isCompleted &&
+                    setIndex < currentSets.length - 1 &&
+                    !currentSets[setIndex + 1].isCompleted && (
+                      <div className="flex justify-between items-center">
+                        <div className="text-xs text-gray-400">
+                          Need a break before next set?
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                            onClick={() => startRestTimer(30)}
+                          >
+                            <TimerIcon size={12} /> 30s
+                          </button>
+                          <button
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                            onClick={() => startRestTimer(60)}
+                          >
+                            <TimerIcon size={12} /> 60s
+                          </button>
+                          <button
+                            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-900/30 text-blue-400 border border-blue-800 hover:bg-blue-800/50 transition-colors"
+                            onClick={() => startRestTimer(90)}
+                          >
+                            <TimerIcon size={12} /> 90s
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               );
             })}
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
-          <button 
+          <button
             className={`py-3 rounded-lg font-medium border transition-colors ${
-              currentExerciseIndex === 0 
-                ? 'bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed' 
-                : 'bg-gray-700 text-white border-gray-600 hover:bg-gray-600'
+              currentExerciseIndex === 0
+                ? "bg-gray-700 text-gray-400 border-gray-600 cursor-not-allowed"
+                : "bg-gray-700 text-white border-gray-600 hover:bg-gray-600"
             }`}
             onClick={moveToPrevExercise}
             disabled={currentExerciseIndex === 0}
           >
             Previous
           </button>
-          <button 
+          <button
             className={`py-3 rounded-lg font-medium transition-colors ${
-              currentExerciseIndex === templateExercises.length - 1 
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white' 
-                : 'bg-gray-700 text-white border border-gray-600 hover:bg-gray-600'
+              currentExerciseIndex === templateExercises.length - 1
+                ? "bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white"
+                : "bg-gray-700 text-white border border-gray-600 hover:bg-gray-600"
             }`}
-            onClick={currentExerciseIndex === templateExercises.length - 1 
-              ? handleFinishWorkout 
-              : moveToNextExercise
+            onClick={
+              currentExerciseIndex === templateExercises.length - 1
+                ? handleFinishWorkout
+                : moveToNextExercise
             }
           >
-            {currentExerciseIndex === templateExercises.length - 1 
-              ? 'Finish Workout' 
-              : 'Next Exercise'
-            }
+            {currentExerciseIndex === templateExercises.length - 1
+              ? "Finish Workout"
+              : "Next Exercise"}
           </button>
         </div>
       </div>
-      
+
       <div className="flex justify-center">
-        <button 
+        <button
           className="text-red-400 text-sm hover:text-red-300 transition-colors border border-red-800 px-4 py-2 rounded-lg bg-red-900/20 hover:bg-red-800/30"
           onClick={handleCancelWorkout}
         >

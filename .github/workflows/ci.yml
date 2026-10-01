@@ -1,0 +1,61 @@
+name: Verify
+on: [push, pull_request]
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: strive_test
+          POSTGRES_PASSWORD: disposable_ci_password
+          POSTGRES_DB: strive_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U strive_test -d strive_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://strive_test:disposable_ci_password@127.0.0.1:5432/strive_test
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t strive-beta-check .
+      - run: docker run --rm --network host -e DATABASE_URL strive-beta-check node dist/migrate.js
+      - run: docker run -d --name strive-beta-check --network host -e DATABASE_URL strive-beta-check
+      - name: Check production readiness and web response
+        run: |
+          curl --fail --retry 12 --retry-connrefused --retry-delay 2 http://127.0.0.1:5000/readyz
+          curl --fail http://127.0.0.1:5000/healthz
+          curl --fail http://127.0.0.1:5000/ -o /dev/null
+      - if: failure()
+        run: docker logs strive-beta-check
+      - if: always()
+        run: docker rm -f strive-beta-check || true
+  foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npx expo export --platform all

@@ -56,3 +56,6 @@ web-build/
 # Database
 *.sqlite
 *.sqlite3
+.data/
+.test-data/
+test-results/
