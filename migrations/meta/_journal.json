@@ -64,6 +64,13 @@
       "when": 1790793633614,
       "tag": "0008_curved_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790877545869,
+      "tag": "0009_magical_ultimates",
+      "breakpoints": true
     }
   ]
 }

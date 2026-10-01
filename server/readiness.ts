@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
+import { buildHealthOverview } from "../shared/health-overview";
 import { db } from "./db";
 import {
   dailyCheckIns,
@@ -178,6 +179,53 @@ export async function getReadiness(userId: number, timezone: string) {
   return assessReadiness(today, readings, connections, checkIn || null, now);
 }
 export function registerReadiness(app: Express) {
+  app.get(
+    "/api/health-overview",
+    asyncHandler(async (req, res) => {
+      const now = new Date();
+      const today = new Intl.DateTimeFormat("en-CA", {
+        timeZone: req.account.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+      const since = new Date(Date.parse(today + "T12:00:00Z") - 27 * 86400_000)
+        .toISOString()
+        .slice(0, 10);
+      const [readings, connections] = await Promise.all([
+        db
+          .select()
+          .from(wearableDays)
+          .where(
+            and(
+              eq(wearableDays.userId, req.account.id),
+              gte(wearableDays.day, since),
+              lte(wearableDays.day, today),
+              lte(wearableDays.observedAt, now),
+            ),
+          ),
+        db
+          .select({
+            provider: wearableConnections.provider,
+            status: wearableConnections.status,
+            lastSyncAt: wearableConnections.lastSyncAt,
+            lastError: wearableConnections.lastError,
+          })
+          .from(wearableConnections)
+          .where(eq(wearableConnections.userId, req.account.id)),
+      ]);
+      res.setHeader("Cache-Control", "no-store");
+      res.json(
+        buildHealthOverview(
+          today,
+          req.account.timezone,
+          readings,
+          connections,
+          now,
+        ),
+      );
+    }),
+  );
   app.get(
     "/api/readiness",
     asyncHandler(async (req, res) => {

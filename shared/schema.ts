@@ -699,6 +699,7 @@ export const wearableDays = pgTable(
     score: real("score"),
     sleepMinutes: real("sleep_minutes"),
     hrv: real("hrv"),
+    restingHeartRate: real("resting_heart_rate"),
     calibrating: boolean("calibrating").notNull().default(false),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
   },

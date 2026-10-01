@@ -92,6 +92,7 @@ const fakeFetch: typeof fetch = async (input, options) => {
                 user_calibrating: false,
                 recovery_score: 81,
                 hrv_rmssd_milli: 57,
+                resting_heart_rate: 52,
               },
             },
           ],
@@ -311,6 +312,19 @@ test("serialized workers persist refresh rotation before downloads and retain re
   assert.equal(readings.length, 1);
   assert.equal(readings[0].score, 81);
   assert.equal(readings[0].sleepMinutes, 480);
+  assert.equal(readings[0].restingHeartRate, 52);
+  const overview = await (await call("/api/health-overview")).json();
+  assert.equal(overview.sources[0].current.restingHeartRate, 52);
+  assert.equal(overview.sources[0].days.length, 28);
+  assert.equal(JSON.stringify(overview).includes("credentials"), false);
+  assert.equal(
+    (
+      await (
+        await call("/api/health-overview", "GET", undefined, otherToken)
+      ).json()
+    ).sources.length,
+    0,
+  );
   failure = "rate";
   await db
     .update(connections)
@@ -558,6 +572,7 @@ test("WHOOP assigns the sleep-end local day and excludes naps", async () => {
   assert.equal(readings[0].day, "2026-09-28");
   assert.equal(readings[0].score, 75);
   assert.equal(readings[0].sleepMinutes, null);
+  assert.equal(readings[0].restingHeartRate, null);
 });
 
 test("readiness blocks escalation for stale data, calibration, missing history/check-in and limiting symptoms", () => {
@@ -571,6 +586,7 @@ test("readiness blocks escalation for stale data, calibration, missing history/c
     score: 90,
     sleepMinutes: 480,
     hrv: 57,
+    restingHeartRate: 52,
     calibrating: false,
     observedAt: now,
   };

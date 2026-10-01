@@ -116,6 +116,7 @@ export type WearableDay = {
   score: number | null;
   sleepMinutes: number | null;
   hrv: number | null;
+  restingHeartRate: number | null;
   calibrating: boolean;
   observedAt: Date;
 };
@@ -131,6 +132,7 @@ const whoopRecovery = z.object({
       user_calibrating: z.boolean(),
       recovery_score: score,
       hrv_rmssd_milli: metric,
+      resting_heart_rate: metric.optional(),
     })
     .nullish(),
 });
@@ -393,6 +395,7 @@ export function providerClient(
               score: recovery.score.recovery_score,
               sleepMinutes: minutes,
               hrv: recovery.score.hrv_rmssd_milli,
+              restingHeartRate: recovery.score.resting_heart_rate ?? null,
               calibrating: recovery.score.user_calibrating,
               observedAt,
             };
@@ -425,6 +428,7 @@ export function providerClient(
                   ? null
                   : sleep.total_sleep_duration / 60,
               hrv: sleep?.average_hrv ?? null,
+              restingHeartRate: null,
               calibrating: false,
               observedAt,
             };

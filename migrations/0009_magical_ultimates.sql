@@ -1,0 +1,1 @@
+ALTER TABLE "wearable_days" ADD COLUMN "resting_heart_rate" real;
