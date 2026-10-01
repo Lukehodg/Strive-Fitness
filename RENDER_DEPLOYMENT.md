@@ -8,7 +8,7 @@ The owner approved these services with a $20 first-month budget including a temp
 - Render service: `srv-dav7467pn0mc73afsoi0`
 - Database: `dpg-dav73onpn0mc73afqqn0-a`
 - Blueprint: `exs-dav73hbncjis739hmfr0`
-- Deployed verification revision: `136f7f1`; all GitHub CI jobs passed.
+- Recovery verification revision: `136f7f1`; final live revision: `e81a382`. All GitHub CI jobs passed for both revisions.
 - Verified HTTPS health/readiness 200, protected endpoints 401, uninvited signup 403, HTTP-to-HTTPS redirect and database external access blocked.
 - Live database baseline: TLS 1.3; 9 migrations; 28 public tables; 87 exercise catalogue records.
 - Backup export completed (1 October, 14:54 UTC). Point-in-time recovery restored a separate database to 14:51:25 UTC. The restored database connected over TLS 1.3 and matched all three baseline SHA-256 digests below. The owner approved deletion of this temporary copy after verification; cleanup is confirmed and only the original API/database remain active.
@@ -19,7 +19,7 @@ The owner approved these services with a $20 first-month budget including a temp
 | 87 exercises | `d625190e2c9a86318409d8d5c448d95e948dc2221d8b4c6a46acc104342f7b76` |
 | 28 public table names | `db3ef6e173dfe5462bf8e68d69acbfbe822c84455d540e0fd50d1b2457cdc18f` |
 
-The comparison was read-only and used disposable catalogue/schema data, not user health records. `scripts/verify-render-database.mjs` prints counts and hashes without credentials or user records. The application stayed connected to the original database throughout. The approved invitation address is held only in Render's private environment; it is not committed here.
+The comparison was read-only and used disposable catalogue/schema data, not user health records. `scripts/verify-render-database.mjs` prints counts and hashes without credentials or user records. The application stayed connected to the original database throughout. The approved invitation address is held only in Render's private environment; it is not committed here. The final running process verified that its invite list matches the approved address and database TLS is required. Final health/readiness checks passed, unauthenticated access returned 401, and unrelated signup remained blocked with 403. The user still needs to create their own beta account and password.
 
 ## Approved resource costs
 
