@@ -70,3 +70,20 @@ Progression means working toward the upper end of the user's existing rep range,
 - [Oura OAuth and PKCE](https://cloud.ouraring.com/docs/authentication), [Oura OpenAPI schema](https://api.ouraring.com/v2/static/json/openapi-1.41.json)
 - [WHOOP recovery bands](https://support.whoop.com/s/article/WHOOP-Recovery), [Oura readiness bands](https://support.ouraring.com/hc/en-us/articles/360025589793-An-Introduction-to-Your-Readiness-Score)
 - [Expo SDK 57 WebBrowser](https://docs.expo.dev/versions/v57.0.0/sdk/webbrowser/)
+
+## Hosted beta configuration (1 October 2026)
+
+The installed native app uses https://strive-beta-api.onrender.com. Render already supplies the persistent database and integration encryption key; preserve the existing key.
+
+Register these exact redirect URLs in the respective developer dashboards:
+
+- WHOOP: `https://strive-beta-api.onrender.com/api/integrations/whoop/callback`
+- Oura: `https://strive-beta-api.onrender.com/api/integrations/oura/callback`
+
+The old WHOOP `http://localhost:8765/callback` can remain for the isolated development test. It does not work as the hosted native callback.
+
+Store `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`, `OURA_CLIENT_ID`, and `OURA_CLIENT_SECRET` only in Render's backend environment. Save and redeploy after adding credentials. The installed native build already supports both providers; provider configuration alone does not require a new phone build.
+
+Verification on October 1: all 10 wearable tests pass (simulated providers). WHOOP's hosted redirect is saved, its two credentials are stored in Render, and environment deployment `dep-dav8dgm7bikc73f5d1gg` is live. Both `/healthz` and `/readyz` return 200. A WHOOP callback probe with an intentionally unknown state returns 400 (expired/used sign-in), confirming configuration and database state validation are reached; this does not verify a real token exchange. WHOOP has a sandbox app with one of ten member slots used. Oura still returns 503 and developer sign-in/credentials are pending. Neither hosted account connection has been verified yet.
+
+After configuration, sign into Strive on the phone, open Connect, authorize each provider, and verify return to Strive, successful first sync and recent readings on Home. Verify denial/cancellation and reconnect separately. Never paste passwords, client secrets or provider tokens into chat.

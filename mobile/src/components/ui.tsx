@@ -11,7 +11,7 @@ import {
   type RefreshControlProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { ReactNode, ReactElement } from "react";
+import { useEffect, useRef, type ReactNode, type ReactElement } from "react";
 export const colors = {
   background: "#0e1618",
   surface: "#192427",
@@ -24,10 +24,18 @@ export const colors = {
 export function Screen({
   children,
   refreshControl,
+  scrollKey,
+  footer,
 }: {
   children: ReactNode;
+  scrollKey?: string;
+  footer?: ReactNode;
   refreshControl?: ReactElement<RefreshControlProps>;
 }) {
+  const scroll = useRef<ScrollView>(null);
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollKey]);
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
@@ -35,12 +43,27 @@ export function Screen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          ref={scroll}
           contentContainerStyle={styles.page}
           keyboardShouldPersistTaps="handled"
           refreshControl={refreshControl}
         >
           {children}
         </ScrollView>
+        {footer && (
+          <View
+            style={{
+              padding: 16,
+              paddingBottom: 28,
+              backgroundColor: colors.surface,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              gap: 8,
+            }}
+          >
+            {footer}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { SessionFeedbackCard } from "../../../components/session-feedback";
-import { Alert, RefreshControl, View } from "react-native";
+import {
+  Alert,
+  RefreshControl,
+  View,
+  Text,
+  TextInput,
+  Pressable,
+} from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Screen,
@@ -24,12 +31,14 @@ function SetRow({
   exercise,
   number,
   saved,
+  previous,
   disabled,
   onSave,
 }: {
   exercise: PlanExercise;
   number: number;
   saved?: LoggedSet;
+  previous?: { weight: number; reps: number };
   disabled: boolean;
   onSave: (values: {
     exerciseId: number;
@@ -42,6 +51,7 @@ function SetRow({
   const [weight, setWeight] = useState(saved?.weight?.toString() || "");
   const [reps, setReps] = useState(saved?.reps?.toString() || "");
   const [rpe, setRpe] = useState(saved?.rpe?.toString() || "");
+  const [showRpe, setShowRpe] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function save() {
@@ -64,7 +74,7 @@ function SetRow({
           (!Number.isInteger(effort) || effort < 1 || effort > 10))
       )
         throw new Error(
-          "Enter weight (0 for bodyweight), reps (1–200), and optional RPE (1–10).",
+          "Enter weight (0 for bodyweight), reps (1â€“200), and optional RPE (1â€“10).",
         );
       await onSave({
         exerciseId: exercise.exerciseId,
@@ -79,59 +89,126 @@ function SetRow({
       setBusy(false);
     }
   }
+  const changed =
+    !saved ||
+    weight !== String(saved.weight ?? "") ||
+    reps !== String(saved.reps ?? "") ||
+    rpe !== String(saved.rpe ?? "");
   return (
     <View
       style={{
-        gap: 10,
+        gap: 8,
+        paddingVertical: 8,
         borderTopWidth: 1,
         borderColor: colors.border,
-        paddingTop: 14,
       }}
     >
-      <Copy>
-        Set {number}
-        {saved ? " · Saved" : ""}
-      </Copy>
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Field
-            label="Weight (kg)"
-            value={weight}
-            onChangeText={setWeight}
-            keyboardType="decimal-pad"
-            editable={!disabled && !busy}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Field
-            label="Reps"
-            value={reps}
-            onChangeText={setReps}
-            keyboardType="number-pad"
-            editable={!disabled && !busy}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Field
-            label="RPE (optional)"
-            value={rpe}
-            onChangeText={setRpe}
-            keyboardType="number-pad"
-            editable={!disabled && !busy}
-          />
-        </View>
-      </View>
-      <Feedback message={error} error />
-      {!disabled && (
-        <Action
-          secondary
-          label={busy ? "Saving…" : saved ? "Update set" : "Save set"}
-          disabled={busy}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Text style={{ width: 24, color: colors.muted, textAlign: "center" }}>
+          {number}
+        </Text>
+        <Pressable
+          disabled={disabled || busy || !previous}
+          accessibilityRole="button"
+          accessibilityLabel={`Copy previous set ${number}: ${previous?.weight ?? 0} kilograms, ${previous?.reps ?? 0} reps`}
           onPress={() => {
-            void save();
+            if (previous) {
+              setWeight(String(previous.weight));
+              setReps(String(previous.reps));
+            }
+          }}
+          style={{ flex: 1, minHeight: 48, justifyContent: "center" }}
+        >
+          <Text
+            style={{ color: colors.muted, fontSize: 12, textAlign: "center" }}
+          >
+            {previous ? `${previous.weight} x ${previous.reps}` : "-"}
+          </Text>
+        </Pressable>
+        <TextInput
+          accessibilityLabel={`Set ${number} weight in kilograms`}
+          value={weight}
+          onChangeText={setWeight}
+          placeholder="kg"
+          placeholderTextColor={colors.muted}
+          keyboardType="decimal-pad"
+          editable={!disabled && !busy}
+          style={{
+            flex: 1,
+            minHeight: 48,
+            borderRadius: 10,
+            backgroundColor: colors.background,
+            color: colors.text,
+            textAlign: "center",
+            fontSize: 16,
           }}
         />
+        <TextInput
+          accessibilityLabel={`Set ${number} reps`}
+          value={reps}
+          onChangeText={setReps}
+          placeholder="reps"
+          placeholderTextColor={colors.muted}
+          keyboardType="number-pad"
+          editable={!disabled && !busy}
+          style={{
+            flex: 1,
+            minHeight: 48,
+            borderRadius: 10,
+            backgroundColor: colors.background,
+            color: colors.text,
+            textAlign: "center",
+            fontSize: 16,
+          }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            saved && !changed ? `Set ${number} saved` : `Save set ${number}`
+          }
+          accessibilityState={{ disabled: disabled || busy || !changed }}
+          disabled={disabled || busy || !changed}
+          onPress={() => void save()}
+          style={{
+            width: 44,
+            minHeight: 48,
+            borderRadius: 10,
+            backgroundColor: saved && !changed ? colors.accent : colors.border,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text
+            style={{
+              color: saved && !changed ? colors.background : colors.text,
+              fontWeight: "700",
+            }}
+          >
+            {busy ? "..." : saved && !changed ? "OK" : "+"}
+          </Text>
+        </Pressable>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setShowRpe(!showRpe)}
+        style={{ minHeight: 44, justifyContent: "center" }}
+      >
+        <Text style={{ color: colors.muted, fontSize: 12 }}>
+          {showRpe
+            ? "Hide effort"
+            : `Effort (RPE)${rpe ? `: ${rpe}` : " - optional"}`}
+        </Text>
+      </Pressable>
+      {showRpe && (
+        <Field
+          label={`Set ${number} RPE (1-10)`}
+          value={rpe}
+          onChangeText={setRpe}
+          keyboardType="number-pad"
+          editable={!disabled && !busy}
+        />
       )}
+      <Feedback message={error} error />
     </View>
   );
 }
@@ -160,7 +237,20 @@ export default function Session() {
     setSaving(true);
     try {
       await request(`/api/training/sessions/${id}/sets`, token, "PUT", values);
-      setRestUntil(Date.now() + (detail?.workout.planSnapshot?.exercises.find(e => e.exerciseId === values.exerciseId)?.restSeconds || 0) * 1000);
+      if (
+        !detail?.sets.some(
+          (s) =>
+            s.exerciseId === values.exerciseId &&
+            s.setNumber === values.setNumber,
+        )
+      )
+        setRestUntil(
+          Date.now() +
+            (detail?.workout.planSnapshot?.exercises.find(
+              (e) => e.exerciseId === values.exerciseId,
+            )?.restSeconds || 0) *
+              1000,
+        );
       await resource.reload();
     } finally {
       setSaving(false);
@@ -180,6 +270,53 @@ export default function Session() {
   }
   return (
     <Screen
+      footer={
+        detail && !detail.workout.isCompleted ? (
+          <>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Copy strong>
+                {rest
+                  ? `Rest ${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, "0")}`
+                  : "Ready for your next set"}
+              </Copy>
+              {!!rest && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Skip rest"
+                  onPress={() => setRestUntil(0)}
+                  style={{ minHeight: 44, justifyContent: "center" }}
+                >
+                  <Copy>Skip</Copy>
+                </Pressable>
+              )}
+            </View>
+            <Action
+              label={
+                finishing
+                  ? "Finishing..."
+                  : `Finish workout (${detail.sets.length} sets)`
+              }
+              disabled={finishing || saving || !detail.workout.planSnapshot}
+              onPress={() =>
+                Alert.alert(
+                  "Finish workout?",
+                  `${detail.sets.length} sets are saved. Unsaved entries will not be recorded.`,
+                  [
+                    { text: "Keep training", style: "cancel" },
+                    { text: "Finish", onPress: () => void finish() },
+                  ],
+                )
+              }
+            />
+          </>
+        ) : undefined
+      }
       refreshControl={
         <RefreshControl
           refreshing={resource.loading}
@@ -209,20 +346,61 @@ export default function Session() {
         }
       />
       <Feedback message={resource.error || error} error />
-      {detail && <Card>
-        <Copy strong>{detail.sets.length} sets saved · {detail.sets.reduce((n, s) => n + (s.weight || 0) * (s.reps || 0), 0)} kg × reps</Copy>
-        <Copy>Log dumbbells per hand, barbells including the bar, and machines using the displayed load. Keep equipment and loading conventions consistent.</Copy>
-        {!detail.workout.isCompleted && <>
-          <Copy strong>Rest · {rest ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, "0")}` : "Ready when you are"}</Copy>
-          {!!rest && <Action secondary label="Skip rest" onPress={() => setRestUntil(0)} />}
-          <Copy>Records are confirmed when you finish the session.</Copy>
-        </>}
-      </Card>}
-      {detail?.workout.planSnapshot?.coach && <Card>
-        <Copy strong>Your accepted workout</Copy>
-        <Copy>{detail.workout.planSnapshot.coach.choice === "original" ? "You kept the original targets." : "These targets match the coach proposal you accepted."} Later check-ins do not rewrite this session.</Copy>
-        <Action secondary label="Why this workout?" onPress={() => router.push(`/coach/${detail.workout.planSnapshot!.coach!.recommendationId}`)} />
-      </Card>}
+      {detail && (
+        <Card>
+          <Copy strong>
+            {detail.sets.length} sets saved Â·{" "}
+            {detail.sets.reduce(
+              (n, s) => n + (s.weight || 0) * (s.reps || 0),
+              0,
+            )}{" "}
+            kg Ã— reps
+          </Copy>
+          <Copy>
+            Log dumbbells per hand, barbells including the bar, and machines
+            using the displayed load. Keep equipment and loading conventions
+            consistent.
+          </Copy>
+          {!detail.workout.isCompleted && (
+            <>
+              <Copy strong>
+                Rest Â·{" "}
+                {rest
+                  ? `${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, "0")}`
+                  : "Ready when you are"}
+              </Copy>
+              {!!rest && (
+                <Action
+                  secondary
+                  label="Skip rest"
+                  onPress={() => setRestUntil(0)}
+                />
+              )}
+              <Copy>Records are confirmed when you finish the session.</Copy>
+            </>
+          )}
+        </Card>
+      )}
+      {detail?.workout.planSnapshot?.coach && (
+        <Card>
+          <Copy strong>Your accepted workout</Copy>
+          <Copy>
+            {detail.workout.planSnapshot.coach.choice === "original"
+              ? "You kept the original targets."
+              : "These targets match the coach proposal you accepted."}{" "}
+            Later check-ins do not rewrite this session.
+          </Copy>
+          <Action
+            secondary
+            label="Why this workout?"
+            onPress={() =>
+              router.push(
+                `/coach/${detail.workout.planSnapshot!.coach!.recommendationId}`,
+              )
+            }
+          />
+        </Card>
+      )}
       {detail?.workout.planSnapshot?.guidance && (
         <Card>
           <Copy strong>Lighter session</Copy>
@@ -238,14 +416,57 @@ export default function Session() {
       {detail?.workout.planSnapshot?.exercises.map((exercise) => (
         <Card key={exercise.exerciseId}>
           <Copy strong>{exercise.name}</Copy>
-          <Copy>{detail.performance?.find(p => p.exerciseId === exercise.exerciseId)?.previous.map(s => `${s.weight} kg × ${s.reps}`).join(" · ") ?
-            `Last completed: ${detail.performance.find(p => p.exerciseId === exercise.exerciseId)!.previous.map(s => `${s.weight} kg × ${s.reps}`).join(" · ")}` :
-            "No previous completed session. Establish a comfortable baseline."}</Copy>
-          {detail.workout.isCompleted && detail.achievements?.find(a => a.exerciseId === exercise.exerciseId)?.achievements.map(text => <Copy key={text} strong>{text}</Copy>)}
           <Copy>
-            {exercise.sets} sets · {exercise.repsMin}–{exercise.repsMax} reps ·{" "}
-            {exercise.restSeconds}s rest
+            {detail.performance
+              ?.find((p) => p.exerciseId === exercise.exerciseId)
+              ?.previous.map((s) => `${s.weight} kg Ã— ${s.reps}`)
+              .join(" Â· ")
+              ? `Last completed: ${detail.performance
+                  .find((p) => p.exerciseId === exercise.exerciseId)!
+                  .previous.map((s) => `${s.weight} kg Ã— ${s.reps}`)
+                  .join(" Â· ")}`
+              : "No previous completed session. Establish a comfortable baseline."}
           </Copy>
+          {detail.workout.isCompleted &&
+            detail.achievements
+              ?.find((a) => a.exerciseId === exercise.exerciseId)
+              ?.achievements.map((text) => (
+                <Copy key={text} strong>
+                  {text}
+                </Copy>
+              ))}
+          <Copy>
+            {exercise.sets} sets Â· {exercise.repsMin}â€“{exercise.repsMax} reps
+            Â· {exercise.restSeconds}s rest
+          </Copy>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <Text style={{ width: 24, color: colors.muted, fontSize: 10 }}>
+              SET
+            </Text>
+            {["PREVIOUS", "KG", "REPS"].map((label) => (
+              <Text
+                key={label}
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  color: colors.muted,
+                  fontSize: 10,
+                }}
+              >
+                {label}
+              </Text>
+            ))}
+            <Text
+              style={{
+                width: 44,
+                textAlign: "center",
+                color: colors.muted,
+                fontSize: 10,
+              }}
+            >
+              DONE
+            </Text>
+          </View>
           {Array.from({ length: exercise.sets }, (_, i) => {
             const saved = detail.sets.find(
               (item) =>
@@ -258,6 +479,9 @@ export default function Session() {
                 exercise={exercise}
                 number={i + 1}
                 saved={saved}
+                previous={detail.performance
+                  ?.find((p) => p.exerciseId === exercise.exerciseId)
+                  ?.previous.find((s) => s.setNumber === i + 1)}
                 disabled={detail.workout.isCompleted || finishing || saving}
                 onSave={saveSet}
               />
@@ -271,36 +495,16 @@ export default function Session() {
           automatically.
         </Copy>
       )}
-      {detail?.workout.isCompleted && <SessionFeedbackCard sessionId={detail.workout.id} />}
-      {detail?.workout.isCompleted ? (
+      {detail?.workout.isCompleted && (
+        <SessionFeedbackCard sessionId={detail.workout.id} />
+      )}
+      {detail?.workout.isCompleted && (
         <Card>
           <Copy strong>Session complete.</Copy>
           <Copy>
             {detail.sets.length} sets recorded. Your history is saved.
           </Copy>
         </Card>
-      ) : (
-        detail?.workout.planSnapshot && (
-          <Action
-            label={finishing ? "Finishing…" : "Finish session"}
-            disabled={finishing || saving}
-            onPress={() =>
-              Alert.alert(
-                "Finish this session?",
-                `${detail.sets.length} sets are saved. Unsaved entries will not be recorded.`,
-                [
-                  { text: "Keep training", style: "cancel" },
-                  {
-                    text: "Finish",
-                    onPress: () => {
-                      void finish();
-                    },
-                  },
-                ],
-              )
-            }
-          />
-        )
       )}
     </Screen>
   );
